@@ -158,12 +158,19 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         withModelAccess { adopt(next) }
     }
 
-    /** While someone types in a block, don't move what they're typing into a new block under their caret. */
+    /**
+     * While someone types in a block, don't move what they're typing into a new block under their caret: hold the
+     * build back if the caret would end up outside the focused block (e.g. a method typed inside the class block,
+     * or after the last brace of a method block).
+     */
     private fun wouldPullTextOutOfFocusedBlock(next: BlockModel): Boolean {
         val id = focused ?: return false
-        val now = tracked[id]?.current() ?: return false
         val after = next.blocks.firstOrNull { it.id == id } ?: return false
-        return after.excluded.size > now.second.size
+        val lostTextToANewBlock = (tracked[id]?.current()?.second?.size ?: 0) < after.excluded.size
+        val caret = slices[id]?.editor?.caretModel?.offset ?: return lostTextToANewBlock
+        val inside = caret >= after.range.start && caret <= after.range.end &&
+            after.excluded.none { caret > it.start && caret < it.end }
+        return lostTextToANewBlock || !inside
     }
 
     /** UI events arrive on the EDT without a read lock; documents, editors and folds need one. */
@@ -341,13 +348,10 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         relayout()
     }
 
-    /**
-     * Shows the code at [offset] of this file: picks the block that displays it (expanding it if collapsed),
-     * centres it on the canvas, focuses it and puts the caret there. Used by go-to-declaration.
-     */
-    fun reveal(offset: Int) = withModelAccess {
-        val current = model ?: return@withModelAccess
-        val target = current.blocks
+    /** The block of this file that shows [offset], if any. */
+    fun blockAt(offset: Int): String? {
+        val current = model ?: return null
+        return current.blocks
             .filter { it.filePath == file.path && it.kind != BlockKind.MORE }
             .mapNotNull { block -> tracked[block.id]?.current()?.let { block to it } }
             .filter { (_, ranges) ->
@@ -355,7 +359,15 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
                 offset in range.start..range.end && excluded.none { offset >= it.start && offset < it.end }
             }
             .minByOrNull { (_, ranges) -> ranges.first.end - ranges.first.start }
-            ?.first ?: return@withModelAccess
+            ?.first?.id
+    }
+
+    /**
+     * Shows the code at [offset] of this file: picks the block that displays it (expanding it if collapsed),
+     * centres it on the canvas, focuses it and puts the caret there. Used by go-to-declaration.
+     */
+    fun reveal(offset: Int) = withModelAccess {
+        val target = model?.block(blockAt(offset) ?: return@withModelAccess) ?: return@withModelAccess
         if (collapsed[target.id] == true) {
             collapsed[target.id] = false
             render()
@@ -370,14 +382,29 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     /** Lights up the blocks that define and use the symbol at [offset] in block [id] (synchronous). */
     fun highlightUsagesAt(id: String, offset: Int) {
-        canvas.highlights = ReadAction.compute<Map<String, UsageHighlight.Level>, RuntimeException> { computeHighlights(id, offset) }
+        val input = highlightInput(id) ?: return run { canvas.highlights = emptyMap() }
+        canvas.highlights = ReadAction.compute<Map<String, UsageHighlight.Level>, RuntimeException> { computeHighlights(input, offset) }
+    }
+
+    /** Everything the background search needs, copied on the EDT so it never touches the session's own maps. */
+    private class HighlightInput(val document: Document, val spans: List<UsageHighlight.Span>)
+
+    private fun highlightInput(id: String): HighlightInput? {
+        val slice = slices[id] ?: return null
+        val current = model ?: return null
+        val spans = current.blocks.mapNotNull { block ->
+            tracked[block.id]?.current()?.let { (range, excluded) -> UsageHighlight.Span(block.id, block.filePath, range, excluded) }
+        }
+        return HighlightInput(slice.editor.document, spans)
     }
 
     private fun scheduleHighlight(id: String, offset: Int) {
         highlightAlarm.cancelAllRequests()
         highlightAlarm.addRequest({
             if (disposed) return@addRequest
-            ReadAction.nonBlocking<Map<String, UsageHighlight.Level>> { computeHighlights(id, offset) }
+            val input = highlightInput(id) ?: return@addRequest
+            ReadAction.nonBlocking<Map<String, UsageHighlight.Level>> { computeHighlights(input, offset) }
+                .withDocumentsCommitted(project)
                 .inSmartMode(project)
                 .expireWith(this)
                 .coalesceBy(this, highlightAlarm)
@@ -386,14 +413,10 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         }, HIGHLIGHT_DELAY_MS)
     }
 
-    private fun computeHighlights(id: String, offset: Int): Map<String, UsageHighlight.Level> {
-        val slice = slices[id] ?: return emptyMap()
-        val psiFile = PsiDocumentManager.getInstance(project).getPsiFile(slice.editor.document) ?: return emptyMap()
+    private fun computeHighlights(input: HighlightInput, offset: Int): Map<String, UsageHighlight.Level> {
+        val psiFile = PsiDocumentManager.getInstance(project).getPsiFile(input.document) ?: return emptyMap()
         val target = symbolAt(psiFile, offset) ?: return emptyMap()
-        val current = model ?: return emptyMap()
-        val spans = current.blocks.mapNotNull { block ->
-            tracked[block.id]?.current()?.let { (range, excluded) -> UsageHighlight.Span(block.id, block.filePath, range, excluded) }
-        }
+        val spans = input.spans
         val files = spans.map { it.filePath }.distinct()
             .mapNotNull { path -> file.fileSystem.findFileByPath(path)?.let { PsiManager.getInstance(project).findFile(it) } }
         if (files.isEmpty()) return emptyMap()
@@ -429,7 +452,9 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val indent = "    "
         val method = if (cls.title.startsWith("interface")) "${indent}public function $name(): void;\n"
         else "${indent}public function $name(): void\n$indent{\n$indent}\n"
-        val closingBrace = range.end - 1
+        // The class range can have grown past its brace (text typed after it): find the brace itself.
+        val closingBrace = document.charsSequence.lastIndexOf('}', range.end - 1)
+        if (closingBrace < range.start) return@withModelAccess
         val lineStart = dev.codelanes.editor.SliceRanges.lineStartOf(document.charsSequence, closingBrace)
         val insertAt = if (lineStart < closingBrace && document.charsSequence.subSequence(lineStart, closingBrace).isBlank()) lineStart else closingBrace
         val text = "\n" + method
@@ -441,13 +466,17 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         slices["method:$name"]?.editor?.selectionModel?.setSelection(nameOffset, nameOffset + name.length)
     }
 
-    /** Deletes method block [id] (its whole lines) after [confirm] says yes. */
-    fun deleteMethod(id: String, confirm: () -> Boolean = { askToDelete(id) }) = withModelAccess {
-        val current = model ?: return@withModelAccess
-        val cls = current.ofKind(BlockKind.CLASS).firstOrNull() ?: return@withModelAccess
-        val (classRange, _) = tracked[cls.id]?.current() ?: return@withModelAccess
-        val (range, _) = tracked[id]?.current() ?: return@withModelAccess
-        if (!confirm()) return@withModelAccess
+    /** Deletes method block [id] (its whole lines) after [confirm] says yes (asked before taking any lock). */
+    fun deleteMethod(id: String, confirm: () -> Boolean = { askToDelete(id) }) {
+        if (!confirm()) return
+        withModelAccess { deleteLines(id) }
+    }
+
+    private fun deleteLines(id: String) {
+        val current = model ?: return
+        val cls = current.ofKind(BlockKind.CLASS).firstOrNull() ?: return
+        val (classRange, _) = tracked[cls.id]?.current() ?: return
+        val (range, _) = tracked[id]?.current() ?: return
         val lines = dev.codelanes.editor.SliceRanges.wholeLines(document.charsSequence, classRange, range)
         WriteCommandAction.runWriteCommandAction(project, "Delete Method", null, { document.deleteString(lines.start, lines.end) })
         focusMovedTo(null)

@@ -23,7 +23,7 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
     private var menu: List<Pair<String, () -> Unit>> = emptyList()
 
     init {
-        border = JBUI.Borders.customLine(JBColor.border(), 1)
+        setHighlight(null)
         titleBar.border = JBUI.Borders.empty(4, 8)
         titleBar.background = JBColor.namedColor("EditorTabs.background", JBColor.PanelBackground)
         titleBar.add(title, BorderLayout.CENTER)
@@ -95,10 +95,11 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
 
     /** Coloured border while the symbol under the caret is defined (strong) or used (light) in this block. */
     fun setHighlight(level: UsageHighlight.Level?) {
+        // Always 3px in total, so a highlight never shrinks (and clips) the block's contents.
         border = when (level) {
             UsageHighlight.Level.DEFINITION -> JBUI.Borders.customLine(DEFINITION_COLOR, 3)
-            UsageHighlight.Level.USAGE -> JBUI.Borders.customLine(USAGE_COLOR, 2)
-            null -> JBUI.Borders.customLine(JBColor.border(), 1)
+            UsageHighlight.Level.USAGE -> javax.swing.BorderFactory.createCompoundBorder(JBUI.Borders.customLine(USAGE_COLOR, 2), JBUI.Borders.empty(1))
+            null -> javax.swing.BorderFactory.createCompoundBorder(JBUI.Borders.customLine(JBColor.border(), 1), JBUI.Borders.empty(2))
         }
     }
 

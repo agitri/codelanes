@@ -155,4 +155,24 @@ class SliceEditorTest : BasePlatformTestCase() {
         val (slice, _) = open()
         assertFalse(slice.editor.settings.isVariableInplaceRenameEnabled)
     }
+
+    fun testUpWithTheCompletionPopupOpenStaysInThePopup() {
+        val (slice, model) = open()
+        val bar = model.block("method:bar")
+        slice.show(bar.range, bar.excluded)
+        val handedOver = mutableListOf<Boolean>()
+        slice.onEdge = { up -> handedOver += up; true }
+        slice.editor.caretModel.moveToOffset(bar.range.start + 3)
+        val lookup = com.intellij.codeInsight.lookup.LookupManager.getInstance(project).showLookup(
+            slice.editor,
+            com.intellij.codeInsight.lookup.LookupElementBuilder.create("aaa"),
+            com.intellij.codeInsight.lookup.LookupElementBuilder.create("bbb"),
+        )
+        try {
+            runEditorAction(slice, com.intellij.openapi.actionSystem.IdeActions.ACTION_EDITOR_MOVE_CARET_UP)
+            assertEquals(emptyList<Boolean>(), handedOver)
+        } finally {
+            lookup?.hideLookup(true)
+        }
+    }
 }

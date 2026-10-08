@@ -27,7 +27,8 @@ class BlocksFileEditor(project: Project, private val file: VirtualFile) : UserDa
     override fun removePropertyChangeListener(listener: PropertyChangeListener) {}
     /** Go-to-declaration into this file stays on the canvas instead of switching to the text editor. */
     override fun canNavigateTo(navigatable: Navigatable): Boolean =
-        navigatable is OpenFileDescriptor && navigatable.file == file && offsetOf(navigatable) != null
+        navigatable is OpenFileDescriptor && navigatable.file == file &&
+            offsetOf(navigatable)?.let { session.blockAt(it) } != null
 
     override fun navigateTo(navigatable: Navigatable) {
         val descriptor = navigatable as? OpenFileDescriptor ?: return

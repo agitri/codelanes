@@ -362,4 +362,32 @@ class BlocksSessionTest : BasePlatformTestCase() {
         session.rebuildNow()
         assertTrue(session.summaryText("interface:\\App\\Barro").contains("extra()"))
     }
+
+    fun testTypingANewMethodAfterTheLastBraceKeepsTheCaretWhereYouType() {
+        val session = open()
+        val footest = session.sliceEditor("method:footest")!!.editor
+        session.focusMovedTo("method:footest")
+        val end = myFixture.editor.document.text.indexOf("        return ${'$'}s;\n    }") + "        return ${'$'}s;\n    }".length
+        WriteCommandAction.runWriteCommandAction(project) {
+            footest.caretModel.moveToOffset(end)
+            com.intellij.openapi.editor.EditorModificationUtil.insertStringAtCaret(footest, "\n\n    public function added(): void {}")
+        }
+        val typedTo = footest.caretModel.offset
+        session.rebuildNow()
+        assertEquals(typedTo, footest.caretModel.offset)
+        session.focusMovedTo(null)
+        assertTrue(session.blockIds().contains("method:added"))
+    }
+
+    fun testPlusMethodStaysInsideTheClassEvenWithTextAfterItsBrace() {
+        val session = open()
+        WriteCommandAction.runWriteCommandAction(project) {
+            val doc = myFixture.editor.document
+            doc.insertString(doc.text.lastIndexOf("}") + 1, "\n")
+        }
+        session.addMethod()
+        val text = myFixture.editor.document.text
+        assertTrue(text, text.contains("    public function newMethod(): void\n    {\n    }\n}"))
+        assertTrue(session.blockIds().contains("method:newMethod"))
+    }
 }

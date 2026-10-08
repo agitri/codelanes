@@ -14,6 +14,7 @@ class BlocksFileEditorTest : BasePlatformTestCase() {
             val offset = myFixture.editor.document.text.indexOf("bar(")
             assertTrue(editor.canNavigateTo(OpenFileDescriptor(project, file, offset)))
             assertFalse(editor.canNavigateTo(OpenFileDescriptor(project, other, 0)))
+            assertFalse(editor.canNavigateTo(OpenFileDescriptor(project, file, myFixture.editor.document.textLength)))
             editor.navigateTo(OpenFileDescriptor(project, file, offset))
             assertEquals("method:bar", editor.session.canvas.focusedId)
         } finally {

@@ -10,7 +10,9 @@ abstract class SliceEdgeNavigation(private val original: EditorActionHandler, pr
     override fun doExecute(editor: Editor, caret: Caret?, dataContext: DataContext?) {
         val slice = editor.getUserData(SliceEditor.KEY)
         val current = caret ?: editor.caretModel.currentCaret
-        if (slice != null && !current.hasSelection() && slice.atEdge(up) && slice.onEdge?.invoke(up) == true) return
+        // With a completion popup open, Up/Down belong to the popup.
+        val popupOpen = com.intellij.codeInsight.lookup.LookupManager.getActiveLookup(editor) != null
+        if (slice != null && !popupOpen && !current.hasSelection() && slice.atEdge(up) && slice.onEdge?.invoke(up) == true) return
         original.execute(editor, caret, dataContext)
     }
 

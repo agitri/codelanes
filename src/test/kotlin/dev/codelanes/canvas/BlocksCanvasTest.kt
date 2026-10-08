@@ -149,4 +149,14 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         canvas.place(mapOf("a" to Rect(10, 20, 100, 50)))
         assertEquals(java.awt.Point(300, 300), view.location)
     }
+
+    fun testHighlightBordersDontShrinkTheBlock() {
+        val canvas = BlocksCanvas(NoListener)
+        val view = BlockView("a", canvas)
+        val plain = view.insets
+        view.setHighlight(UsageHighlight.Level.DEFINITION)
+        assertEquals(plain, view.insets)
+        view.setHighlight(UsageHighlight.Level.USAGE)
+        assertEquals(plain, view.insets)
+    }
 }
