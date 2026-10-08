@@ -1157,7 +1157,7 @@ object PhpBlockBuilder {
 
     private fun classTitle(phpClass: PhpClass): String = buildString {
         append(keyword(phpClass)).append(' ').append(phpClass.name)
-        val extends = phpClass.extendList.referenceElements.mapNotNull { it.name }
+        val extends = phpClass.extendsList.referenceElements.mapNotNull { it.name }
         if (extends.isNotEmpty()) append(" extends ").append(extends.joinToString(", "))
         val implements = phpClass.implementsList.referenceElements.mapNotNull { it.name }
         if (implements.isNotEmpty()) append(" implements ").append(implements.joinToString(", "))
@@ -1296,7 +1296,7 @@ Add these private functions to `PhpBlockBuilder`:
     private fun relatedTypes(phpClass: PhpClass): List<Pair<Block, LinkKind>> {
         val parentKind = if (phpClass.isInterface) BlockKind.INTERFACE else BlockKind.PARENT
         return resolved(phpClass.implementsList.referenceElements).map { externalBlock(BlockKind.INTERFACE, it) to LinkKind.IMPLEMENTS } +
-            resolved(phpClass.extendList.referenceElements).map { externalBlock(parentKind, it) to LinkKind.EXTENDS } +
+            resolved(phpClass.extendsList.referenceElements).map { externalBlock(parentKind, it) to LinkKind.EXTENDS } +
             phpClass.traits.distinctBy { it.fqn }.map { externalBlock(BlockKind.TRAIT, it) to LinkKind.USES }
     }
 ```
