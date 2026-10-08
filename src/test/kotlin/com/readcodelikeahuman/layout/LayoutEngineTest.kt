@@ -189,9 +189,8 @@ class LayoutEngineTest {
         )
         val r = LayoutEngine.layout(model, sizeOf).rects
         val lanes = listOf("parent:P", "interface:I1", "trait:T", "dependency:D").map(r::getValue)
-        // left to right: parent, interfaces, traits, dependencies, then the class
-        lanes.zipWithNext().forEach { (a, b) -> assertTrue("$a then $b", a.right <= b.x) }
-        assertTrue(lanes.last().right <= r.getValue("class:A").x)
+        // every lane hugs the class: same right edge, one gap away from the class
+        lanes.forEach { assertEquals(r.getValue("class:A").x - LayoutEngine.H_GAP, it.right) }
         // each lane sits in its own band, below the previous one, so lines never cross blocks
         assertTrue(r.getValue("parent:P").bottom <= r.getValue("interface:I1").y)
         assertTrue(r.getValue("interface:I2").bottom <= r.getValue("trait:T").y)
@@ -201,5 +200,16 @@ class LayoutEngineTest {
         assertEquals(0, r.getValue("class:A").y)
         assertEquals(0, r.getValue("method:m").y)
         assertNoOverlap(r)
+    }
+
+    @Test
+    fun methodsThatCallEachOtherSitTogether() {
+        val methods = listOf("a", "b", "c", "d").map { block("method:$it", METHOD) }
+        val model = BlockModel(
+            listOf(block("class:A", CLASS)) + methods,
+            methods.map { Link(OWNS, "class:A", it.id) } + Link(CALLS, "method:a", "method:c") + Link(CALLS, "method:c", "method:a"),
+        )
+        val r = LayoutEngine.layout(model, sizeOf).rects
+        assertEquals(listOf("method:a", "method:c", "method:b", "method:d"), methods.map { it.id }.sortedBy { r.getValue(it).y })
     }
 }

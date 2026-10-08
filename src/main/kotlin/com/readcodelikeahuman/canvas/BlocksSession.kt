@@ -234,9 +234,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val slice = SliceEditor(project, target, targetDocument)
         Disposer.register(this, slice)
         slice.setFontSize(fontSize())
-        // The wheel over a block's code pans/zooms the canvas, unless the block itself needs to scroll.
-        slice.editor.contentComponent.addMouseWheelListener { e ->
-            if (!slice.scrollable) canvas.dispatchEvent(SwingUtilities.convertMouseEvent(e.component, e, canvas))
+        // The wheel anywhere over a block (code, gutter, frame) pans/zooms the canvas, unless the block itself
+        // needs to scroll. Every part needs it: blocks slide under the pointer while panning.
+        listOf(slice.editor.contentComponent, slice.editor.gutterComponentEx, slice.editor.scrollPane).forEach { part ->
+            part.addMouseWheelListener { e ->
+                if (!slice.scrollable) canvas.dispatchEvent(SwingUtilities.convertMouseEvent(e.component, e, canvas))
+            }
         }
         slice.editor.contentComponent.addFocusListener(object : FocusAdapter() {
             override fun focusGained(e: FocusEvent) {

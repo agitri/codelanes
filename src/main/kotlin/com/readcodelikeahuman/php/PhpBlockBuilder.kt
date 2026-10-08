@@ -73,10 +73,12 @@ object PhpBlockBuilder {
         )
         blocks += methodBlocks
         links += methodBlocks.map { Link(LinkKind.OWNS, classId, it.id) }
-        relatedTypes(phpClass).forEach { (block, linkKind) ->
+        val related = relatedTypes(phpClass)
+        related.forEach { (block, linkKind, _) ->
             blocks += block
             links += Link(linkKind, block.id, classId)
         }
+        links += overrides(methods, related)
         dependencies(phpClass).forEach { block ->
             blocks += block
             links += Link(LinkKind.INJECTS, block.id, classId)
@@ -126,13 +128,22 @@ object PhpBlockBuilder {
     private fun resolved(references: List<ClassReference>): List<PhpClass> =
         references.mapNotNull { it.resolve() as? PhpClass }.distinctBy { it.fqn }
 
+    private data class Related(val block: Block, val linkKind: LinkKind, val type: PhpClass)
+
     /** Related types in left-column order, each with the link kind pointing into the class block. */
-    private fun relatedTypes(phpClass: PhpClass): List<Pair<Block, LinkKind>> {
+    private fun relatedTypes(phpClass: PhpClass): List<Related> {
         val parentKind = if (phpClass.isInterface) BlockKind.INTERFACE else BlockKind.PARENT
-        return resolved(phpClass.implementsList.referenceElements).map { externalBlock(BlockKind.INTERFACE, it) to LinkKind.IMPLEMENTS } +
-            resolved(phpClass.extendsList.referenceElements).map { externalBlock(parentKind, it) to LinkKind.EXTENDS } +
-            phpClass.traits.distinctBy { it.fqn }.map { externalBlock(BlockKind.TRAIT, it) to LinkKind.USES }
+        return resolved(phpClass.implementsList.referenceElements).map { Related(externalBlock(BlockKind.INTERFACE, it), LinkKind.IMPLEMENTS, it) } +
+            resolved(phpClass.extendsList.referenceElements).map { Related(externalBlock(parentKind, it), LinkKind.EXTENDS, it) } +
+            phpClass.traits.distinctBy { it.fqn }.map { Related(externalBlock(BlockKind.TRAIT, it), LinkKind.USES, it) }
     }
+
+    /** A method links to each related type that declares a method with the same name (it implements or overrides it). */
+    private fun overrides(methods: List<Method>, related: List<Related>): List<Link> =
+        methods.flatMap { method ->
+            related.filter { it.type.findOwnMethodByName(method.name) != null }
+                .map { Link(LinkKind.OVERRIDES, "method:${method.name}", it.block.id) }
+        }
 
     private fun dependencies(phpClass: PhpClass): List<Block> {
         val constructor = phpClass.ownMethods.firstOrNull { it.name.equals("__construct", ignoreCase = true) }

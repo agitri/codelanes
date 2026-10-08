@@ -208,4 +208,15 @@ class BlocksSessionTest : BasePlatformTestCase() {
         session.tidyUp()
         assertTrue(PinStore.getInstance(project).pins(myFixture.file.virtualFile.path).isEmpty())
     }
+
+    fun testScrollingOverABlocksGutterPansTheCanvasToo() {
+        val session = open()
+        val before = session.viewBounds("method:bar")!!.location
+        val gutter = session.sliceEditor("method:bar")!!.editor.gutterComponentEx
+        gutter.dispatchEvent(
+            java.awt.event.MouseWheelEvent(gutter, java.awt.event.MouseEvent.MOUSE_WHEEL, 0L, 0, 2, 5, 0, false,
+                java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, 1),
+        )
+        assertEquals(java.awt.Point(before.x, before.y - 40), session.viewBounds("method:bar")!!.location)
+    }
 }

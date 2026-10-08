@@ -90,6 +90,7 @@ object LayoutEngine {
         for (r in 1..maxRank) reorder(columns[r]) { b -> edges.filter { it.to == b.id }.map { position(it.from) } }
         for (r in maxRank - 1 downTo 0) reorder(columns[r]) { b -> edges.filter { it.from == b.id }.map { position(it.to) } }
 
+        columns.forEach { column -> keepCallersAndCalleesTogether(column, model) }
         model.ofKind(BlockKind.CLASS).firstOrNull()?.let { cls ->
             val column = columns[rank.getValue(cls.id)]
             val headers = column.filter { it.kind == BlockKind.HEADER }
@@ -97,6 +98,23 @@ object LayoutEngine {
             column.addAll(column.indexOf(cls), headers)
         }
         return columns
+    }
+
+    /** Methods are followed directly by the methods they call (depth first, otherwise source order). */
+    private fun keepCallersAndCalleesTogether(column: MutableList<Block>, model: BlockModel) {
+        if (column.none { it.kind == BlockKind.METHOD }) return
+        val calls = model.links.filter { it.kind == LinkKind.CALLS }.groupBy({ it.from }, { it.to })
+        val inColumn = column.map { it.id }.toSet()
+        val byId = column.associateBy { it.id }
+        val ordered = LinkedHashSet<String>()
+        fun visit(id: String) {
+            if (!ordered.add(id)) return
+            calls[id].orEmpty().filter { it in inColumn }.sortedBy { callee -> column.indexOfFirst { it.id == callee } }.forEach(::visit)
+        }
+        column.forEach { visit(it.id) }
+        val sorted = ordered.map(byId::getValue)
+        column.clear()
+        column.addAll(sorted)
     }
 
     private fun reorder(column: MutableList<Block>, neighbours: (Block) -> List<Int>) {
@@ -109,28 +127,34 @@ object LayoutEngine {
 
     /**
      * Left of the class: one lane per related kind (parents, interfaces, traits, dependencies), each in its own
-     * height band below the previous one (a staircase), so lines to the class never cross other blocks.
+     * height band below the previous one (a staircase). Because the bands don't share heights, every lane can hug
+     * the class (all right-aligned one gap away from it) and lines to the class still never cross other blocks.
      * The class column and everything right of it are top-aligned lanes that only grow downwards.
      */
     private fun place(columns: List<List<Block>>, classRank: Int, sizeOf: (Block) -> Size): Map<String, Rect> {
         val rects = linkedMapOf<String, Rect>()
-        var x = 0
         val left = columns.take(classRank)
         val kinds = LANE_KINDS + (left.flatten().map { it.kind }.distinct() - LANE_KINDS.toSet())
+        val lanes = kinds
+            .map { kind -> left.map { column -> column.filter { it.kind == kind } }.flatMap { wrap(it, sizeOf) }.filter { it.isNotEmpty() } }
+            .filter { it.isNotEmpty() }
+        fun stackWidth(stack: List<Block>) = stack.maxOf { sizeOf(it).width }
+        fun laneWidth(lane: List<List<Block>>) = lane.sumOf(::stackWidth) + H_GAP * (lane.size - 1)
+        val leftWidth = lanes.maxOfOrNull(::laneWidth) ?: 0
+
         var bandTop = 0
-        for (kind in kinds) {
-            val laneColumns = left.map { column -> column.filter { it.kind == kind } }.filter { it.isNotEmpty() }
-            if (laneColumns.isEmpty()) continue
+        for (lane in lanes) {
+            var x = leftWidth - laneWidth(lane)
             var bandBottom = bandTop
-            for (column in laneColumns) {
-                for (stack in wrap(column, sizeOf)) {
-                    val (nextX, bottom) = placeStack(stack, x, bandTop, rects, sizeOf)
-                    x = nextX
-                    bandBottom = maxOf(bandBottom, bottom)
-                }
+            for (stack in lane) {
+                val (nextX, bottom) = placeStack(stack, x, bandTop, rects, sizeOf)
+                x = nextX
+                bandBottom = maxOf(bandBottom, bottom)
             }
             bandTop = bandBottom + V_GAP
         }
+
+        var x = if (lanes.isEmpty()) 0 else leftWidth + H_GAP
         for (column in columns.drop(classRank)) {
             for (stack in wrap(column, sizeOf)) x = placeStack(stack, x, 0, rects, sizeOf).first
         }

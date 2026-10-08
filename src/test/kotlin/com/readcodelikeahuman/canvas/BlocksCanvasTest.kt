@@ -90,4 +90,11 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         BlocksCanvas(recorder).tidyButton.doClick()
         assertEquals(1, recorder.tidied)
     }
+
+    fun testOverrideLinesAreAlwaysShown() {
+        val canvas = BlocksCanvas(NoListener)
+        val overrides = Link(LinkKind.OVERRIDES, "a", "b")
+        canvas.setContent(listOf("a", "b").associateWith { BlockView(it, canvas) }, listOf(overrides))
+        assertEquals(listOf(overrides), canvas.visibleLinks())
+    }
 }

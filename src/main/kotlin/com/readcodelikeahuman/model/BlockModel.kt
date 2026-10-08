@@ -2,7 +2,7 @@ package com.readcodelikeahuman.model
 
 enum class BlockKind { HEADER, INTERFACE, PARENT, TRAIT, DEPENDENCY, CLASS, METHOD }
 
-enum class LinkKind { IMPLEMENTS, EXTENDS, USES, INJECTS, OWNS, CALLS }
+enum class LinkKind { IMPLEMENTS, EXTENDS, USES, INJECTS, OWNS, CALLS, OVERRIDES }
 
 /** Half-open character range `[start, end)` in a file. */
 data class SourceRange(val start: Int, val end: Int) {

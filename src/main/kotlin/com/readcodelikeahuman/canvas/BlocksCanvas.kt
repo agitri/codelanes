@@ -4,6 +4,7 @@ import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBFont
 import com.readcodelikeahuman.layout.ArrowGeometry
+import com.readcodelikeahuman.layout.LinkRoutes
 import com.readcodelikeahuman.layout.Point
 import com.readcodelikeahuman.layout.Rect
 import com.readcodelikeahuman.model.Link
@@ -140,17 +141,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         val g2 = g.create() as Graphics2D
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            val visible = visibleLinks()
-            val incoming = visible.groupBy { it.to }
-            for (link in visible) {
-                val a = views[link.from]?.bounds ?: continue
-                val b = views[link.to]?.bounds ?: continue
-                val siblings = incoming.getValue(link.to).sortedBy { views[it.from]?.y ?: 0 }
-                val route = if (siblings.size > 1) {
-                    ArrowGeometry.routeIntoSlot(a.toRect(), b.toRect(), siblings.indexOf(link), siblings.size, (SLOT_STEP * zoom).roundToInt().coerceAtLeast(4))
-                } else {
-                    ArrowGeometry.route(a.toRect(), b.toRect(), (ArrowGeometry.LOOP * zoom).roundToInt())
-                }
+            for ((link, route) in routes(visibleLinks())) {
                 g2.color = colorFor(link.kind)
                 g2.stroke = strokeFor(link.kind)
                 g2.drawPolyline(route.map { it.x }.toIntArray(), route.map { it.y }.toIntArray(), route.size)
@@ -166,6 +157,25 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         }
     }
 
+    private var cachedKey: Any? = null
+    private var cachedRoutes: Map<Link, List<Point>> = emptyMap()
+
+    /** Routes are computed relative to the pan offset and cached, so panning only translates them. */
+    private fun routes(visible: List<Link>): Map<Link, List<Point>> {
+        val relative = views.mapValues { (_, v) -> Rect(v.x - pan.x, v.y - pan.y, v.width, v.height) }
+        val key = Triple(relative, visible, zoom)
+        if (key != cachedKey) {
+            cachedRoutes = LinkRoutes.compute(
+                visible,
+                relative,
+                (ArrowGeometry.LOOP * zoom).roundToInt(),
+                (SLOT_STEP * zoom).roundToInt().coerceAtLeast(4),
+            )
+            cachedKey = key
+        }
+        return cachedRoutes.mapValues { (_, route) -> route.map { Point(it.x + pan.x, it.y + pan.y) } }
+    }
+
     private fun arrowHead(g2: Graphics2D, from: Point, to: Point) {
         val angle = atan2((to.y - from.y).toDouble(), (to.x - from.x).toDouble())
         val size = 8 * zoom
@@ -177,13 +187,14 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     private fun colorFor(kind: LinkKind) = when (kind) {
         LinkKind.OWNS -> JBColor.GRAY
         LinkKind.CALLS -> JBColor.BLUE
+        LinkKind.OVERRIDES -> JBColor(java.awt.Color(0x3E8E41), java.awt.Color(0x6AAB73))
         else -> JBColor.foreground()
     }
 
     private fun strokeFor(kind: LinkKind): BasicStroke {
         val width = (1.5 * zoom).toFloat()
         val dash = when (kind) {
-            LinkKind.IMPLEMENTS -> floatArrayOf(8f, 6f)
+            LinkKind.IMPLEMENTS, LinkKind.OVERRIDES -> floatArrayOf(8f, 6f)
             LinkKind.USES -> floatArrayOf(2f, 4f)
             LinkKind.INJECTS -> floatArrayOf(10f, 4f, 2f, 4f)
             else -> null
