@@ -34,6 +34,9 @@ class SliceEditor(project: Project, file: VirtualFile, private val document: Doc
 
     val component: JComponent get() = editor.component
 
+    /** True when the block is taller than its cap and scrolls inside. */
+    val scrollable: Boolean get() = editor.scrollPane.isWheelScrollingEnabled
+
     private var bounds: RangeMarker? = null
     private var adjusting = false
 
@@ -80,13 +83,18 @@ class SliceEditor(project: Project, file: VirtualFile, private val document: Doc
         return CaretPolicy.canDelete(document.charsSequence, SourceRange(marker.startOffset, marker.endOffset), currentFolds(), from, to)
     }
 
+    /** Folds the editor down to [range] minus [excluded]; a no-op when nothing would change. */
     fun show(range: SourceRange, excluded: List<SourceRange>) {
+        val folds = SliceRanges.hidden(document.charsSequence, range, excluded)
+        val current = bounds
+        if (current != null && current.isValid && current.startOffset == range.start && current.endOffset == range.end &&
+            folds == currentFolds() && editor.foldingModel.allFoldRegions.size == folds.size
+        ) return
         bounds?.dispose()
         bounds = document.createRangeMarker(range.start, range.end).apply {
             isGreedyToLeft = false
             isGreedyToRight = true
         }
-        val folds = SliceRanges.hidden(document.charsSequence, range, excluded)
         val folding = editor.foldingModel
         folding.runBatchFoldingOperation {
             folding.allFoldRegions.forEach(folding::removeFoldRegion)
@@ -97,6 +105,12 @@ class SliceEditor(project: Project, file: VirtualFile, private val document: Doc
     }
 
     fun setFontSize(size: Int) = editor.setFontSize(size)
+
+    /** Lets a block taller than its cap scroll inside instead of panning the canvas. */
+    fun setScrollable(scrollable: Boolean) {
+        editor.setVerticalScrollbarVisible(scrollable)
+        editor.scrollPane.isWheelScrollingEnabled = scrollable
+    }
 
     private fun currentFolds(): List<SourceRange> =
         editor.foldingModel.allFoldRegions.filter { it.isValid && !it.isExpanded }.map { SourceRange(it.startOffset, it.endOffset) }

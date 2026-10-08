@@ -85,14 +85,71 @@ class BlocksSessionTest : BasePlatformTestCase() {
         assertEquals(java.awt.Point(940, 940), session.viewBounds("method:bar")!!.location)
     }
 
-    fun testRenamedBlockDropsItsPin() {
+    fun testRenamingAMethodKeepsItsEditorAndPin() {
         val session = open()
         session.blockMoved("method:bar", Point(900, 900))
+        val editor = session.sliceEditor("method:bar")
         edit("function bar()", "function baz()")
         session.rebuildNow()
-        assertFalse(PinStore.getInstance(project).pins(myFixture.file.virtualFile.path).containsKey("method:bar"))
-        assertTrue(session.blockIds().contains("method:baz"))
+        val pins = PinStore.getInstance(project).pins(myFixture.file.virtualFile.path)
+        assertFalse(pins.containsKey("method:bar"))
+        assertEquals(Point(900, 900), pins["method:baz"])
         assertFalse(session.blockIds().contains("method:bar"))
+        assertSame(editor, session.sliceEditor("method:baz"))
+    }
+
+    private fun visible(slice: com.readcodelikeahuman.editor.SliceEditor): String {
+        val text = slice.editor.document.charsSequence
+        val folds = slice.editor.foldingModel.allFoldRegions.filter { it.isValid && !it.isExpanded }
+        return text.indices.filter { o -> folds.none { o >= it.startOffset && o < it.endOffset } }.map { text[it] }.joinToString("")
+    }
+
+    fun testZoomWhileCodeIsBrokenKeepsSlicesOnTheirOwnCode() {
+        val session = open()
+        edit("    public function footest(string ${'$'}s): string\n    {\n        return ${'$'}s;\n    }\n", "    public function (\n")
+        session.rebuildNow()
+        session.canvas.setZoom(1.2)
+        assertTrue(visible(session.sliceEditor("method:bar")!!).startsWith("public function bar(): string"))
+    }
+
+    fun testCollapsingWhileCodeIsBrokenKeepsSlicesOnTheirOwnCode() {
+        val session = open()
+        edit("private string ${'$'}name = 'x';\n", "private string ${'$'}name = 'x';\n    private int ${'$'}extraField = 1234567890;\n    public function (\n")
+        session.rebuildNow()
+        session.collapseToggled("method:footest")
+        assertTrue(visible(session.sliceEditor("method:bar")!!).startsWith("public function bar(): string"))
+    }
+
+    fun testEditingAnExpandedInterfaceBlockKeepsItCorrect() {
+        val barro = myFixture.addFileToProject("Barro.php", "<?php\nnamespace App;\n\ninterface Barro\n{\n    public function bar(): string;\n}\n")
+        val psi = myFixture.configureByText("Foo.php", source.replace("class Foo", "class Foo implements Barro"))
+        PinStore.getInstance(project).prune(psi.virtualFile.path, emptySet())
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        session.collapseToggled("interface:\\App\\Barro")
+        val slice = session.sliceEditor("interface:\\App\\Barro")!!
+        WriteCommandAction.runWriteCommandAction(project) {
+            val doc = slice.editor.document
+            doc.insertString(doc.text.indexOf("interface Barro"), "/** Added by hand. */\n")
+        }
+        session.canvas.setZoom(1.1)
+        assertTrue(visible(slice).startsWith("interface Barro"))
+    }
+
+    fun testEditInsideAMethodDoesNotRefoldOtherSlices() {
+        val session = open()
+        val classSlice = session.sliceEditor("class:\\App\\Foo")!!
+        val folds = classSlice.editor.foldingModel.allFoldRegions.toList()
+        edit("return ${'$'}s;", "return ${'$'}s . 'x';")
+        session.rebuildNow()
+        assertEquals(folds, classSlice.editor.foldingModel.allFoldRegions.toList())
+    }
+
+    fun testTallMethodScrollsInsideItsBlock() {
+        val body = (1..80).joinToString("") { "        echo $it;\n" }
+        val psi = myFixture.configureByText("Tall.php", "<?php\nclass Tall\n{\n    public function long(): void\n    {\n$body    }\n\n    public function short(): void\n    {\n    }\n}\n")
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        assertTrue(session.sliceEditor("method:long")!!.scrollable)
+        assertFalse(session.sliceEditor("method:short")!!.scrollable)
     }
 
     fun testCollapseToggleReleasesAndRecreatesTheEditor() {

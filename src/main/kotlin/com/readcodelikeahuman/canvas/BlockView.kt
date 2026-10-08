@@ -14,7 +14,7 @@ import javax.swing.JPanel
 import kotlin.math.roundToInt
 
 /** One block on the canvas: a title bar (click = collapse/expand, drag = move) above its body. */
-class BlockView(val id: String, private val canvas: BlocksCanvas) : JPanel(BorderLayout()) {
+class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(BorderLayout()) {
     private val title = JBLabel()
     private val header = JPanel(BorderLayout())
     private var body: JComponent? = null
@@ -77,6 +77,9 @@ class BlockView(val id: String, private val canvas: BlocksCanvas) : JPanel(Borde
             (preferred.height / zoom).roundToInt().coerceAtMost(MAX_HEIGHT),
         )
     }
+
+    /** True when the content is taller than the cap, so the body has to scroll. */
+    fun overflows(zoom: Double): Boolean = preferredSize.height / zoom > MAX_HEIGHT
 
     companion object {
         const val MIN_WIDTH = 160
