@@ -2,7 +2,7 @@
 
 ## Verdict
 
-**GO WITH WORKAROUNDS** for fold-based slice editors. This is provisional: three manual checklist items (3, 4, 10) are still open and need a person in a running IDE.
+**GO WITH WORKAROUNDS** for fold-based slice editors. The manual checklist was completed on 2026-10-08 in the sandbox IDE (see below). Two workarounds are needed, and both belong in the canvas plan.
 
 Everything that could be automated works. That covers folding the rest of the file away, editing the real document, keeping the caret in the slice, completion, undo, and folds surviving edits made elsewhere in the file. The prototype code lives on branch `spike/slice-editor` so the remaining manual checks can be done there.
 
@@ -24,24 +24,27 @@ Probe test (prints instead of asserting):
 
 ## Manual checklist
 
-Not run: the user was away, and there is no GUI access in this session. To run it: `git checkout spike/slice-editor && ./gradlew runIde`, open a PHP class, then **Tools → Spike: Show Slice Editors**.
+Run by the user in `./gradlew runIde` on 2026-10-08 with `Foo.php` (4 methods) and `Big.php` (10 one-line methods).
 
-1. Class slice without methods / method-only slices: covered by automated tests; visual check still open.
-2. Typing in a slice changes the real file: **yes** (automated).
-3. Completion popup position inside a small embedded editor: **open**.
-4. Semantic highlighting / inspections in slices: **open**. This is the biggest unknown. Editors created by `EditorFactory` and not owned by a `FileEditor` may not get daemon highlighting. Lexer syntax colors will work regardless.
-5. New lines at the slice end stay visible: **yes** (automated).
-6. Undo: **yes** (automated).
-7. Caret can't escape: **yes** for programmatic moves (automated). Keyboard Up/Down/Cmd+Home is still to be confirmed by hand.
-8. Edits elsewhere keep folds intact: **yes** (automated); visual sync is still to be confirmed.
-9. Cmd+click navigation from a slice: **open**.
-10. Responsiveness with ~10 slices: **open**.
+1. Class slice without methods / method-only slices: **yes**.
+2. Typing in a slice changes the real file: **yes**.
+3. Completion popup appears, lists methods, and is positioned correctly: **yes**.
+4. Semantic highlighting / inspections in slices: **yes**. The `doesNotExist()` warning shows in the slice.
+5. New lines at the slice end stay visible: **yes**.
+6. Undo: **yes**.
+7. Caret can't escape (Up/Down/Cmd+Home/End): **yes**.
+8. Edits in the normal editor update the slices: **yes**.
+9. Cmd+click navigation: **works, but jumps to the normal editor** instead of staying on the canvas. This is expected: the spike doesn't intercept navigation. The canvas must handle it (spec: a same-file target focuses that block).
+10. Responsiveness with 11 slices: **no lag**. But "ghost typing" was found: see the workarounds below.
 
 ## Workarounds needed
 
+- **Holes in the class slice ("ghost typing"), found in check 10.** Folding only the method text leaves the indentation and blank lines around each hidden method visible and editable. Typing in such a hole inserts text right after a method's `}`, on the same physical line. It then shows up glued to the method in its own slice and in the file (`}asdf`). **Fix:** extend each hidden range to whole lines: from the start of the method's first line (or the end of the previous non-whitespace text) through the newline after its last line. If a method shares a line with other code, the class slice must not offer an editable position on that line.
+- **Navigation stays on the canvas.** Intercept go-to-declaration (and Cmd+click) inside slice editors. A target inside the same file focuses and scrolls to that block's slice. A target in another file opens that file's canvas.
+- **Spike-only bug:** the dialog listed methods in `ownMethods` order (m5, m3, m1…). `PhpBlockBuilder` already sorts methods by offset, so this doesn't affect the real code.
+
 - **Folds must be re-applied after structural changes.** When a method is added or removed, the class slice's hidden ranges change. The canvas should rebuild folds from the new Block Model after each PSI rebuild, rather than trusting existing fold regions.
 - **Slice range tracking:** use a `RangeMarker` per block (greedy to the right) between rebuilds, so typing at the end of a block grows that block.
-- **Possible workaround for item 4:** if daemon highlighting is missing, wrap each slice in a `TextEditor` via `TextEditorProvider`, or register the editors with the daemon. Decide once item 4 has been checked by hand.
 
 ## Technique to carry forward
 
@@ -94,4 +97,4 @@ object SliceEditorSpike {
 
 ## Recommendation for the canvas plan
 
-Go with **approach A as designed**: one fold-based slice editor per expanded block. Start the canvas plan by closing manual items 3, 4 and 10. If item 4 (semantic highlighting) fails and the `TextEditor` wrapper doesn't fix it, fall back to **C**: read-only highlighted blocks, where double-clicking makes one block a live slice editor. Fallback C uses the same building blocks.
+Go with **approach A as designed**: one fold-based slice editor per expanded block. All manual checks passed. The canvas plan must include the whole-line hidden ranges (with a test that typing in the class slice can't land on a method's line) and navigation interception. Fallback C is not needed.
