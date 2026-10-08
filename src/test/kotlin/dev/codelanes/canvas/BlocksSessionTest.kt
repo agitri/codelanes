@@ -267,4 +267,20 @@ class BlocksSessionTest : BasePlatformTestCase() {
         assertEquals(500, bounds.centerX.toInt())
         assertEquals(400, bounds.centerY.toInt())
     }
+
+    fun testCaretOnACallHighlightsTheDefinitionAndTheUsingBlocks() {
+        val session = open()
+        val text = myFixture.editor.document.text
+        session.highlightUsagesAt("method:bar", text.indexOf("footest(${'$'}this"))
+        assertEquals(UsageHighlight.Level.DEFINITION, session.canvas.highlights["method:footest"])
+        assertEquals(UsageHighlight.Level.USAGE, session.canvas.highlights["method:bar"])
+    }
+
+    fun testCaretOnNothingClearsTheHighlights() {
+        val session = open()
+        val text = myFixture.editor.document.text
+        session.highlightUsagesAt("method:bar", text.indexOf("footest(${'$'}this"))
+        session.highlightUsagesAt("method:bar", text.indexOf("return ${'$'}this->footest") + 2)
+        assertTrue(session.canvas.highlights.isEmpty())
+    }
 }

@@ -62,6 +62,15 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
         titleBar.addMouseMotionListener(mover)
     }
 
+    /** Coloured border while the symbol under the caret is defined (strong) or used (light) in this block. */
+    fun setHighlight(level: UsageHighlight.Level?) {
+        border = when (level) {
+            UsageHighlight.Level.DEFINITION -> JBUI.Borders.customLine(DEFINITION_COLOR, 3)
+            UsageHighlight.Level.USAGE -> JBUI.Borders.customLine(USAGE_COLOR, 2)
+            null -> JBUI.Borders.customLine(JBColor.border(), 1)
+        }
+    }
+
     fun update(block: Block, collapsed: Boolean, body: JComponent, zoom: Double) {
         title.text = (if (collapsed) "▸ " else "▾ ") + block.title
         title.font = JBFont.label().asBold().deriveFont((JBFont.label().size2D * zoom).toFloat())
@@ -87,6 +96,8 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
 
     companion object {
         const val DRAG_THRESHOLD = 4
+        private val DEFINITION_COLOR = JBColor(java.awt.Color(0xE65100), java.awt.Color(0xFFA726))
+        private val USAGE_COLOR = JBColor(java.awt.Color(0xF9A825), java.awt.Color(0xFFF176))
         const val MIN_WIDTH = 160
         const val MAX_WIDTH = 900
         const val MAX_HEIGHT = 600

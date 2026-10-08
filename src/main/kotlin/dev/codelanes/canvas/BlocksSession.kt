@@ -20,6 +20,9 @@ import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
+import com.intellij.psi.PsiNameIdentifierOwner
+import com.intellij.psi.search.LocalSearchScope
+import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
@@ -61,6 +64,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private val summaries = mutableMapOf<String, Pair<List<String>, JComponent>>()
     private val watchedDocuments = mutableSetOf<Document>()
     private val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
+    private val highlightAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
     private val baseFontSize = EditorColorsManager.getInstance().globalScheme.editorFontSize
     private var disposed = false
     private var focused: String? = null
@@ -244,7 +248,9 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         }
         slice.editor.caretModel.addCaretListener(object : com.intellij.openapi.editor.event.CaretListener {
             override fun caretPositionChanged(event: com.intellij.openapi.editor.event.CaretEvent) {
-                if (focused != null && slices[focused] === slice) canvas.focusedOffset = slice.editor.caretModel.offset
+                val id = slices.entries.firstOrNull { it.value === slice }?.key ?: return
+                if (focused == id) canvas.focusedOffset = slice.editor.caretModel.offset
+                scheduleHighlight(id, slice.editor.caretModel.offset)
             }
         })
         slice.editor.contentComponent.addFocusListener(object : FocusAdapter() {
@@ -349,6 +355,54 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         }
     }
 
+    /** Lights up the blocks that define and use the symbol at [offset] in block [id] (synchronous). */
+    fun highlightUsagesAt(id: String, offset: Int) {
+        canvas.highlights = ReadAction.compute<Map<String, UsageHighlight.Level>, RuntimeException> { computeHighlights(id, offset) }
+    }
+
+    private fun scheduleHighlight(id: String, offset: Int) {
+        highlightAlarm.cancelAllRequests()
+        highlightAlarm.addRequest({
+            if (disposed) return@addRequest
+            ReadAction.nonBlocking<Map<String, UsageHighlight.Level>> { computeHighlights(id, offset) }
+                .inSmartMode(project)
+                .expireWith(this)
+                .coalesceBy(this, highlightAlarm)
+                .finishOnUiThread(ModalityState.defaultModalityState()) { canvas.highlights = it }
+                .submit(AppExecutorUtil.getAppExecutorService())
+        }, HIGHLIGHT_DELAY_MS)
+    }
+
+    private fun computeHighlights(id: String, offset: Int): Map<String, UsageHighlight.Level> {
+        val slice = slices[id] ?: return emptyMap()
+        val psiFile = PsiDocumentManager.getInstance(project).getPsiFile(slice.editor.document) ?: return emptyMap()
+        val target = symbolAt(psiFile, offset) ?: return emptyMap()
+        val current = model ?: return emptyMap()
+        val spans = current.blocks.mapNotNull { block ->
+            tracked[block.id]?.current()?.let { (range, excluded) -> UsageHighlight.Span(block.id, block.filePath, range, excluded) }
+        }
+        val files = spans.map { it.filePath }.distinct()
+            .mapNotNull { path -> file.fileSystem.findFileByPath(path)?.let { PsiManager.getInstance(project).findFile(it) } }
+        if (files.isEmpty()) return emptyMap()
+        val usages = ReferencesSearch.search(target, LocalSearchScope(files.toTypedArray())).findAll().mapNotNull { ref ->
+            val path = ref.element.containingFile?.virtualFile?.path ?: return@mapNotNull null
+            UsageHighlight.Spot(path, ref.element.textRange.startOffset + ref.rangeInElement.startOffset, definition = false)
+        }
+        val definition = target.containingFile?.virtualFile?.path?.let { path ->
+            val at = (target as? PsiNameIdentifierOwner)?.nameIdentifier?.textOffset ?: target.textOffset
+            UsageHighlight.Spot(path, at, definition = true)
+        }
+        return UsageHighlight.assign(usages + listOfNotNull(definition), spans)
+    }
+
+    /** The symbol under the caret: what a reference there points to, or the declaration whose name is there. */
+    private fun symbolAt(psiFile: com.intellij.psi.PsiFile, offset: Int): com.intellij.psi.PsiElement? {
+        psiFile.findReferenceAt(offset)?.resolve()?.let { return it }
+        val element = psiFile.findElementAt(offset) ?: return null
+        val owner = PsiTreeUtil.getParentOfType(element, PsiNameIdentifierOwner::class.java, false) ?: return null
+        return owner.takeIf { it.nameIdentifier?.textRange?.containsOffset(offset) == true }
+    }
+
     fun blockIds(): List<String> = views.keys.toList()
     fun hasSliceEditor(id: String): Boolean = id in slices
     fun sliceEditor(id: String): SliceEditor? = slices[id]
@@ -378,5 +432,6 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     companion object {
         const val REBUILD_DELAY_MS = 300
+        const val HIGHLIGHT_DELAY_MS = 200
     }
 }

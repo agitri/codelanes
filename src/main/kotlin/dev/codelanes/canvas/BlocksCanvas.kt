@@ -42,6 +42,14 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         set(value) { field = value; repaint() }
 
     internal val tidyButton = javax.swing.JButton("Tidy up")
+    /** Blocks lit up for the symbol under the caret (definition / usage). */
+    var highlights: Map<String, UsageHighlight.Level> = emptyMap()
+        set(value) {
+            field = value
+            views.forEach { (id, view) -> view.setHighlight(value[id]) }
+            repaint()
+        }
+
     /** Caret offset inside the focused block's file, if known. */
     var focusedOffset: Int? = null
         set(value) { field = value; repaint() }
@@ -99,6 +107,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         next.values.filter { it.parent !== this }.forEach { add(it) }
         views.clear()
         views.putAll(next)
+        views.forEach { (id, view) -> view.setHighlight(highlights[id]) }
         this.links = links
     }
 
