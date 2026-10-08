@@ -14,6 +14,17 @@ object ArrowGeometry {
         }
     }
 
+    /**
+     * One of several lines entering [to] from the left: each gets its own vertical trunk and entry point, so
+     * lines from different blocks never merge. Slot 0 (the topmost source) uses the trunk nearest to [to].
+     */
+    fun routeIntoSlot(from: Rect, to: Rect, slot: Int, slots: Int, step: Int): List<Point> {
+        if (to.x < from.right) return route(from, to)
+        val entryY = to.y + to.height * (slot + 1) / (slots + 1)
+        val trunkX = maxOf(from.right, to.x - step * (slot + 1))
+        return listOf(Point(from.right, from.centerY), Point(trunkX, from.centerY), Point(trunkX, entryY), Point(to.x, entryY))
+    }
+
     private fun elbow(start: Point, end: Point): List<Point> {
         val midX = (start.x + end.x) / 2
         return listOf(start, Point(midX, start.y), Point(midX, end.y), end)

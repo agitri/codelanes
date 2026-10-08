@@ -191,4 +191,21 @@ class BlocksSessionTest : BasePlatformTestCase() {
         }
         assertTrue(session.blockIds().contains("method:added"))
     }
+
+    fun testMethodTypedInTheFocusedClassBlockPopsOutWhenFocusLeaves() {
+        val session = open()
+        session.focusMovedTo("class:\\App\\Foo")
+        edit("private string ${'$'}name = 'x';\n", "private string ${'$'}name = 'x';\n\n    public function added(): void {}\n")
+        session.rebuildNow()
+        assertFalse(session.blockIds().contains("method:added"))
+        session.focusMovedTo(null)
+        assertTrue(session.blockIds().contains("method:added"))
+    }
+
+    fun testTidyUpResetsTheLayout() {
+        val session = open()
+        session.blockMoved("method:bar", Point(900, 900))
+        session.tidyUp()
+        assertTrue(PinStore.getInstance(project).pins(myFixture.file.virtualFile.path).isEmpty())
+    }
 }

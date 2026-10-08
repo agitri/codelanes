@@ -7,12 +7,16 @@ import com.readcodelikeahuman.model.BlockKind.HEADER
 import com.readcodelikeahuman.model.BlockKind.INTERFACE
 import com.readcodelikeahuman.model.BlockKind.METHOD
 import com.readcodelikeahuman.model.BlockKind.PARENT
+import com.readcodelikeahuman.model.BlockKind.TRAIT
+import com.readcodelikeahuman.model.BlockKind.DEPENDENCY
 import com.readcodelikeahuman.model.BlockModel
 import com.readcodelikeahuman.model.Link
 import com.readcodelikeahuman.model.LinkKind.CALLS
 import com.readcodelikeahuman.model.LinkKind.EXTENDS
 import com.readcodelikeahuman.model.LinkKind.IMPLEMENTS
 import com.readcodelikeahuman.model.LinkKind.OWNS
+import com.readcodelikeahuman.model.LinkKind.USES
+import com.readcodelikeahuman.model.LinkKind.INJECTS
 import com.readcodelikeahuman.model.SourceRange
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -160,5 +164,42 @@ class LayoutEngineTest {
     @Test
     fun isDeterministic() {
         assertEquals(LayoutEngine.layout(foo, sizeOf), LayoutEngine.layout(foo, sizeOf))
+    }
+
+    @Test
+    fun eachRelatedKindGetsItsOwnLaneInAStaircase() {
+        val model = BlockModel(
+            listOf(
+                block("dependency:D", DEPENDENCY),
+                block("trait:T", TRAIT),
+                block("interface:I1", INTERFACE),
+                block("interface:I2", INTERFACE),
+                block("parent:P", PARENT),
+                block("class:A", CLASS),
+                block("method:m", METHOD),
+            ),
+            listOf(
+                Link(INJECTS, "dependency:D", "class:A"),
+                Link(USES, "trait:T", "class:A"),
+                Link(IMPLEMENTS, "interface:I1", "class:A"),
+                Link(IMPLEMENTS, "interface:I2", "class:A"),
+                Link(EXTENDS, "parent:P", "class:A"),
+                Link(OWNS, "class:A", "method:m"),
+            ),
+        )
+        val r = LayoutEngine.layout(model, sizeOf).rects
+        val lanes = listOf("parent:P", "interface:I1", "trait:T", "dependency:D").map(r::getValue)
+        // left to right: parent, interfaces, traits, dependencies, then the class
+        lanes.zipWithNext().forEach { (a, b) -> assertTrue("$a then $b", a.right <= b.x) }
+        assertTrue(lanes.last().right <= r.getValue("class:A").x)
+        // each lane sits in its own band, below the previous one, so lines never cross blocks
+        assertTrue(r.getValue("parent:P").bottom <= r.getValue("interface:I1").y)
+        assertTrue(r.getValue("interface:I2").bottom <= r.getValue("trait:T").y)
+        assertTrue(r.getValue("trait:T").bottom <= r.getValue("dependency:D").y)
+        assertEquals(r.getValue("interface:I1").x, r.getValue("interface:I2").x)
+        // class and methods stay top-aligned
+        assertEquals(0, r.getValue("class:A").y)
+        assertEquals(0, r.getValue("method:m").y)
+        assertNoOverlap(r)
     }
 }

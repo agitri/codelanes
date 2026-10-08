@@ -63,6 +63,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
     private val baseFontSize = EditorColorsManager.getInstance().globalScheme.editorFontSize
     private var disposed = false
+    private var focused: String? = null
+    private var heldBack = false
 
     init {
         watch(document)
@@ -131,7 +133,21 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         if (disposed) return
         canvas.notice = update.notice
         val next = update.model ?: return
-        if (next !== model) withModelAccess { adopt(next) }
+        if (next === model) return
+        if (wouldPullTextOutOfFocusedBlock(next)) {
+            heldBack = true
+            canvas.notice = "New block appears when you leave this one"
+            return
+        }
+        withModelAccess { adopt(next) }
+    }
+
+    /** While someone types in a block, don't move what they're typing into a new block under their caret. */
+    private fun wouldPullTextOutOfFocusedBlock(next: BlockModel): Boolean {
+        val id = focused ?: return false
+        val now = tracked[id]?.current() ?: return false
+        val after = next.blocks.firstOrNull { it.id == id } ?: return false
+        return after.excluded.size > now.second.size
     }
 
     /** UI events arrive on the EDT without a read lock; documents, editors and folds need one. */
@@ -166,7 +182,10 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         tracked.remove(old)?.dispose()
         val pins = PinStore.getInstance(project)
         pins.pins(file.path)[old]?.let { pins.pin(file.path, new, it) }
-        if (canvas.focusedId == old) canvas.focusedId = new
+        if (focused == old) {
+            focused = new
+            canvas.focusedId = new
+        }
     }
 
     private fun forget(id: String) {
@@ -221,7 +240,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         }
         slice.editor.contentComponent.addFocusListener(object : FocusAdapter() {
             override fun focusGained(e: FocusEvent) {
-                canvas.focusedId = slices.entries.firstOrNull { it.value === slice }?.key
+                focusMovedTo(slices.entries.firstOrNull { it.value === slice }?.key)
+            }
+
+            override fun focusLost(e: FocusEvent) {
+                // Completion popups and the like keep focus semantics in the editor; real moves go elsewhere.
+                if (!e.isTemporary && slices.values.none { it.editor.contentComponent.isFocusOwner }) focusMovedTo(null)
             }
         })
         slices[block.id] = slice
@@ -257,6 +281,22 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     }
 
     /** Forgets every dragged position in this file and goes back to the automatic lanes. */
+    override fun tidyUp() = resetLayout()
+
+    /**
+     * Called when focus enters a block (id) or leaves all blocks (null). A rebuild that was held back because it
+     * would pull a half-typed method out of the focused block runs as soon as focus moves on.
+     */
+    fun focusMovedTo(id: String?) {
+        if (focused == id) return
+        focused = id
+        canvas.focusedId = id
+        if (heldBack) {
+            heldBack = false
+            rebuildNow()
+        }
+    }
+
     fun resetLayout() = withModelAccess {
         PinStore.getInstance(project).clear(file.path)
         relayout()

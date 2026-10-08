@@ -34,4 +34,13 @@ class ArrowGeometryTest {
     fun loopClearsTheWiderOfTwoBlocks() {
         assertEquals(Point(224, 20), ArrowGeometry.route(a, Rect(0, 100, 200, 40), loop = 24)[1])
     }
+
+    @Test
+    fun incomingLinesGetTheirOwnTrunkAndEntryPoint() {
+        val target = Rect(500, 0, 200, 120)
+        val first = ArrowGeometry.routeIntoSlot(Rect(0, 0, 100, 40), target, slot = 0, slots = 2, step = 12)
+        val second = ArrowGeometry.routeIntoSlot(Rect(0, 200, 100, 40), target, slot = 1, slots = 2, step = 12)
+        assertEquals(listOf(Point(100, 20), Point(488, 20), Point(488, 40), Point(500, 40)), first)
+        assertEquals(listOf(Point(100, 220), Point(476, 220), Point(476, 80), Point(500, 80)), second)
+    }
 }

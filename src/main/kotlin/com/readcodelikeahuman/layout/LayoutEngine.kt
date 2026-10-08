@@ -32,12 +32,14 @@ object LayoutEngine {
     const val PIN_GAP = 16
     const val MAX_COLUMN_HEIGHT = 1400
 
+    private val LANE_KINDS = listOf(BlockKind.PARENT, BlockKind.INTERFACE, BlockKind.TRAIT, BlockKind.DEPENDENCY)
     private val STRUCTURAL = setOf(LinkKind.EXTENDS, LinkKind.IMPLEMENTS, LinkKind.USES, LinkKind.INJECTS, LinkKind.OWNS)
 
     fun layout(model: BlockModel, sizeOf: (Block) -> Size, pins: Map<String, Point> = emptyMap()): Layout {
         val rank = ranks(model)
-        val columns = orderedColumns(model, rank)
-        val auto = place(columns.map { lane -> lane.filter { it.id !in pins } }, sizeOf)
+        val columns = orderedColumns(model, rank).map { lane -> lane.filter { it.id !in pins } }
+        val classRank = model.ofKind(BlockKind.CLASS).firstOrNull()?.let { rank.getValue(it.id) } ?: 0
+        val auto = place(columns, classRank, sizeOf)
         val pinned = model.blocks.filter { it.id in pins }.associate { block ->
             val size = sizeOf(block)
             val at = pins.getValue(block.id)
@@ -105,23 +107,48 @@ object LayoutEngine {
         column.addAll(sorted)
     }
 
-    /** Top-aligned lanes, left to right; a lane only grows downwards. */
-    private fun place(columns: List<List<Block>>, sizeOf: (Block) -> Size): Map<String, Rect> {
-        val stacks = columns.flatMap { wrap(it, sizeOf) }.filter { it.isNotEmpty() }
+    /**
+     * Left of the class: one lane per related kind (parents, interfaces, traits, dependencies), each in its own
+     * height band below the previous one (a staircase), so lines to the class never cross other blocks.
+     * The class column and everything right of it are top-aligned lanes that only grow downwards.
+     */
+    private fun place(columns: List<List<Block>>, classRank: Int, sizeOf: (Block) -> Size): Map<String, Rect> {
         val rects = linkedMapOf<String, Rect>()
         var x = 0
-        for (stack in stacks) {
-            var y = 0
-            var width = 0
-            for (block in stack) {
-                val size = sizeOf(block)
-                rects[block.id] = Rect(x, y, size.width, size.height)
-                y += size.height + V_GAP
-                width = maxOf(width, size.width)
+        val left = columns.take(classRank)
+        val kinds = LANE_KINDS + (left.flatten().map { it.kind }.distinct() - LANE_KINDS.toSet())
+        var bandTop = 0
+        for (kind in kinds) {
+            val laneColumns = left.map { column -> column.filter { it.kind == kind } }.filter { it.isNotEmpty() }
+            if (laneColumns.isEmpty()) continue
+            var bandBottom = bandTop
+            for (column in laneColumns) {
+                for (stack in wrap(column, sizeOf)) {
+                    val (nextX, bottom) = placeStack(stack, x, bandTop, rects, sizeOf)
+                    x = nextX
+                    bandBottom = maxOf(bandBottom, bottom)
+                }
             }
-            x += width + H_GAP
+            bandTop = bandBottom + V_GAP
+        }
+        for (column in columns.drop(classRank)) {
+            for (stack in wrap(column, sizeOf)) x = placeStack(stack, x, 0, rects, sizeOf).first
         }
         return rects
+    }
+
+    /** Stacks [stack] top to bottom at [x] from [top]; returns the next lane's x and this stack's bottom. */
+    private fun placeStack(stack: List<Block>, x: Int, top: Int, rects: MutableMap<String, Rect>, sizeOf: (Block) -> Size): Pair<Int, Int> {
+        if (stack.isEmpty()) return x to top
+        var y = top
+        var width = 0
+        for (block in stack) {
+            val size = sizeOf(block)
+            rects[block.id] = Rect(x, y, size.width, size.height)
+            y += size.height + V_GAP
+            width = maxOf(width, size.width)
+        }
+        return (x + width + H_GAP) to (y - V_GAP)
     }
 
     private fun wrap(column: List<Block>, sizeOf: (Block) -> Size): List<List<Block>> {

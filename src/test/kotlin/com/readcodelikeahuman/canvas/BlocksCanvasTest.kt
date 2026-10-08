@@ -12,6 +12,7 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         override fun blockMoved(id: String, position: Point) {}
         override fun collapseToggled(id: String) {}
         override fun zoomChanged() {}
+        override fun tidyUp() {}
     }
 
     fun testPlaceAppliesPanAndZoom() {
@@ -47,6 +48,8 @@ class BlocksCanvasTest : BasePlatformTestCase() {
     private class Recorder : BlocksCanvas.Listener {
         val moved = mutableListOf<String>()
         val toggled = mutableListOf<String>()
+        var tidied = 0
+        override fun tidyUp() { tidied++ }
         override fun blockMoved(id: String, position: Point) { moved += id }
         override fun collapseToggled(id: String) { toggled += id }
         override fun zoomChanged() {}
@@ -80,5 +83,11 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         mouse(view, java.awt.event.MouseEvent.MOUSE_RELEASED, 40, 30)
         assertEquals(listOf("a"), recorder.moved)
         assertEquals(emptyList<String>(), recorder.toggled)
+    }
+
+    fun testTidyUpButtonAsksToTidyUp() {
+        val recorder = Recorder()
+        BlocksCanvas(recorder).tidyButton.doClick()
+        assertEquals(1, recorder.tidied)
     }
 }

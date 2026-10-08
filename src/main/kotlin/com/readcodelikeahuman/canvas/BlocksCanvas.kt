@@ -30,6 +30,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         fun blockMoved(id: String, position: Point)
         fun collapseToggled(id: String)
         fun zoomChanged()
+        fun tidyUp()
     }
 
     var zoom: Double = 1.0
@@ -39,6 +40,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     var notice: String? = null
         set(value) { field = value; repaint() }
 
+    internal val tidyButton = javax.swing.JButton("Tidy up")
     private val pan = java.awt.Point(40, 40)
     private val views = linkedMapOf<String, BlockView>()
     private var rects: Map<String, Rect> = emptyMap()
@@ -46,28 +48,35 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
 
     init {
         isOpaque = true
+        isFocusable = true
         background = EditorColorsManager.getInstance().globalScheme.defaultBackground
         val panner = object : MouseAdapter() {
             private var last: java.awt.Point? = null
 
-            override fun mousePressed(e: MouseEvent) { last = e.point }
+            override fun mousePressed(e: MouseEvent) {
+                last = e.point
+                requestFocusInWindow() // clicking the background leaves the block you were typing in
+            }
             override fun mouseReleased(e: MouseEvent) { last = null }
 
             override fun mouseDragged(e: MouseEvent) {
                 val l = last ?: return
                 pan.translate(e.x - l.x, e.y - l.y)
                 last = e.point
-                placeViews()
+                moveViews()
             }
 
             override fun mouseWheelMoved(e: MouseWheelEvent) {
                 when {
                     e.isMetaDown || e.isControlDown -> setZoom(zoom * 1.1.pow(-e.preciseWheelRotation))
-                    e.isShiftDown -> { pan.translate((-e.preciseWheelRotation * 40).roundToInt(), 0); placeViews() }
-                    else -> { pan.translate(0, (-e.preciseWheelRotation * 40).roundToInt()); placeViews() }
+                    e.isShiftDown -> { pan.translate((-e.preciseWheelRotation * 40).roundToInt(), 0); moveViews() }
+                    else -> { pan.translate(0, (-e.preciseWheelRotation * 40).roundToInt()); moveViews() }
                 }
             }
         }
+        tidyButton.toolTipText = "Put every block back in its lane (forgets dragged positions)"
+        tidyButton.addActionListener { listener.tidyUp() }
+        add(tidyButton)
         addMouseListener(panner)
         addMouseMotionListener(panner)
         addMouseWheelListener(panner)
@@ -97,6 +106,20 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     internal fun visibleLinks(): List<Link> =
         links.filter { it.kind != LinkKind.CALLS || focusedId == it.from || focusedId == it.to }
 
+    /** Panning only moves blocks; no re-layout of the editors inside them, which keeps scrolling smooth. */
+    private fun moveViews() {
+        for ((id, view) in views) {
+            val r = rects[id] ?: continue
+            view.setLocation(pan.x + (r.x * zoom).roundToInt(), pan.y + (r.y * zoom).roundToInt())
+        }
+        repaint()
+    }
+
+    override fun doLayout() {
+        val size = tidyButton.preferredSize
+        tidyButton.setBounds(width - size.width - 12, 8, size.width, size.height)
+    }
+
     private fun placeViews() {
         for ((id, view) in views) {
             val r = rects[id] ?: continue
@@ -111,15 +134,23 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         repaint()
     }
 
-    override fun paintComponent(g: Graphics) {
-        super.paintComponent(g)
+    /** Lines are painted over the blocks, so a line is never hidden behind one. */
+    override fun paintChildren(g: Graphics) {
+        super.paintChildren(g)
         val g2 = g.create() as Graphics2D
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            for (link in visibleLinks()) {
+            val visible = visibleLinks()
+            val incoming = visible.groupBy { it.to }
+            for (link in visible) {
                 val a = views[link.from]?.bounds ?: continue
                 val b = views[link.to]?.bounds ?: continue
-                val route = ArrowGeometry.route(a.toRect(), b.toRect(), (ArrowGeometry.LOOP * zoom).roundToInt())
+                val siblings = incoming.getValue(link.to).sortedBy { views[it.from]?.y ?: 0 }
+                val route = if (siblings.size > 1) {
+                    ArrowGeometry.routeIntoSlot(a.toRect(), b.toRect(), siblings.indexOf(link), siblings.size, (SLOT_STEP * zoom).roundToInt().coerceAtLeast(4))
+                } else {
+                    ArrowGeometry.route(a.toRect(), b.toRect(), (ArrowGeometry.LOOP * zoom).roundToInt())
+                }
                 g2.color = colorFor(link.kind)
                 g2.stroke = strokeFor(link.kind)
                 g2.drawPolyline(route.map { it.x }.toIntArray(), route.map { it.y }.toIntArray(), route.size)
@@ -163,6 +194,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     private fun Rectangle.toRect() = Rect(x, y, width, height)
 
     companion object {
+        const val SLOT_STEP = 12
         const val MIN_ZOOM = 0.2
         const val MAX_ZOOM = 2.0
     }
