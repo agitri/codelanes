@@ -3,6 +3,7 @@ package com.readcodelikeahuman.php
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.php.lang.psi.PhpFile
+import com.jetbrains.php.lang.psi.elements.ClassReference
 import com.jetbrains.php.lang.psi.elements.Method
 import com.jetbrains.php.lang.psi.elements.PhpClass
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement
@@ -74,8 +75,32 @@ object PhpBlockBuilder {
         )
         blocks += methodBlocks
         links += methodBlocks.map { Link(LinkKind.OWNS, classId, it.id) }
+        relatedTypes(phpClass).forEach { (block, linkKind) ->
+            blocks += block
+            links += Link(linkKind, block.id, classId)
+        }
 
         return BuildResult.Supported(BlockModel(blocks, links))
+    }
+
+    private fun externalBlock(kind: BlockKind, target: PhpClass): Block = Block(
+        id = "${kind.name.lowercase()}:${target.fqn}",
+        kind = kind,
+        title = "${keyword(target)} ${target.name}",
+        filePath = target.containingFile.virtualFile.path,
+        range = rangeWithDoc(target),
+        collapsed = true,
+    )
+
+    private fun resolved(references: List<ClassReference>): List<PhpClass> =
+        references.mapNotNull { it.resolve() as? PhpClass }.distinctBy { it.fqn }
+
+    /** Related types in left-column order, each with the link kind pointing into the class block. */
+    private fun relatedTypes(phpClass: PhpClass): List<Pair<Block, LinkKind>> {
+        val parentKind = if (phpClass.isInterface) BlockKind.INTERFACE else BlockKind.PARENT
+        return resolved(phpClass.implementsList.referenceElements).map { externalBlock(BlockKind.INTERFACE, it) to LinkKind.IMPLEMENTS } +
+            resolved(phpClass.extendsList.referenceElements).map { externalBlock(parentKind, it) to LinkKind.EXTENDS } +
+            phpClass.traits.distinctBy { it.fqn }.map { externalBlock(BlockKind.TRAIT, it) to LinkKind.USES }
     }
 
     internal fun rangeWithDoc(element: PhpNamedElement): SourceRange {
