@@ -25,6 +25,8 @@ data class Block(
     val range: SourceRange,
     val excluded: List<SourceRange> = emptyList(),
     val collapsed: Boolean = false,
+    /** One line per member signature; shown in the body of a collapsed block. */
+    val summary: List<String> = emptyList(),
 ) {
     init {
         require(excluded.all { it.start >= range.start && it.end <= range.end }) {

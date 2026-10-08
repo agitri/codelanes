@@ -113,6 +113,7 @@ object PhpBlockBuilder {
         filePath = target.containingFile.virtualFile.path,
         range = rangeWithDoc(target),
         collapsed = true,
+        summary = target.ownMethods.sortedBy { it.textRange.startOffset }.map(::methodTitle),
     )
 
     private fun resolved(references: List<ClassReference>): List<PhpClass> =
