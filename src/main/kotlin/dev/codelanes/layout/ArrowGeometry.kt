@@ -25,6 +25,13 @@ object ArrowGeometry {
         return listOf(Point(from.right, from.centerY), Point(trunkX, from.centerY), Point(trunkX, entryY), Point(to.x, entryY))
     }
 
+    /** One of several loops into the same block in the same lane: each loops a bit further out and enters at its own height. */
+    fun loopIntoSlot(from: Rect, to: Rect, slot: Int, slots: Int, loop: Int, step: Int): List<Point> {
+        val outX = maxOf(from.right, to.right) + loop + step * slot
+        val entryY = to.y + to.height * (slot + 1) / (slots + 1)
+        return listOf(Point(from.right, from.centerY), Point(outX, from.centerY), Point(outX, entryY), Point(to.right, entryY))
+    }
+
     private fun elbow(start: Point, end: Point): List<Point> {
         val midX = (start.x + end.x) / 2
         return listOf(start, Point(midX, start.y), Point(midX, end.y), end)

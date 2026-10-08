@@ -193,8 +193,19 @@ object LayoutEngine {
 
     /** Pinned rects stay put; auto-placed rects are pushed down (staying in their lane) until nothing overlaps. */
     private fun applyPins(model: BlockModel, auto: Map<String, Rect>, pinned: Map<String, Rect>): Map<String, Rect> {
-        val result = pinned.toMutableMap()
-        val placed = pinned.values.toMutableList()
+        val result = mutableMapOf<String, Rect>()
+        val placed = mutableListOf<Rect>()
+        // Dragged blocks keep their spot unless that would put them on top of another dragged block
+        // (e.g. after one of them was expanded): then they move down to free space.
+        pinned.entries.sortedWith(compareBy({ it.value.y }, { it.value.x })).forEach { (id, start) ->
+            var rect = start
+            while (true) {
+                val hit = placed.firstOrNull { it.overlaps(rect, PIN_GAP) } ?: break
+                rect = rect.copy(y = hit.bottom + PIN_GAP)
+            }
+            result[id] = rect
+            placed += rect
+        }
         auto.entries
             .sortedWith(compareBy({ it.value.x }, { it.value.y }))
             .forEach { (id, start) ->

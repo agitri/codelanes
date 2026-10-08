@@ -130,4 +130,12 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         assertEquals(kinds.size, colours.toSet().size)
         LinkKind.entries.forEach { assertNull("$it is dashed", canvas.strokeFor(it).dashArray) }
     }
+
+    fun testEachCallLineGetsItsOwnColour() {
+        val canvas = BlocksCanvas(NoListener)
+        val first = Link(LinkKind.CALLS, "render", "total")
+        val second = Link(LinkKind.CALLS, "total", "subtotal")
+        canvas.setContent(listOf("render", "total", "subtotal").associateWith { BlockView(it, canvas) }, listOf(first, second))
+        assertFalse(canvas.colorFor(first) == canvas.colorFor(second))
+    }
 }

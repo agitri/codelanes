@@ -233,4 +233,12 @@ class LayoutEngineTest {
         assertTrue(r.getValue("implementer:Order").right <= r.getValue("implementation:Order::render").x)
         assertNoOverlap(r)
     }
+
+    @Test
+    fun draggedBlocksNeverEndUpOnTopOfEachOther() {
+        val pins = mapOf("method:bar" to Point(1000, 1000), "method:footest" to Point(1050, 1020))
+        val r = LayoutEngine.layout(foo, sizeOf, pins).rects
+        assertEquals(Point(1000, 1000), r.getValue("method:bar").let { Point(it.x, it.y) })
+        assertNoOverlap(r)
+    }
 }

@@ -218,11 +218,14 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         g2.fillPolygon(xs, ys, 3)
     }
 
-    /** Override lines each get their own colour (stable per line), so lines shown together never look alike. */
+    /**
+     * Call and override lines each get their own colour (stable per line), so e.g. "total calls subtotal" and
+     * "validate calls total" never look alike. Other kinds use their kind colour.
+     */
     internal fun colorFor(link: Link): java.awt.Color {
-        if (link.kind != LinkKind.OVERRIDES) return colorFor(link.kind)
-        val overrides = links.filter { it.kind == LinkKind.OVERRIDES }.sortedWith(compareBy({ it.from }, { it.to }))
-        return OVERRIDE_PALETTE[overrides.indexOf(link).coerceAtLeast(0) % OVERRIDE_PALETTE.size]
+        if (link.kind !in FOCUS_ONLY) return colorFor(link.kind)
+        val perLine = links.filter { it.kind in FOCUS_ONLY }.sortedWith(compareBy({ it.kind }, { it.from }, { it.to }))
+        return OVERRIDE_PALETTE[perLine.indexOf(link).coerceAtLeast(0) % OVERRIDE_PALETTE.size]
     }
 
     private fun colorFor(kind: LinkKind): java.awt.Color = KIND_COLORS.getValue(kind)
@@ -237,14 +240,23 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         val metrics = g2.fontMetrics
         val lineHeight = metrics.height + 2
         val entries = LEGEND.filter { (kind, _) -> links.any { it.kind == kind } }
-        var y = height - 12 - lineHeight * (entries.size - 1)
+        val perLine = links.any { it.kind in FOCUS_ONLY }
+        var y = height - 12 - lineHeight * (entries.size - if (perLine) 0 else 1)
+        g2.stroke = BasicStroke(2.5f)
         for ((kind, label) in entries) {
-            g2.color = if (kind == LinkKind.OVERRIDES) OVERRIDE_PALETTE.first() else colorFor(kind)
-            g2.stroke = BasicStroke(2.5f)
+            g2.color = colorFor(kind)
             g2.drawLine(12, y - metrics.ascent / 2, 32, y - metrics.ascent / 2)
             g2.color = JBColor.foreground()
             g2.drawString(label, 40, y)
             y += lineHeight
+        }
+        if (perLine) {
+            OVERRIDE_PALETTE.take(3).forEachIndexed { i, colour ->
+                g2.color = colour
+                g2.drawLine(12 + i * 7, y - metrics.ascent / 2, 17 + i * 7, y - metrics.ascent / 2)
+            }
+            g2.color = JBColor.foreground()
+            g2.drawString("calls / overrides (one colour per line, shown for the block you're in)", 40, y)
         }
     }
 
@@ -283,8 +295,6 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             LinkKind.USES to "uses trait",
             LinkKind.INJECTS to "injected",
             LinkKind.OWNS to "has method",
-            LinkKind.CALLS to "calls",
-            LinkKind.OVERRIDES to "overrides / implements method",
             LinkKind.IMPLEMENTED_BY to "implemented / used by",
         )
         const val MIN_ZOOM = 0.2

@@ -47,4 +47,16 @@ class LinkRoutesTest {
         val route = LinkRoutes.compute(listOf(link), rects, targetY = mapOf(link to 250)).getValue(link)
         assertEquals(Point(400, 250), route.last())
     }
+
+    @Test
+    fun loopsIntoTheSameBlockGetTheirOwnVerticalAndEntry() {
+        val rects = mapOf("total" to Rect(0, 0, 300, 100), "render" to Rect(0, 300, 300, 100), "validate" to Rect(0, 500, 300, 100))
+        val fromRender = Link(LinkKind.CALLS, "render", "total")
+        val fromValidate = Link(LinkKind.CALLS, "validate", "total")
+        val routes = LinkRoutes.compute(listOf(fromRender, fromValidate), rects)
+        val a = routes.getValue(fromRender)
+        val b = routes.getValue(fromValidate)
+        assertFalse("same vertical: $a / $b", a[1].x == b[1].x)
+        assertFalse("same entry: $a / $b", a.last() == b.last())
+    }
 }

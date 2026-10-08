@@ -22,7 +22,10 @@ object LinkRoutes {
                 aroundBlocks(from, to, targetY[link] ?: to.centerY, obstacles)
             } else {
                 val siblings = incoming.getValue(link.to).sortedBy { rects[it.from]?.y ?: 0 }
-                val simple = if (siblings.size > 1) {
+                val sameLane = to.x < from.right && to.right > from.x
+                val simple = if (siblings.size > 1 && sameLane) {
+                    ArrowGeometry.loopIntoSlot(from, to, siblings.indexOf(link), siblings.size, loop, slotStep)
+                } else if (siblings.size > 1) {
                     ArrowGeometry.routeIntoSlot(from, to, siblings.indexOf(link), siblings.size, slotStep)
                 } else {
                     ArrowGeometry.route(from, to, loop)
