@@ -19,3 +19,13 @@
 3. **JetBrains Marketplace** release (plugin icon, change notes, signing, `publishPlugin`).
 4. **VS Code** (later; the slice-editor technique needs a VS Code equivalent).
 5. Keyboard: Tab-based block switching (Tab is indentation today, so it needs a different shortcut).
+
+## Known small issues (from code review, deferred)
+
+- Synchronous rebuilds after `+ method` / `+ parents` / delete run the full build on the UI thread; may hitch
+  on very large projects or widely implemented interfaces.
+- Down never leaves an expanded header block (its range ends at the start of the class line).
+- With multiple carets, the Backspace/Delete guard only checks the primary caret.
+- "Rename" carry-over treats any one-removed/one-added method pair as a rename (also after a git checkout).
+- Highlights are scheduled for programmatic caret moves too and aren't cleared when focus leaves the canvas.
+- `+ method` uses a 4-space indent instead of the project's code style.
