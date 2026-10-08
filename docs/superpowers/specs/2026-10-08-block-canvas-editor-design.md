@@ -35,28 +35,30 @@ explanations, VS Code, terminal.
 - Unsupported files open in the classic text editor automatically, with a small
   notice saying why.
 
-### Canvas layout (free graph)
+### Canvas layout (free graph, left to right)
 
-There are no fixed columns. Blocks form a graph that follows the code's
-relationships, at any depth and in any direction:
+The graph reads **left to right**. There are no fixed three columns: the
+relationships decide how many columns there are and what goes in them.
 
 ```
-  [abstract Base]                 [header: namespace + use]
-        │ extends
-        ▼
-  [class Child] ◄── implements ── [X] [Y] [Z]
-     │      │
-     ▼      ▼
-  [bar()] ──calls──► [footest()]
-     │
-     └── overrides ──► [Base::bar()]   (line lands on that method when Base is expanded)
+                                    [header: namespace + use]
+ [abstract Base] ──extends──►  ┌──────────────┐ ──► [bar()] ──calls──► (footest)
+ [interface X] ──implements──► │ class Child  │ ──► [footest()]
+ [interface Y] ──implements──► │ props, ctor  │ ──► [baz()]
+ [trait T] ──uses──────────►   └──────────────┘
+      ▲
+ [+] reveal Base's own parents → another column further left
 ```
 
-- **Automatic layered layout.** Structural links decide the layers: parents,
-  interfaces, traits and dependencies sit above the type they feed into, and
-  the class sits above its methods. Blocks within a layer are ordered to reduce
-  crossing lines. A layer wider than the maximum row width wraps onto more rows.
-  The header block sits next to the class block.
+- **Automatic layered layout, left to right.** Structural links decide the
+  columns. Parents, interfaces, traits and dependencies sit to the **left** of
+  the type they feed into, the class is in the **middle**, and its methods are
+  to the **right**. Revealing a grandparent adds a column further left.
+- Blocks inside a column are stacked top to bottom and ordered to reduce
+  crossing lines. A column taller than the maximum column height wraps into an
+  extra column to its right (e.g. a class with 20 methods gets two method
+  columns).
+- The header block sits directly above the class block, in the class's column.
 - **Drag to arrange.** Any block can be dragged. A dragged block is *pinned*
   and keeps its position; auto-placed blocks move out of the way of pinned
   ones. New blocks are auto-placed by the same rules.
@@ -67,10 +69,9 @@ relationships, at any depth and in any direction:
   picture.
 - **Depth on demand:** one level of related types (direct parent, interfaces,
   traits, dependencies) is shown by default. Each related-type block has a `+`
-  that reveals *its* parents, interfaces and traits; you can repeat this as deep
-  as you want.
+  that reveals *its* parents, interfaces and traits, as deep as you want to go.
 - Interface, trait and enum files use the same rules: that type is the central
-  block (enum cases count as constants), with its methods below it.
+  block (enum cases count as constants), with its methods to its right.
 
 ### Arrows
 
@@ -143,7 +144,7 @@ Four units, each with one job:
 
 3. **Layout Engine**
    - Input: Block Model, block sizes, pinned positions. Output: block positions.
-   - Pure and deterministic; layered graph rules above. Pinned blocks keep
+   - Pure and deterministic; left-to-right layered graph rules above. Pinned blocks keep
      their positions, and auto-placed blocks never overlap them.
    - A separate pure geometry helper computes line endpoints between two
      rectangles (or a rectangle and a line inside it).
@@ -173,7 +174,8 @@ AI agent writing the file) follow the same path.
 - **Unsupported files:** fall back to the text editor with a notice.
 - **Unresolved references:** handled by the IDE as described above; no extra
   logic.
-- **Very large classes (50+ methods):** v1 wraps the method layer into rows;
+- **Very large classes (50+ methods):** v1 wraps the method column into extra
+  columns;
   optimize later if needed.
 - **Stale pins:** pins for block ids that no longer exist are ignored and
   dropped on the next save.
