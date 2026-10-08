@@ -71,6 +71,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private var disposed = false
     private var focused: String? = null
     private var heldBack = false
+    private val revealed = mutableSetOf<String>()
 
     init {
         canvas.targetLineY = ::targetLineY
@@ -103,7 +104,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             return
         }
         val previous = model
-        ReadAction.nonBlocking<CanvasUpdate?> { computeUpdate(previous) }
+        val reveal = revealed.toSet()
+        ReadAction.nonBlocking<CanvasUpdate?> { computeUpdate(previous, reveal) }
             .withDocumentsCommitted(project)
             .inSmartMode(project)
             .expireWith(this)
@@ -128,12 +130,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             scheduleRebuild()
             return
         }
-        ReadAction.compute<CanvasUpdate?, RuntimeException> { computeUpdate(model) }?.let(::applyUpdate)
+        ReadAction.compute<CanvasUpdate?, RuntimeException> { computeUpdate(model, revealed.toSet()) }?.let(::applyUpdate)
     }
 
-    private fun computeUpdate(previous: BlockModel?): CanvasUpdate? {
+    private fun computeUpdate(previous: BlockModel?, reveal: Set<String>): CanvasUpdate? {
         val psi = PsiManager.getInstance(project).findFile(file) ?: return null
-        return RebuildPolicy.next(previous, PhpBlockBuilder.build(psi), PsiTreeUtil.hasErrorElements(psi))
+        return RebuildPolicy.next(previous, PhpBlockBuilder.build(psi, reveal), PsiTreeUtil.hasErrorElements(psi))
     }
 
     private fun applyUpdate(update: CanvasUpdate) {
@@ -453,6 +455,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private fun actionsFor(block: Block): Pair<List<Pair<String, () -> Unit>>, List<Pair<String, () -> Unit>>> = when (block.kind) {
         BlockKind.CLASS -> listOf<Pair<String, () -> Unit>>("+ method" to { addMethod() }) to emptyList()
         BlockKind.METHOD -> emptyList<Pair<String, () -> Unit>>() to listOf<Pair<String, () -> Unit>>("Delete method" to { deleteMethod(block.id) })
+        BlockKind.PARENT, BlockKind.INTERFACE, BlockKind.TRAIT ->
+            listOf<Pair<String, () -> Unit>>((if (block.id in revealed) "− parents" else "+ parents") to { toggleReveal(block.id) }) to emptyList()
         else -> emptyList<Pair<String, () -> Unit>>() to emptyList()
     }
 
@@ -466,6 +470,13 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         slice.editor.caretModel.moveToOffset(if (down) range.start else range.end)
         slice.editor.contentComponent.requestFocusInWindow()
         return true
+    }
+
+    /** "+ parents" / "− parents": shows or hides the parents, interfaces and traits of a related block. */
+    fun toggleReveal(id: String) = withModelAccess {
+        if (!revealed.remove(id)) revealed += id
+        focusMovedTo(null)
+        rebuildNow()
     }
 
     fun view(id: String): BlockView? = views[id]

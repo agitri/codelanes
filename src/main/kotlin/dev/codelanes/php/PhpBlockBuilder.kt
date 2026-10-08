@@ -37,7 +37,7 @@ object PhpBlockBuilder {
     /** Leaf tokens allowed in the header besides whitespace and comments. */
     private val HEADER_TOKENS = setOf("<?php", "<?", "namespace", ";", "{")
 
-    fun build(file: PsiFile): BuildResult {
+    fun build(file: PsiFile, revealed: Set<String> = emptySet()): BuildResult {
         unsupportedReason(file)?.let { return BuildResult.Unsupported(it) }
         val phpClass = singleClass(file as PhpFile)
         val classRange = rangeWithDoc(phpClass)
@@ -83,6 +83,10 @@ object PhpBlockBuilder {
             links += Link(linkKind, block.id, classId)
         }
         links += overrides(methods, related)
+        revealDeeper(related, revealed, classId).let { (deeperBlocks, deeperLinks) ->
+            blocks += deeperBlocks
+            links += deeperLinks
+        }
         implementedBy(phpClass, classId, methods, path).let { (implBlocks, implLinks) ->
             blocks += implBlocks
             links += implLinks
@@ -187,6 +191,33 @@ object PhpBlockBuilder {
             links += Link(LinkKind.IMPLEMENTED_BY, classId, MORE_ID)
         }
         return blocks to links
+    }
+
+    /**
+     * For every revealed related block: its own parents, interfaces and traits (and theirs, if revealed too),
+     * linked into the revealed block. A type reached twice gets one block with several links.
+     */
+    private fun revealDeeper(related: List<Related>, revealed: Set<String>, classId: String): Pair<List<Block>, List<Link>> {
+        val known = related.associateBy { it.block.id }.toMutableMap()
+        val queue = ArrayDeque(revealed.filter { it in known })
+        val seen = mutableSetOf<String>()
+        val blocks = mutableListOf<Block>()
+        val links = mutableListOf<Link>()
+        while (queue.isNotEmpty()) {
+            val id = queue.removeFirst()
+            if (!seen.add(id)) continue
+            for (deeper in relatedTypes(known.getValue(id).type)) {
+                val deeperId = deeper.block.id
+                if (deeperId == classId) continue
+                if (deeperId !in known) {
+                    known[deeperId] = deeper
+                    blocks += deeper.block
+                }
+                links += Link(deeper.linkKind, deeperId, id)
+                if (deeperId in revealed) queue += deeperId
+            }
+        }
+        return blocks to links.distinct()
     }
 
     /** A method links to each related type that declares a method with the same name (it implements or overrides it). */

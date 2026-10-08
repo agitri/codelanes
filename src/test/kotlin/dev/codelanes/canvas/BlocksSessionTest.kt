@@ -336,4 +336,18 @@ class BlocksSessionTest : BasePlatformTestCase() {
         val footest = session.sliceEditor("method:footest")!!.editor
         assertEquals(myFixture.editor.document.text.indexOf("public function footest"), footest.caretModel.offset)
     }
+
+    fun testPlusParentsRevealsAndHidesTheNextLevel() {
+        myFixture.addFileToProject("Root.php", "<?php\nnamespace App;\n\nabstract class Root\n{\n}\n")
+        myFixture.addFileToProject("Base.php", "<?php\nnamespace App;\n\nabstract class Base extends Root\n{\n}\n")
+        val psi = myFixture.configureByText("Foo.php", source.replace("class Foo", "class Foo extends Base"))
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        val base = "parent:\\App\\Base"
+        assertEquals(listOf("+ parents"), session.view(base)!!.actionTexts())
+        session.toggleReveal(base)
+        assertTrue(session.blockIds().contains("parent:\\App\\Root"))
+        assertEquals(listOf("− parents"), session.view(base)!!.actionTexts())
+        session.toggleReveal(base)
+        assertFalse(session.blockIds().contains("parent:\\App\\Root"))
+    }
 }

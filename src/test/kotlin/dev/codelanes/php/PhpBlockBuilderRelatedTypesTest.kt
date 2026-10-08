@@ -52,4 +52,24 @@ class PhpBlockBuilderRelatedTypesTest : PhpBuilderTestCase() {
         assertTrue(model.ofKind(BlockKind.INTERFACE).isEmpty())
         assertEquals("class Foo implements DoesNotExist", model.ofKind(BlockKind.CLASS).single().title)
     }
+
+    private fun chain() {
+        addPhp("src/Entity.php", "<?php\nnamespace App;\nabstract class Entity {}\n")
+        addPhp("src/Identifiable.php", "<?php\nnamespace App;\ninterface Identifiable {}\n")
+        addPhp("src/Model.php", "<?php\nnamespace App;\nabstract class Model extends Entity implements Identifiable {}\n")
+    }
+
+    fun testRevealedParentShowsItsOwnParentsAndInterfaces() {
+        chain()
+        val file = myFixture.configureByText("Order.php", "<?php\nnamespace App;\nclass Order extends Model {}\n")
+        val model = (PhpBlockBuilder.build(file, revealed = setOf("parent:\\App\\Model")) as dev.codelanes.model.BuildResult.Supported).model
+        assertTrue(model.links.contains(Link(LinkKind.EXTENDS, "parent:\\App\\Entity", "parent:\\App\\Model")))
+        assertTrue(model.links.contains(Link(LinkKind.IMPLEMENTS, "interface:\\App\\Identifiable", "parent:\\App\\Model")))
+    }
+
+    fun testWithoutRevealOnlyDirectParentsShow() {
+        chain()
+        val model = supported("<?php\nnamespace App;\nclass Order extends Model {}\n")
+        assertFalse(model.blocks.any { it.id == "parent:\\App\\Entity" })
+    }
 }
