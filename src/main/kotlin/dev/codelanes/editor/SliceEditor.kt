@@ -27,6 +27,8 @@ class SliceEditor(project: Project, file: VirtualFile, private val document: Doc
             isCaretRowShown = false
             isRightMarginShown = false
             isUseSoftWraps = false
+            // In-place rename relies on editor features a folded slice doesn't fully support; use the dialog.
+            isVariableInplaceRenameEnabled = false
         }
         setVerticalScrollbarVisible(false)
         scrollPane.isWheelScrollingEnabled = false

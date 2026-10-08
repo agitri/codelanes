@@ -150,4 +150,9 @@ class SliceEditorTest : BasePlatformTestCase() {
         runEditorAction(slice, com.intellij.openapi.actionSystem.IdeActions.ACTION_EDITOR_MOVE_CARET_UP)
         assertEquals(listOf(true), handedOver)
     }
+
+    fun testRenameInABlockUsesTheRenameDialogInsteadOfInPlaceEditing() {
+        val (slice, _) = open()
+        assertFalse(slice.editor.settings.isVariableInplaceRenameEnabled)
+    }
 }
