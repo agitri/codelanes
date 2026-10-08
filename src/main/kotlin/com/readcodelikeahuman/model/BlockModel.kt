@@ -1,8 +1,8 @@
 package com.readcodelikeahuman.model
 
-enum class BlockKind { HEADER, INTERFACE, PARENT, TRAIT, DEPENDENCY, CLASS, METHOD }
+enum class BlockKind { HEADER, INTERFACE, PARENT, TRAIT, DEPENDENCY, CLASS, METHOD, IMPLEMENTER, IMPLEMENTATION, MORE }
 
-enum class LinkKind { IMPLEMENTS, EXTENDS, USES, INJECTS, OWNS, CALLS, OVERRIDES }
+enum class LinkKind { IMPLEMENTS, EXTENDS, USES, INJECTS, OWNS, CALLS, OVERRIDES, IMPLEMENTED_BY }
 
 /** Half-open character range `[start, end)` in a file. */
 data class SourceRange(val start: Int, val end: Int) {

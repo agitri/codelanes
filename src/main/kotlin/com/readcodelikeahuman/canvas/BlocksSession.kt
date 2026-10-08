@@ -203,7 +203,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         for (block in current.blocks) {
             val isCollapsed = collapsed.getOrPut(block.id) { block.collapsed }
             val view = views.getOrPut(block.id) { BlockView(block.id, canvas) }
-            val slice = if (isCollapsed) null else sliceFor(block)
+            val slice = if (isCollapsed || block.kind == BlockKind.MORE) null else sliceFor(block)
             if (slice == null) {
                 slices.remove(block.id)?.let(Disposer::dispose)
             } else {

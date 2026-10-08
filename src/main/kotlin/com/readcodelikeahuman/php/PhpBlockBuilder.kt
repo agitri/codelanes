@@ -5,6 +5,8 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.openapi.roots.ProjectFileIndex
+import com.jetbrains.php.PhpIndex
 import com.jetbrains.php.lang.psi.PhpFile
 import com.jetbrains.php.lang.psi.elements.ClassReference
 import com.jetbrains.php.lang.psi.elements.Declare
@@ -29,6 +31,8 @@ import com.jetbrains.php.lang.psi.elements.Function as PhpFunction
 /** Turns a single-type PHP file into a [BlockModel]; anything else is [BuildResult.Unsupported]. */
 object PhpBlockBuilder {
     const val HEADER_ID = "header"
+    const val MORE_ID = "more:implementers"
+    const val MAX_IMPLEMENTERS = 10
 
     /** Leaf tokens allowed in the header besides whitespace and comments. */
     private val HEADER_TOKENS = setOf("<?php", "<?", "namespace", ";", "{")
@@ -79,6 +83,10 @@ object PhpBlockBuilder {
             links += Link(linkKind, block.id, classId)
         }
         links += overrides(methods, related)
+        implementedBy(phpClass, classId, methods, path).let { (implBlocks, implLinks) ->
+            blocks += implBlocks
+            links += implLinks
+        }
         dependencies(phpClass).forEach { block ->
             blocks += block
             links += Link(LinkKind.INJECTS, block.id, classId)
@@ -136,6 +144,49 @@ object PhpBlockBuilder {
         return resolved(phpClass.implementsList.referenceElements).map { Related(externalBlock(BlockKind.INTERFACE, it), LinkKind.IMPLEMENTS, it) } +
             resolved(phpClass.extendsList.referenceElements).map { Related(externalBlock(parentKind, it), LinkKind.EXTENDS, it) } +
             phpClass.traits.distinctBy { it.fqn }.map { Related(externalBlock(BlockKind.TRAIT, it), LinkKind.USES, it) }
+    }
+
+    /**
+     * For an interface, trait or abstract class: the project classes that implement / use / extend it (at most
+     * [MAX_IMPLEMENTERS], alphabetical, plus a "more" block), and per class only the methods that implement or
+     * override one of this type's methods.
+     */
+    private fun implementedBy(phpClass: PhpClass, classId: String, methods: List<Method>, path: String): Pair<List<Block>, List<Link>> {
+        if (!phpClass.isInterface && !phpClass.isTrait && !phpClass.isAbstract) return emptyList<Block>() to emptyList()
+        val index = PhpIndex.getInstance(phpClass.project)
+        val files = ProjectFileIndex.getInstance(phpClass.project)
+        val candidates = (if (phpClass.isTrait) index.getTraitUsages(phpClass) else index.getDirectSubclasses(phpClass.fqn))
+            .filter { !it.isInterface && it.fqn != phpClass.fqn }
+            .filter { c -> c.containingFile?.virtualFile?.let { files.isInContent(it) && !files.isInLibrary(it) } == true }
+            .distinctBy { it.fqn }
+            .sortedWith(compareBy({ it.name }, { it.fqn }))
+        val blocks = mutableListOf<Block>()
+        val links = mutableListOf<Link>()
+        for (implementer in candidates.take(MAX_IMPLEMENTERS)) {
+            val block = externalBlock(BlockKind.IMPLEMENTER, implementer)
+            blocks += block
+            links += Link(LinkKind.IMPLEMENTED_BY, classId, block.id)
+            for (method in methods) {
+                val implementation = implementer.findOwnMethodByName(method.name) ?: continue
+                val id = "implementation:${implementer.fqn}::${method.name}"
+                blocks += Block(
+                    id = id,
+                    kind = BlockKind.IMPLEMENTATION,
+                    title = "${implementer.name}::${methodTitle(implementation)}",
+                    filePath = implementer.containingFile.virtualFile.path,
+                    range = rangeWithDoc(implementation),
+                    collapsed = true,
+                )
+                links += Link(LinkKind.OWNS, block.id, id)
+                links += Link(LinkKind.OVERRIDES, id, "method:${method.name}", rangeWithDoc(method))
+            }
+        }
+        val rest = candidates.drop(MAX_IMPLEMENTERS)
+        if (rest.isNotEmpty()) {
+            blocks += Block(MORE_ID, BlockKind.MORE, "and ${rest.size} more", path, SourceRange(0, 0), collapsed = true, summary = rest.map { it.name })
+            links += Link(LinkKind.IMPLEMENTED_BY, classId, MORE_ID)
+        }
+        return blocks to links
     }
 
     /** A method links to each related type that declares a method with the same name (it implements or overrides it). */

@@ -212,4 +212,25 @@ class LayoutEngineTest {
         val r = LayoutEngine.layout(model, sizeOf).rects
         assertEquals(listOf("method:a", "method:c", "method:b", "method:d"), methods.map { it.id }.sortedBy { r.getValue(it).y })
     }
+
+    @Test
+    fun implementersAndTheirMethodsMirrorToTheRight() {
+        val model = BlockModel(
+            listOf(
+                block("class:I", CLASS),
+                block("method:render", METHOD),
+                block("implementer:Order", BlockKind.IMPLEMENTER),
+                block("implementation:Order::render", BlockKind.IMPLEMENTATION),
+            ),
+            listOf(
+                Link(OWNS, "class:I", "method:render"),
+                Link(com.readcodelikeahuman.model.LinkKind.IMPLEMENTED_BY, "class:I", "implementer:Order"),
+                Link(OWNS, "implementer:Order", "implementation:Order::render"),
+            ),
+        )
+        val r = LayoutEngine.layout(model, sizeOf).rects
+        assertTrue(r.getValue("method:render").right <= r.getValue("implementer:Order").x)
+        assertTrue(r.getValue("implementer:Order").right <= r.getValue("implementation:Order::render").x)
+        assertNoOverlap(r)
+    }
 }

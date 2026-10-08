@@ -248,6 +248,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             LinkKind.OWNS to JBColor(java.awt.Color(0x757575), java.awt.Color(0x9E9E9E)),
             LinkKind.CALLS to JBColor(java.awt.Color(0xC62828), java.awt.Color(0xEF9A9A)),
             LinkKind.OVERRIDES to JBColor(java.awt.Color(0xD81B60), java.awt.Color(0xF48FB1)),
+            LinkKind.IMPLEMENTED_BY to JBColor(java.awt.Color(0x00695C), java.awt.Color(0x80CBC4)),
         )
 
         /** Override lines each get one of these; none of them is a kind colour above. */
@@ -268,6 +269,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             LinkKind.OWNS to "has method",
             LinkKind.CALLS to "calls",
             LinkKind.OVERRIDES to "overrides / implements method",
+            LinkKind.IMPLEMENTED_BY to "implemented / used by",
         )
         const val MIN_ZOOM = 0.2
         const val MAX_ZOOM = 2.0

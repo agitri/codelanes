@@ -234,4 +234,13 @@ class BlocksSessionTest : BasePlatformTestCase() {
         slice.editor.caretModel.moveToOffset(slice.editor.document.text.indexOf("function bar"))
         assertEquals(listOf("method:bar"), session.canvas.visibleLinks().filter { it.kind == com.readcodelikeahuman.model.LinkKind.OVERRIDES }.map { it.from })
     }
+
+    fun testTheMoreBlockNeverOpensAnEditor() {
+        (1..11).forEach { n -> myFixture.addFileToProject("R$n.php", "<?php\nnamespace App;\nclass R$n implements Renderable { public function render(): string { return ''; } }\n") }
+        val psi = myFixture.configureByText("Renderable.php", "<?php\nnamespace App;\n\ninterface Renderable\n{\n    public function render(): string;\n}\n")
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        assertTrue(session.blockIds().contains("more:implementers"))
+        session.collapseToggled("more:implementers")
+        assertFalse(session.hasSliceEditor("more:implementers"))
+    }
 }

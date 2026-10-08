@@ -33,7 +33,7 @@ object LayoutEngine {
     const val MAX_COLUMN_HEIGHT = 1400
 
     private val LANE_KINDS = listOf(BlockKind.PARENT, BlockKind.INTERFACE, BlockKind.TRAIT, BlockKind.DEPENDENCY)
-    private val STRUCTURAL = setOf(LinkKind.EXTENDS, LinkKind.IMPLEMENTS, LinkKind.USES, LinkKind.INJECTS, LinkKind.OWNS)
+    private val STRUCTURAL = setOf(LinkKind.EXTENDS, LinkKind.IMPLEMENTS, LinkKind.USES, LinkKind.INJECTS, LinkKind.OWNS, LinkKind.IMPLEMENTED_BY)
 
     fun layout(model: BlockModel, sizeOf: (Block) -> Size, pins: Map<String, Point> = emptyMap()): Layout {
         val rank = ranks(model)
@@ -55,7 +55,8 @@ object LayoutEngine {
         for (pass in model.blocks.indices) {
             var changed = false
             for (edge in edges) {
-                val wanted = rank.getValue(edge.from) + 1
+                // Implementers go one lane further than the type's own methods: type | methods | implementers.
+                val wanted = rank.getValue(edge.from) + if (edge.kind == LinkKind.IMPLEMENTED_BY) 2 else 1
                 if (rank.getValue(edge.to) < wanted) {
                     rank[edge.to] = wanted
                     changed = true
