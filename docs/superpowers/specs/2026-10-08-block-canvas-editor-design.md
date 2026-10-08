@@ -54,14 +54,20 @@ relationships decide how many columns there are and what goes in them.
   columns. Parents, interfaces, traits and dependencies sit to the **left** of
   the type they feed into, the class is in the **middle**, and its methods are
   to the **right**. Revealing a grandparent adds a column further left.
-- Blocks inside a column are stacked top to bottom and ordered to reduce
-  crossing lines. A column taller than the maximum column height wraps into an
-  extra column to its right (e.g. a class with 20 methods gets two method
-  columns).
+- **Lanes.** Each column is a *lane*: related types, the class (with the header
+  above it), and the methods. Blocks fill a lane top to bottom, in source order
+  (related types are ordered to reduce crossing lines). All lanes are
+  **top-aligned**, so a lane only grows downwards: a newly added method appears
+  at the bottom of the methods lane (or between methods, if it was typed between
+  them in the file), and no other block moves. A lane taller than the maximum
+  height wraps into an extra lane to its right (e.g. a class with 20 methods
+  gets two method lanes).
 - The header block sits directly above the class block, in the class's column.
-- **Drag to arrange.** Any block can be dragged. A dragged block is *pinned*
-  and keeps its position; auto-placed blocks move out of the way of pinned
-  ones. New blocks are auto-placed by the same rules.
+- **Drag to arrange.** Any block can be dragged. A dragged block is *pinned*:
+  it leaves its lane and stays where it was put, and the rest of the lane closes
+  the gap. Auto-placed blocks move down out of the way of pinned ones, staying
+  in their lane. New blocks are auto-placed by the same lane rules; they never
+  float freely.
 - **Pins are per user** and stored in the IDE workspace (`.idea/workspace.xml`,
   normally not in git), keyed by file and block id. If a block's id changes
   (e.g. a method is renamed), its pin is dropped and the block is auto-placed.

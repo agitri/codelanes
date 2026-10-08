@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- The layout reads left to right: related types left, class middle, methods right. There are no fixed columns; structural links decide them.
+- The layout reads left to right in top-aligned lanes: related types left, class middle, methods right. There are no fixed columns; structural links decide the lanes. New blocks join the bottom of their lane (in source order) and never move other lanes.
 - The file on disk is the single source of truth; the canvas never stores code.
 - Cross-file references only via PSI; unresolved ⇒ no block.
 - Pins (dragged positions) are per user, stored in `StoragePathMacros.WORKSPACE_FILE`, keyed by file path + block id; stale pins are dropped.
@@ -31,6 +31,7 @@ Usage highlighting, `+` reveal of deeper parents, overrides/implements links, `+
 3. **Renaming a dragged (pinned) method:** stale pin is dropped, no crash, no ghost view. → Task 9 `testRenamedBlockDropsItsPin`.
 4. **File turns unsupported while open** (e.g. `echo` added before the class): keep the last good blocks with a notice, no exception. → Task 9 `testUnsupportedEditKeepsLastGoodModelWithNotice`.
 5. **Pins and overlaps:** auto-placed blocks never overlap pinned ones or each other. → Task 2 `pinnedBlockKeepsPositionAndOthersMoveAway`, `noTwoBlocksOverlap`.
+6. **Stable lanes:** adding a method puts it at the bottom of the methods lane and moves nothing else. → Task 2 `newMethodAppendsBelowOthersAndNothingElseMoves`, `pinnedBlockLeavesNoGapInItsLane`.
 
 ## File Structure
 
@@ -141,7 +142,7 @@ git commit -m "feat: add member summaries to other-file blocks"
 
 ### Task 2: Left-to-right graph layout with pins
 
-Replaces the three-column engine. Columns come from structural links (longest-path layering, then compacted so sources sit right next to what they feed). Inside a column, blocks stack top to bottom, are ordered by neighbours (barycenter sweeps) to reduce crossings, and wrap into an extra column when too tall. Pinned blocks keep their positions; the rest are pushed down until nothing overlaps.
+Replaces the three-column engine. Lanes (columns) come from structural links (longest-path layering, then compacted so sources sit right next to what they feed). Inside a lane, blocks stack top to bottom in model (source) order, reordered by neighbours (barycenter sweeps) only where that reduces crossings; blocks that share the same neighbours, like the methods of one class, keep source order. All lanes are **top-aligned** at y = 0, so adding a block to a lane never moves blocks in other lanes. A lane that gets too tall wraps into an extra lane. Pinned blocks are taken **out** of the lane flow (the lane closes the gap) and keep their positions; the rest are pushed down until nothing overlaps.
 
 **Files:**
 - Rewrite: `src/main/kotlin/com/readcodelikeahuman/layout/LayoutEngine.kt`
@@ -155,7 +156,7 @@ Replaces the three-column engine. Columns come from structural links (longest-pa
   - `data class Point(val x: Int, val y: Int)`
   - `data class Layout(val rects: Map<String, Rect>)` (the old `Arrow` type is removed; Task 3 replaces it)
   - `object LayoutEngine { H_GAP = 96; V_GAP = 24; PIN_GAP = 16; MAX_COLUMN_HEIGHT = 1400; fun layout(model: BlockModel, sizeOf: (Block) -> Size, pins: Map<String, Point> = emptyMap()): Layout }`
-  - Structural link kinds: EXTENDS, IMPLEMENTS, USES, INJECTS, OWNS. The header goes directly above the class, in the class's column. Column contents are centred vertically on the tallest column.
+  - Structural link kinds: EXTENDS, IMPLEMENTS, USES, INJECTS, OWNS. The header goes directly above the class, in the class's lane. Lanes are top-aligned (y = 0). Pinned blocks don't take a slot in their lane.
 
 - [ ] **Step 1: Write the failing tests** (replace the whole file)
 
@@ -289,6 +290,29 @@ class LayoutEngineTest {
     }
 
     @Test
+    fun newMethodAppendsBelowOthersAndNothingElseMoves() {
+        val before = LayoutEngine.layout(foo, sizeOf).rects
+        val grown = BlockModel(
+            foo.blocks + block("method:added", METHOD),
+            foo.links + Link(OWNS, "class:Foo", "method:added"),
+        )
+        val after = LayoutEngine.layout(grown, sizeOf).rects
+        before.forEach { (id, rect) -> assertEquals(id, rect, after.getValue(id)) }
+        val added = after.getValue("method:added")
+        val footest = after.getValue("method:footest")
+        assertEquals(footest.x, added.x)
+        assertEquals(footest.bottom + LayoutEngine.V_GAP, added.y)
+    }
+
+    @Test
+    fun pinnedBlockLeavesNoGapInItsLane() {
+        val auto = LayoutEngine.layout(foo, sizeOf).rects
+        val r = LayoutEngine.layout(foo, sizeOf, mapOf("method:bar" to Point(2000, 2000))).rects
+        assertEquals(auto.getValue("method:bar").y, r.getValue("method:footest").y)
+        assertEquals(auto.getValue("method:bar").x, r.getValue("method:footest").x)
+    }
+
+    @Test
     fun stalePinsAreIgnored() {
         assertEquals(
             LayoutEngine.layout(foo, sizeOf),
@@ -349,8 +373,14 @@ object LayoutEngine {
 
     fun layout(model: BlockModel, sizeOf: (Block) -> Size, pins: Map<String, Point> = emptyMap()): Layout {
         val rank = ranks(model)
-        val auto = place(orderedColumns(model, rank), sizeOf)
-        return Layout(applyPins(model, auto, pins))
+        val columns = orderedColumns(model, rank)
+        val auto = place(columns.map { lane -> lane.filter { it.id !in pins } }, sizeOf)
+        val pinned = model.blocks.filter { it.id in pins }.associate { block ->
+            val size = sizeOf(block)
+            val at = pins.getValue(block.id)
+            block.id to Rect(at.x, at.y, size.width, size.height)
+        }
+        return Layout(applyPins(model, auto, pinned))
     }
 
     /** Longest-path ranks over structural links, compacted so sources sit next to what they feed. */
@@ -412,13 +442,13 @@ object LayoutEngine {
         column.addAll(sorted)
     }
 
+    /** Top-aligned lanes, left to right; a lane only grows downwards. */
     private fun place(columns: List<List<Block>>, sizeOf: (Block) -> Size): Map<String, Rect> {
         val stacks = columns.flatMap { wrap(it, sizeOf) }.filter { it.isNotEmpty() }
-        val tallest = stacks.maxOfOrNull { stackHeight(it, sizeOf) } ?: 0
         val rects = linkedMapOf<String, Rect>()
         var x = 0
         for (stack in stacks) {
-            var y = (tallest - stackHeight(stack, sizeOf)) / 2
+            var y = 0
             var width = 0
             for (block in stack) {
                 val size = sizeOf(block)
@@ -446,20 +476,11 @@ object LayoutEngine {
         return stacks
     }
 
-    private fun stackHeight(stack: List<Block>, sizeOf: (Block) -> Size): Int =
-        stack.sumOf { sizeOf(it).height } + V_GAP * (stack.size - 1)
-
-    private fun applyPins(model: BlockModel, auto: Map<String, Rect>, pins: Map<String, Point>): Map<String, Rect> {
-        val result = mutableMapOf<String, Rect>()
-        val placed = mutableListOf<Rect>()
-        for (block in model.blocks) {
-            val pin = pins[block.id] ?: continue
-            val rect = auto.getValue(block.id).copy(x = pin.x, y = pin.y)
-            result[block.id] = rect
-            placed += rect
-        }
+    /** Pinned rects stay put; auto-placed rects are pushed down (staying in their lane) until nothing overlaps. */
+    private fun applyPins(model: BlockModel, auto: Map<String, Rect>, pinned: Map<String, Rect>): Map<String, Rect> {
+        val result = pinned.toMutableMap()
+        val placed = pinned.values.toMutableList()
         auto.entries
-            .filter { it.key !in pins }
             .sortedWith(compareBy({ it.value.x }, { it.value.y }))
             .forEach { (id, start) ->
                 var rect = start
@@ -478,7 +499,7 @@ object LayoutEngine {
 - [ ] **Step 4: Run the tests**
 
 Run: `./gradlew test --tests "com.readcodelikeahuman.layout.LayoutEngineTest"`
-Expected: PASS (8 tests).
+Expected: PASS (10 tests).
 
 - [ ] **Step 5: Commit**
 
