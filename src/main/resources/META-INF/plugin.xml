@@ -1,0 +1,12 @@
+<idea-plugin>
+    <id>com.readcodelikeahuman.blocks</id>
+    <name>Read Code Like a Human</name>
+    <vendor email="rtm.gerrits@gmail.com">Rene Gerrits</vendor>
+    <description><![CDATA[
+        Shows code as editable blocks on a 2D canvas instead of a vertical
+        line-by-line editor, so humans really read and understand the code.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.jetbrains.php</depends>
+</idea-plugin>
