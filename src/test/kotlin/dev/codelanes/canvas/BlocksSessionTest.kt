@@ -283,4 +283,49 @@ class BlocksSessionTest : BasePlatformTestCase() {
         session.highlightUsagesAt("method:bar", text.indexOf("return ${'$'}this->footest") + 2)
         assertTrue(session.canvas.highlights.isEmpty())
     }
+
+    fun testPlusMethodAddsAnEmptyMethodBlockWithItsNameSelected() {
+        val session = open()
+        session.addMethod()
+        assertTrue(session.blockIds().contains("method:newMethod"))
+        val editor = session.sliceEditor("method:newMethod")!!.editor
+        assertEquals("newMethod", editor.selectionModel.selectedText)
+        assertTrue(myFixture.editor.document.text.contains("    public function newMethod(): void\n    {\n    }\n}"))
+    }
+
+    fun testPlusMethodPicksAFreeName() {
+        val session = open()
+        session.addMethod()
+        session.addMethod()
+        assertTrue(session.blockIds().containsAll(listOf("method:newMethod", "method:newMethod2")))
+    }
+
+    fun testPlusMethodInAnInterfaceAddsASignature() {
+        val psi = myFixture.configureByText("Renderable.php", "<?php\nnamespace App;\n\ninterface Renderable\n{\n    public function render(): string;\n}\n")
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        session.addMethod()
+        assertTrue(myFixture.editor.document.text.contains("    public function newMethod(): void;\n}"))
+        assertTrue(session.blockIds().contains("method:newMethod"))
+    }
+
+    fun testDeleteMethodRemovesItsLinesAndBlock() {
+        val session = open()
+        session.deleteMethod("method:footest") { true }
+        assertFalse(session.blockIds().contains("method:footest"))
+        val text = myFixture.editor.document.text
+        assertFalse(text.contains("footest(string"))
+        assertTrue(text.contains("        return ${'$'}this->footest(${'$'}this->name);\n    }\n}"))
+    }
+
+    fun testDeleteMethodCanBeCancelled() {
+        val session = open()
+        session.deleteMethod("method:footest") { false }
+        assertTrue(session.blockIds().contains("method:footest"))
+    }
+
+    fun testClassOffersPlusMethodAndMethodsOfferDelete() {
+        val session = open()
+        assertEquals(listOf("+ method"), session.view("class:\\App\\Foo")!!.actionTexts())
+        assertEquals(listOf("Delete method"), session.view("method:bar")!!.menuTexts())
+    }
 }

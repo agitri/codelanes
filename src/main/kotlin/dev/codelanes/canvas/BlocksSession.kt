@@ -4,6 +4,8 @@ import com.intellij.codeInsight.lookup.LookupManager
 import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.TransactionGuard
 import com.intellij.openapi.application.WriteIntentReadAction
@@ -214,6 +216,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
                 tracked[block.id]?.current()?.let { (range, excluded) -> slice.show(range, excluded) }
             }
             view.update(block, slice == null, slice?.component ?: summaryOf(block), canvas.zoom)
+            actionsFor(block).let { (actions, menu) -> view.setActions(actions, menu) }
         }
         canvas.setContent(LinkedHashMap(views), current.links)
         relayout()
@@ -402,6 +405,57 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val owner = PsiTreeUtil.getParentOfType(element, PsiNameIdentifierOwner::class.java, false) ?: return null
         return owner.takeIf { it.nameIdentifier?.textRange?.containsOffset(offset) == true }
     }
+
+    /**
+     * "+ method": adds an empty method (a signature in an interface) at the end of the class with a free name,
+     * shows it as its own block and selects the name so you can type over it.
+     */
+    fun addMethod() = withModelAccess {
+        val current = model ?: return@withModelAccess
+        val cls = current.ofKind(BlockKind.CLASS).firstOrNull() ?: return@withModelAccess
+        val (range, _) = tracked[cls.id]?.current() ?: return@withModelAccess
+        val taken = current.ofKind(BlockKind.METHOD).map { it.id.removePrefix("method:").lowercase() }.toSet()
+        val name = generateSequence(1) { it + 1 }.map { if (it == 1) "newMethod" else "newMethod$it" }.first { it.lowercase() !in taken }
+        val indent = "    "
+        val method = if (cls.title.startsWith("interface")) "${indent}public function $name(): void;\n"
+        else "${indent}public function $name(): void\n$indent{\n$indent}\n"
+        val closingBrace = range.end - 1
+        val lineStart = dev.codelanes.editor.SliceRanges.lineStartOf(document.charsSequence, closingBrace)
+        val insertAt = if (lineStart < closingBrace && document.charsSequence.subSequence(lineStart, closingBrace).isBlank()) lineStart else closingBrace
+        val text = "\n" + method
+        WriteCommandAction.runWriteCommandAction(project, "Add Method", null, { document.insertString(insertAt, text) })
+        focusMovedTo(null)
+        rebuildNow()
+        val nameOffset = insertAt + text.indexOf(name)
+        reveal(nameOffset)
+        slices["method:$name"]?.editor?.selectionModel?.setSelection(nameOffset, nameOffset + name.length)
+    }
+
+    /** Deletes method block [id] (its whole lines) after [confirm] says yes. */
+    fun deleteMethod(id: String, confirm: () -> Boolean = { askToDelete(id) }) = withModelAccess {
+        val current = model ?: return@withModelAccess
+        val cls = current.ofKind(BlockKind.CLASS).firstOrNull() ?: return@withModelAccess
+        val (classRange, _) = tracked[cls.id]?.current() ?: return@withModelAccess
+        val (range, _) = tracked[id]?.current() ?: return@withModelAccess
+        if (!confirm()) return@withModelAccess
+        val lines = dev.codelanes.editor.SliceRanges.wholeLines(document.charsSequence, classRange, range)
+        WriteCommandAction.runWriteCommandAction(project, "Delete Method", null, { document.deleteString(lines.start, lines.end) })
+        focusMovedTo(null)
+        rebuildNow()
+    }
+
+    private fun askToDelete(id: String): Boolean {
+        val title = model?.blocks?.firstOrNull { it.id == id }?.title ?: id
+        return Messages.showYesNoDialog(project, "Delete method $title?", "Delete Method", null) == Messages.YES
+    }
+
+    private fun actionsFor(block: Block): Pair<List<Pair<String, () -> Unit>>, List<Pair<String, () -> Unit>>> = when (block.kind) {
+        BlockKind.CLASS -> listOf<Pair<String, () -> Unit>>("+ method" to { addMethod() }) to emptyList()
+        BlockKind.METHOD -> emptyList<Pair<String, () -> Unit>>() to listOf<Pair<String, () -> Unit>>("Delete method" to { deleteMethod(block.id) })
+        else -> emptyList<Pair<String, () -> Unit>>() to emptyList()
+    }
+
+    fun view(id: String): BlockView? = views[id]
 
     fun blockIds(): List<String> = views.keys.toList()
     fun hasSliceEditor(id: String): Boolean = id in slices

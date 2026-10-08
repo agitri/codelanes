@@ -11,7 +11,7 @@ object SliceRanges {
     }
 
     /** Widens [e] to whole lines (and the blank lines above it) when only whitespace shares those lines. */
-    private fun wholeLines(text: CharSequence, bounds: SourceRange, e: SourceRange): SourceRange {
+    internal fun wholeLines(text: CharSequence, bounds: SourceRange, e: SourceRange): SourceRange {
         var start = e.start
         val lineStart = lineStartOf(text, start)
         if (isBlank(text, lineStart, start)) {
