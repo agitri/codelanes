@@ -9,4 +9,23 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.jetbrains.php</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileEditorProvider implementation="com.readcodelikeahuman.ide.BlocksEditorProvider"/>
+        <editorNotificationProvider implementation="com.readcodelikeahuman.ide.BlocksUnavailableNotification"/>
+    </extensions>
+
+    <actions>
+        <action id="ReadCode.ToggleBlocksView"
+                class="com.readcodelikeahuman.ide.ToggleBlocksViewAction"
+                text="Toggle Blocks / Text View">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt shift B"/>
+            <add-to-group group-id="ViewMenu" anchor="last"/>
+        </action>
+        <action id="ReadCode.BlocksByDefault"
+                class="com.readcodelikeahuman.ide.BlocksByDefaultAction"
+                text="Open PHP Files as Blocks by Default">
+            <add-to-group group-id="ViewMenu" anchor="last"/>
+        </action>
+    </actions>
 </idea-plugin>
