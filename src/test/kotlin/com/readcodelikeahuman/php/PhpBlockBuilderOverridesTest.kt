@@ -1,6 +1,5 @@
 package com.readcodelikeahuman.php
 
-import com.readcodelikeahuman.model.Link
 import com.readcodelikeahuman.model.LinkKind
 
 class PhpBlockBuilderOverridesTest : PhpBuilderTestCase() {
@@ -11,13 +10,15 @@ class PhpBlockBuilderOverridesTest : PhpBuilderTestCase() {
             "<?php\nnamespace App;\nclass Foo extends Base implements Barro\n{\n" +
                 "    public function bar(): void {}\n    public function id(): int { return 1; }\n    public function own(): void {}\n}\n",
         )
-        val overrides = model.links.filter { it.kind == LinkKind.OVERRIDES }
-        assertEquals(
-            setOf(
-                Link(LinkKind.OVERRIDES, "method:bar", "interface:\\App\\Barro"),
-                Link(LinkKind.OVERRIDES, "method:id", "parent:\\App\\Base"),
-            ),
-            overrides.toSet(),
-        )
+        val overrides = model.links.filter { it.kind == LinkKind.OVERRIDES }.map { it.from to it.to }
+        assertEquals(setOf("method:bar" to "interface:\\App\\Barro", "method:id" to "parent:\\App\\Base"), overrides.toSet())
+    }
+
+    fun testOverrideLinksPointAtTheOverriddenMethodInsideTheParent() {
+        val base = myFixture.addFileToProject("src/Base.php", "<?php\nnamespace App;\nabstract class Base\n{\n    protected int ${'$'}x = 0;\n\n    abstract public function id(): int;\n}\n")
+        val model = supported("<?php\nnamespace App;\nclass Foo extends Base\n{\n    public function id(): int { return 1; }\n}\n")
+        val link = model.links.single { it.kind == LinkKind.OVERRIDES }
+        val range = link.targetRange!!
+        assertEquals("abstract public function id(): int;", base.text.substring(range.start, range.end))
     }
 }

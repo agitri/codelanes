@@ -39,4 +39,12 @@ class LinkRoutesTest {
         val link = Link(LinkKind.OWNS, "a", "b")
         assertEquals(ArrowGeometry.route(rects.getValue("a"), rects.getValue("b")), LinkRoutes.compute(listOf(link), rects).getValue(link))
     }
+
+    @Test
+    fun anOverrideLineLandsOnTheGivenLineInsideTheTarget() {
+        val rects = mapOf("method:validate" to Rect(1000, 100, 200, 60), "parent:Model" to Rect(100, 0, 300, 400))
+        val link = Link(LinkKind.OVERRIDES, "method:validate", "parent:Model")
+        val route = LinkRoutes.compute(listOf(link), rects, targetY = mapOf(link to 250)).getValue(link)
+        assertEquals(Point(400, 250), route.last())
+    }
 }

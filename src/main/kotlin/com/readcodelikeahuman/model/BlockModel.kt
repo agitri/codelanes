@@ -35,7 +35,8 @@ data class Block(
     }
 }
 
-data class Link(val kind: LinkKind, val from: String, val to: String)
+/** [targetRange]: where in the target block's file this link lands (e.g. the overridden method), if it lands on one spot. */
+data class Link(val kind: LinkKind, val from: String, val to: String, val targetRange: SourceRange? = null)
 
 data class BlockModel(val blocks: List<Block>, val links: List<Link>) {
     private val byId: Map<String, Block> = blocks.associateBy { it.id }

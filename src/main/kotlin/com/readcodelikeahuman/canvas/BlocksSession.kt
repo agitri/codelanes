@@ -67,6 +67,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private var heldBack = false
 
     init {
+        canvas.targetLineY = ::targetLineY
         watch(document)
         rebuildNow()
     }
@@ -241,6 +242,11 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
                 if (!slice.scrollable) canvas.dispatchEvent(SwingUtilities.convertMouseEvent(e.component, e, canvas))
             }
         }
+        slice.editor.caretModel.addCaretListener(object : com.intellij.openapi.editor.event.CaretListener {
+            override fun caretPositionChanged(event: com.intellij.openapi.editor.event.CaretEvent) {
+                if (focused != null && slices[focused] === slice) canvas.focusedOffset = slice.editor.caretModel.offset
+            }
+        })
         slice.editor.contentComponent.addFocusListener(object : FocusAdapter() {
             override fun focusGained(e: FocusEvent) {
                 focusMovedTo(slices.entries.firstOrNull { it.value === slice }?.key)
@@ -253,6 +259,16 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         })
         slices[block.id] = slice
         return slice
+    }
+
+    /** Where a link lands inside its expanded target block: the middle of the target method's first line. */
+    private fun targetLineY(link: com.readcodelikeahuman.model.Link): Int? {
+        val range = link.targetRange ?: return null
+        val slice = slices[link.to] ?: return null
+        val editor = slice.editor
+        if (range.start > editor.document.textLength) return null
+        val xy = editor.offsetToXY(range.start)
+        return SwingUtilities.convertPoint(editor.contentComponent, xy.x, xy.y + editor.lineHeight / 2, canvas).y
     }
 
     private fun summaryOf(block: Block): JComponent {
@@ -294,6 +310,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         if (focused == id) return
         focused = id
         canvas.focusedId = id
+        canvas.focusedOffset = id?.let { slices[it] }?.editor?.caretModel?.offset
         if (heldBack) {
             heldBack = false
             rebuildNow()

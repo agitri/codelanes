@@ -219,4 +219,19 @@ class BlocksSessionTest : BasePlatformTestCase() {
         )
         assertEquals(java.awt.Point(before.x, before.y - 40), session.viewBounds("method:bar")!!.location)
     }
+
+    fun testCaretInsideAnExpandedParentMethodShowsItsOverrideLine() {
+        myFixture.addFileToProject("Base.php", "<?php\nnamespace App;\n\nabstract class Base\n{\n    protected int ${'$'}x = 0;\n\n    abstract public function bar(): string;\n}\n")
+        val psi = myFixture.configureByText("Foo.php", source.replace("class Foo", "class Foo extends Base"))
+        PinStore.getInstance(project).prune(psi.virtualFile.path, emptySet())
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        val parentId = "parent:\\App\\Base"
+        session.collapseToggled(parentId)
+        val slice = session.sliceEditor(parentId)!!
+        session.focusMovedTo(parentId)
+        slice.editor.caretModel.moveToOffset(slice.editor.document.text.indexOf("x = 0"))
+        assertTrue(session.canvas.visibleLinks().none { it.kind == com.readcodelikeahuman.model.LinkKind.OVERRIDES })
+        slice.editor.caretModel.moveToOffset(slice.editor.document.text.indexOf("function bar"))
+        assertEquals(listOf("method:bar"), session.canvas.visibleLinks().filter { it.kind == com.readcodelikeahuman.model.LinkKind.OVERRIDES }.map { it.from })
+    }
 }

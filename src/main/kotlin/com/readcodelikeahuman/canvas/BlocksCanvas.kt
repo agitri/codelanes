@@ -42,6 +42,12 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         set(value) { field = value; repaint() }
 
     internal val tidyButton = javax.swing.JButton("Tidy up")
+    /** Caret offset inside the focused block's file, if known. */
+    var focusedOffset: Int? = null
+        set(value) { field = value; repaint() }
+
+    /** Screen y of the line a link lands on inside its (expanded) target block, if any. */
+    var targetLineY: (Link) -> Int? = { null }
     private val pan = java.awt.Point(40, 40)
     private val views = linkedMapOf<String, BlockView>()
     private var rects: Map<String, Rect> = emptyMap()
@@ -105,7 +111,16 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         Point(((screen.x - pan.x) / zoom).roundToInt(), ((screen.y - pan.y) / zoom).roundToInt())
 
     internal fun visibleLinks(): List<Link> =
-        links.filter { it.kind !in FOCUS_ONLY || focusedId == it.from || focusedId == it.to }
+        links.filter { link ->
+            when {
+                link.kind !in FOCUS_ONLY -> true
+                focusedId == link.from -> true
+                focusedId != link.to -> false
+                // In a parent or interface: only the method under the caret shows its override line.
+                link.kind == LinkKind.OVERRIDES -> link.targetRange?.let { r -> focusedOffset?.let { it in r.start..r.end } } ?: false
+                else -> true
+            }
+        }
 
     /** Panning only moves blocks; no re-layout of the editors inside them, which keeps scrolling smooth. */
     private fun moveViews() {
@@ -147,6 +162,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
                 g2.drawPolyline(route.map { it.x }.toIntArray(), route.map { it.y }.toIntArray(), route.size)
                 arrowHead(g2, route[route.size - 2], route.last())
             }
+            paintLegend(g2)
             notice?.let {
                 g2.font = JBFont.label().asBold()
                 g2.color = JBColor.RED
@@ -163,13 +179,15 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     /** Routes are computed relative to the pan offset and cached, so panning only translates them. */
     private fun routes(visible: List<Link>): Map<Link, List<Point>> {
         val relative = views.mapValues { (_, v) -> Rect(v.x - pan.x, v.y - pan.y, v.width, v.height) }
-        val key = Triple(relative, visible, zoom)
+        val targetY = visible.mapNotNull { link -> targetLineY(link)?.let { link to it - pan.y } }.toMap()
+        val key = listOf(relative, visible, zoom, targetY)
         if (key != cachedKey) {
             cachedRoutes = LinkRoutes.compute(
                 visible,
                 relative,
                 (ArrowGeometry.LOOP * zoom).roundToInt(),
                 (SLOT_STEP * zoom).roundToInt().coerceAtLeast(4),
+                targetY,
             )
             cachedKey = key
         }
@@ -191,21 +209,27 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         return OVERRIDE_PALETTE[overrides.indexOf(link).coerceAtLeast(0) % OVERRIDE_PALETTE.size]
     }
 
-    private fun colorFor(kind: LinkKind) = when (kind) {
-        LinkKind.OWNS -> JBColor.GRAY
-        LinkKind.CALLS -> JBColor.BLUE
-        else -> JBColor.foreground()
-    }
+    private fun colorFor(kind: LinkKind): java.awt.Color = KIND_COLORS.getValue(kind)
 
-    private fun strokeFor(kind: LinkKind): BasicStroke {
-        val width = (1.5 * zoom).toFloat()
-        val dash = when (kind) {
-            LinkKind.IMPLEMENTS, LinkKind.OVERRIDES -> floatArrayOf(8f, 6f)
-            LinkKind.USES -> floatArrayOf(2f, 4f)
-            LinkKind.INJECTS -> floatArrayOf(10f, 4f, 2f, 4f)
-            else -> null
+    /** All lines are solid: colour carries the meaning (people read colours far better than dash patterns). */
+    internal fun strokeFor(kind: LinkKind): BasicStroke =
+        BasicStroke((if (kind == LinkKind.OWNS) 1.2 * zoom else 1.8 * zoom).toFloat(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+
+    /** Small key in the bottom-left corner: which colour means which kind of line. */
+    private fun paintLegend(g2: Graphics2D) {
+        g2.font = JBFont.small()
+        val metrics = g2.fontMetrics
+        val lineHeight = metrics.height + 2
+        val entries = LEGEND.filter { (kind, _) -> links.any { it.kind == kind } }
+        var y = height - 12 - lineHeight * (entries.size - 1)
+        for ((kind, label) in entries) {
+            g2.color = if (kind == LinkKind.OVERRIDES) OVERRIDE_PALETTE.first() else colorFor(kind)
+            g2.stroke = BasicStroke(2.5f)
+            g2.drawLine(12, y - metrics.ascent / 2, 32, y - metrics.ascent / 2)
+            g2.color = JBColor.foreground()
+            g2.drawString(label, 40, y)
+            y += lineHeight
         }
-        return BasicStroke(width, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10f, dash, 0f)
     }
 
     private fun Rectangle.toRect() = Rect(x, y, width, height)
@@ -216,13 +240,34 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         /** Calls and overrides only show for the focused block; otherwise the canvas drowns in lines. */
         private val FOCUS_ONLY = setOf(LinkKind.CALLS, LinkKind.OVERRIDES)
 
+        private val KIND_COLORS = mapOf(
+            LinkKind.EXTENDS to JBColor(java.awt.Color(0x1565C0), java.awt.Color(0x64B5F6)),
+            LinkKind.IMPLEMENTS to JBColor(java.awt.Color(0x2E7D32), java.awt.Color(0x81C784)),
+            LinkKind.USES to JBColor(java.awt.Color(0xB28704), java.awt.Color(0xFFD54F)),
+            LinkKind.INJECTS to JBColor(java.awt.Color(0x6A1B9A), java.awt.Color(0xCE93D8)),
+            LinkKind.OWNS to JBColor(java.awt.Color(0x757575), java.awt.Color(0x9E9E9E)),
+            LinkKind.CALLS to JBColor(java.awt.Color(0xC62828), java.awt.Color(0xEF9A9A)),
+            LinkKind.OVERRIDES to JBColor(java.awt.Color(0xD81B60), java.awt.Color(0xF48FB1)),
+        )
+
+        /** Override lines each get one of these; none of them is a kind colour above. */
         private val OVERRIDE_PALETTE = listOf(
-            JBColor(java.awt.Color(0x2E7D32), java.awt.Color(0x6AAB73)),
-            JBColor(java.awt.Color(0xC2185B), java.awt.Color(0xF06292)),
+            JBColor(java.awt.Color(0xD81B60), java.awt.Color(0xF48FB1)),
             JBColor(java.awt.Color(0xEF6C00), java.awt.Color(0xFFB74D)),
-            JBColor(java.awt.Color(0x6A1B9A), java.awt.Color(0xBA68C8)),
             JBColor(java.awt.Color(0x00838F), java.awt.Color(0x4DD0E1)),
-            JBColor(java.awt.Color(0x9E9D24), java.awt.Color(0xDCE775)),
+            JBColor(java.awt.Color(0x827717), java.awt.Color(0xDCE775)),
+            JBColor(java.awt.Color(0x283593), java.awt.Color(0x9FA8DA)),
+            JBColor(java.awt.Color(0x5D4037), java.awt.Color(0xBCAAA4)),
+        )
+
+        private val LEGEND = listOf(
+            LinkKind.EXTENDS to "extends",
+            LinkKind.IMPLEMENTS to "implements",
+            LinkKind.USES to "uses trait",
+            LinkKind.INJECTS to "injected",
+            LinkKind.OWNS to "has method",
+            LinkKind.CALLS to "calls",
+            LinkKind.OVERRIDES to "overrides / implements method",
         )
         const val MIN_ZOOM = 0.2
         const val MAX_ZOOM = 2.0

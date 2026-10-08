@@ -5,7 +5,13 @@ import com.readcodelikeahuman.model.LinkKind
 
 /** Decides the line for every link: simple elbows where possible, routed around blocks where not. */
 object LinkRoutes {
-    fun compute(links: List<Link>, rects: Map<String, Rect>, loop: Int = ArrowGeometry.LOOP, slotStep: Int = 12): Map<Link, List<Point>> {
+    fun compute(
+        links: List<Link>,
+        rects: Map<String, Rect>,
+        loop: Int = ArrowGeometry.LOOP,
+        slotStep: Int = 12,
+        targetY: Map<Link, Int> = emptyMap(),
+    ): Map<Link, List<Point>> {
         val incoming = links.filter { it.kind != LinkKind.OVERRIDES }.groupBy { it.to }
         val routes = linkedMapOf<Link, List<Point>>()
         for (link in links) {
@@ -13,7 +19,7 @@ object LinkRoutes {
             val to = rects[link.to] ?: continue
             val obstacles = rects.filterKeys { it != link.from && it != link.to }.values.toList()
             routes[link] = if (link.kind == LinkKind.OVERRIDES) {
-                aroundBlocks(from, to, obstacles)
+                aroundBlocks(from, to, targetY[link] ?: to.centerY, obstacles)
             } else {
                 val siblings = incoming.getValue(link.to).sortedBy { rects[it.from]?.y ?: 0 }
                 val simple = if (siblings.size > 1) {
@@ -27,13 +33,18 @@ object LinkRoutes {
         return routes
     }
 
-    /** A line between two blocks that leaves and enters on the sides facing each other, around anything in between. */
-    private fun aroundBlocks(from: Rect, to: Rect, obstacles: List<Rect>): List<Point> =
-        if (to.centerX < from.centerX) {
-            OrthogonalRouter.route(Point(from.x, from.centerY), Direction.LEFT, Point(to.right, to.centerY), Direction.LEFT, obstacles)
+    /**
+     * A line between two blocks that leaves and enters on the sides facing each other, around anything in between.
+     * It enters [to] at [entryY] (e.g. the line of the overridden method inside an expanded parent).
+     */
+    private fun aroundBlocks(from: Rect, to: Rect, entryY: Int, obstacles: List<Rect>): List<Point> {
+        val y = entryY.coerceIn(to.y, to.bottom)
+        return if (to.centerX < from.centerX) {
+            OrthogonalRouter.route(Point(from.x, from.centerY), Direction.LEFT, Point(to.right, y), Direction.LEFT, obstacles)
         } else {
-            OrthogonalRouter.route(Point(from.right, from.centerY), Direction.RIGHT, Point(to.x, to.centerY), Direction.RIGHT, obstacles)
+            OrthogonalRouter.route(Point(from.right, from.centerY), Direction.RIGHT, Point(to.x, y), Direction.RIGHT, obstacles)
         }
+    }
 
     /** Keeps the simple route's end points and directions, but finds a way around the blocks in between. */
     private fun reroute(simple: List<Point>, obstacles: List<Rect>): List<Point> =

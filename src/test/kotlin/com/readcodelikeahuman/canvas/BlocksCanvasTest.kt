@@ -98,8 +98,6 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         assertEquals(emptyList<Link>(), canvas.visibleLinks())
         canvas.focusedId = "a"
         assertEquals(listOf(overrides), canvas.visibleLinks())
-        canvas.focusedId = "b"
-        assertEquals(listOf(overrides), canvas.visibleLinks())
         canvas.focusedId = "c"
         assertEquals(emptyList<Link>(), canvas.visibleLinks())
     }
@@ -111,5 +109,25 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         canvas.setContent(listOf("m", "i1", "i2").associateWith { BlockView(it, canvas) }, listOf(first, second))
         assertFalse(canvas.colorFor(first) == canvas.colorFor(second))
         assertEquals(canvas.colorFor(first), canvas.colorFor(first))
+    }
+
+    fun testInAParentOnlyTheMethodUnderTheCaretShowsItsOverrideLine() {
+        val canvas = BlocksCanvas(NoListener)
+        val validate = Link(LinkKind.OVERRIDES, "method:validate", "parent:Model", com.readcodelikeahuman.model.SourceRange(100, 140))
+        val id = Link(LinkKind.OVERRIDES, "method:id", "parent:Model", com.readcodelikeahuman.model.SourceRange(50, 90))
+        canvas.setContent(listOf("method:validate", "method:id", "parent:Model").associateWith { BlockView(it, canvas) }, listOf(validate, id))
+        canvas.focusedId = "parent:Model"
+        canvas.focusedOffset = 120
+        assertEquals(listOf(validate), canvas.visibleLinks())
+        canvas.focusedOffset = 10
+        assertEquals(emptyList<Link>(), canvas.visibleLinks())
+    }
+
+    fun testEveryLineKindHasItsOwnColourAndIsSolid() {
+        val canvas = BlocksCanvas(NoListener)
+        val kinds = LinkKind.entries.filter { it != LinkKind.OVERRIDES }
+        val colours = kinds.map { canvas.colorFor(Link(it, "a", "b")) }
+        assertEquals(kinds.size, colours.toSet().size)
+        LinkKind.entries.forEach { assertNull("$it is dashed", canvas.strokeFor(it).dashArray) }
     }
 }

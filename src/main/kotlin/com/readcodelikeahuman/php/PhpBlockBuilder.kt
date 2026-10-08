@@ -141,8 +141,11 @@ object PhpBlockBuilder {
     /** A method links to each related type that declares a method with the same name (it implements or overrides it). */
     private fun overrides(methods: List<Method>, related: List<Related>): List<Link> =
         methods.flatMap { method ->
-            related.filter { it.type.findOwnMethodByName(method.name) != null }
-                .map { Link(LinkKind.OVERRIDES, "method:${method.name}", it.block.id) }
+            related.mapNotNull { r ->
+                r.type.findOwnMethodByName(method.name)?.let { overridden ->
+                    Link(LinkKind.OVERRIDES, "method:${method.name}", r.block.id, rangeWithDoc(overridden))
+                }
+            }
         }
 
     private fun dependencies(phpClass: PhpClass): List<Block> {
