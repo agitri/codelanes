@@ -119,16 +119,11 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             for (link in visibleLinks()) {
                 val a = views[link.from]?.bounds ?: continue
                 val b = views[link.to]?.bounds ?: continue
-                val (from, to) = ArrowGeometry.connect(a.toRect(), b.toRect())
+                val route = ArrowGeometry.route(a.toRect(), b.toRect(), (ArrowGeometry.LOOP * zoom).roundToInt())
                 g2.color = colorFor(link.kind)
                 g2.stroke = strokeFor(link.kind)
-                if (from.x == to.x) {
-                    val bulge = (40 * zoom).roundToInt()
-                    g2.drawPolyline(intArrayOf(from.x, from.x + bulge, to.x + bulge, to.x), intArrayOf(from.y, from.y, to.y, to.y), 4)
-                } else {
-                    g2.drawLine(from.x, from.y, to.x, to.y)
-                }
-                arrowHead(g2, if (from.x == to.x) Point(to.x + 1, to.y) else from, to)
+                g2.drawPolyline(route.map { it.x }.toIntArray(), route.map { it.y }.toIntArray(), route.size)
+                arrowHead(g2, route[route.size - 2], route.last())
             }
             notice?.let {
                 g2.font = JBFont.label().asBold()
