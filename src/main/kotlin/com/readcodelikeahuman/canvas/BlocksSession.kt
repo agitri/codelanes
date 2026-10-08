@@ -5,6 +5,8 @@ import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.TransactionGuard
+import com.intellij.openapi.application.WriteIntentReadAction
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.RangeMarker
 import com.intellij.openapi.editor.colors.EditorColorsManager
@@ -100,10 +102,18 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             .submit(AppExecutorUtil.getAppExecutorService())
     }
 
-    /** Synchronous rebuild: used on open and by tests. */
+    /** Synchronous rebuild: used on open and by tests. Falls back to the background rebuild when it can't commit here. */
     fun rebuildNow() {
         if (disposed) return
-        PsiDocumentManager.getInstance(project).commitDocument(document)
+        val documents = PsiDocumentManager.getInstance(project)
+        if (!documents.isCommitted(document)) {
+            // Committing is a model change; e.g. inside FileEditorProvider.createEditor it isn't allowed.
+            if (!TransactionGuard.getInstance().isWritingAllowed) {
+                scheduleRebuild()
+                return
+            }
+            documents.commitDocument(document)
+        }
         if (DumbService.isDumb(project)) {
             scheduleRebuild()
             return
@@ -120,8 +130,11 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         if (disposed) return
         canvas.notice = update.notice
         val next = update.model ?: return
-        if (next !== model) adopt(next)
+        if (next !== model) withModelAccess { adopt(next) }
     }
+
+    /** UI events arrive on the EDT without a read lock; documents, editors and folds need one. */
+    private fun withModelAccess(action: () -> Unit) = WriteIntentReadAction.run(Runnable(action))
 
     /** Takes over a freshly built model: decides which blocks exist and re-tracks their ranges. */
     private fun adopt(next: BlockModel) {
@@ -223,17 +236,17 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     private fun fontSize(): Int = (baseFontSize * canvas.zoom).roundToInt().coerceAtLeast(6)
 
-    override fun blockMoved(id: String, position: Point) {
+    override fun blockMoved(id: String, position: Point) = withModelAccess {
         PinStore.getInstance(project).pin(file.path, id, position)
         relayout()
     }
 
-    override fun collapseToggled(id: String) {
+    override fun collapseToggled(id: String) = withModelAccess {
         collapsed[id] = !(collapsed[id] ?: false)
         render()
     }
 
-    override fun zoomChanged() {
+    override fun zoomChanged() = withModelAccess {
         slices.values.forEach { it.setFontSize(fontSize()) }
         render()
     }
