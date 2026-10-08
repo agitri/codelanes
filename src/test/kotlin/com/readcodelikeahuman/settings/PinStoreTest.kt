@@ -28,6 +28,15 @@ class PinStoreTest : BasePlatformTestCase() {
         assertEquals(mapOf("method:baz" to Point(30, 40)), store.pins(file))
     }
 
+    fun testClearRemovesAllPinsOfOneFile() {
+        val store = PinStore.getInstance(project)
+        store.pin(file, "method:bar", Point(10, 20))
+        store.pin(other, "method:bar", Point(1, 2))
+        store.clear(file)
+        assertTrue(store.pins(file).isEmpty())
+        assertEquals(1, store.pins(other).size)
+    }
+
     fun testBlocksByDefaultIsOnInitially() {
         assertTrue(BlocksSettings().state.openAsBlocksByDefault)
     }

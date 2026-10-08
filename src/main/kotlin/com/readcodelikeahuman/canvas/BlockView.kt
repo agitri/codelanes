@@ -16,15 +16,15 @@ import kotlin.math.roundToInt
 /** One block on the canvas: a title bar (click = collapse/expand, drag = move) above its body. */
 class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(BorderLayout()) {
     private val title = JBLabel()
-    private val header = JPanel(BorderLayout())
+    internal val titleBar = JPanel(BorderLayout())
     private var body: JComponent? = null
 
     init {
         border = JBUI.Borders.customLine(JBColor.border(), 1)
-        header.border = JBUI.Borders.empty(4, 8)
-        header.background = JBColor.namedColor("EditorTabs.background", JBColor.PanelBackground)
-        header.add(title, BorderLayout.CENTER)
-        add(header, BorderLayout.NORTH)
+        titleBar.border = JBUI.Borders.empty(4, 8)
+        titleBar.background = JBColor.namedColor("EditorTabs.background", JBColor.PanelBackground)
+        titleBar.add(title, BorderLayout.CENTER)
+        add(titleBar, BorderLayout.NORTH)
 
         val mover = object : MouseAdapter() {
             private var start: java.awt.Point? = null
@@ -40,6 +40,10 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
             override fun mouseDragged(e: MouseEvent) {
                 val s = start ?: return
                 val o = origin ?: return
+                val dx = e.locationOnScreen.x - s.x
+                val dy = e.locationOnScreen.y - s.y
+                // A click with a little wobble is still a click, not a drag (it would pin the block).
+                if (!dragged && kotlin.math.abs(dx) < DRAG_THRESHOLD && kotlin.math.abs(dy) < DRAG_THRESHOLD) return
                 setLocation(o.x + e.locationOnScreen.x - s.x, o.y + e.locationOnScreen.y - s.y)
                 dragged = true
                 canvas.repaint()
@@ -54,8 +58,8 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
                 if (!dragged) canvas.listener.collapseToggled(id)
             }
         }
-        header.addMouseListener(mover)
-        header.addMouseMotionListener(mover)
+        titleBar.addMouseListener(mover)
+        titleBar.addMouseMotionListener(mover)
     }
 
     fun update(block: Block, collapsed: Boolean, body: JComponent, zoom: Double) {
@@ -82,6 +86,7 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
     fun overflows(zoom: Double): Boolean = preferredSize.height / zoom > MAX_HEIGHT
 
     companion object {
+        const val DRAG_THRESHOLD = 4
         const val MIN_WIDTH = 160
         const val MAX_WIDTH = 900
         const val MAX_HEIGHT = 600

@@ -163,7 +163,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     private fun Rectangle.toRect() = Rect(x, y, width, height)
 
     companion object {
-        const val MIN_ZOOM = 0.5
+        const val MIN_ZOOM = 0.2
         const val MAX_ZOOM = 2.0
     }
 }

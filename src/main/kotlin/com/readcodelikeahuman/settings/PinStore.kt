@@ -32,6 +32,10 @@ class PinStore : SimplePersistentStateComponent<PinStore.PinState>(PinState()) {
         state.intIncrementModificationCount()
     }
 
+    fun clear(filePath: String) {
+        if (state.pins.keys.removeIf { it.startsWith("$filePath|") }) state.intIncrementModificationCount()
+    }
+
     fun prune(filePath: String, liveIds: Set<String>) {
         val removed = state.pins.keys.removeIf { it.startsWith("$filePath|") && it.substringAfter('|') !in liveIds }
         if (removed) state.intIncrementModificationCount()

@@ -38,6 +38,7 @@ import com.readcodelikeahuman.settings.PinStore
 import java.awt.event.FocusAdapter
 import java.awt.event.FocusEvent
 import javax.swing.JComponent
+import javax.swing.SwingUtilities
 import kotlin.math.roundToInt
 
 /**
@@ -214,6 +215,10 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val slice = SliceEditor(project, target, targetDocument)
         Disposer.register(this, slice)
         slice.setFontSize(fontSize())
+        // The wheel over a block's code pans/zooms the canvas, unless the block itself needs to scroll.
+        slice.editor.contentComponent.addMouseWheelListener { e ->
+            if (!slice.scrollable) canvas.dispatchEvent(SwingUtilities.convertMouseEvent(e.component, e, canvas))
+        }
         slice.editor.contentComponent.addFocusListener(object : FocusAdapter() {
             override fun focusGained(e: FocusEvent) {
                 canvas.focusedId = slices.entries.firstOrNull { it.value === slice }?.key
@@ -234,7 +239,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         return label
     }
 
-    private fun fontSize(): Int = (baseFontSize * canvas.zoom).roundToInt().coerceAtLeast(6)
+    private fun fontSize(): Int = (baseFontSize * canvas.zoom).roundToInt().coerceAtLeast(2)
 
     override fun blockMoved(id: String, position: Point) = withModelAccess {
         PinStore.getInstance(project).pin(file.path, id, position)
@@ -249,6 +254,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     override fun zoomChanged() = withModelAccess {
         slices.values.forEach { it.setFontSize(fontSize()) }
         render()
+    }
+
+    /** Forgets every dragged position in this file and goes back to the automatic lanes. */
+    fun resetLayout() = withModelAccess {
+        PinStore.getInstance(project).clear(file.path)
+        relayout()
     }
 
     fun blockIds(): List<String> = views.keys.toList()

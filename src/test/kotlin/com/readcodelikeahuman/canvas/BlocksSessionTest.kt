@@ -159,4 +159,36 @@ class BlocksSessionTest : BasePlatformTestCase() {
         session.collapseToggled("method:bar")
         assertTrue(session.hasSliceEditor("method:bar"))
     }
+
+    fun testScrollingOverABlocksCodePansTheCanvas() {
+        val session = open()
+        val before = session.viewBounds("method:bar")!!.location
+        val content = session.sliceEditor("method:bar")!!.editor.contentComponent
+        content.dispatchEvent(
+            java.awt.event.MouseWheelEvent(content, java.awt.event.MouseEvent.MOUSE_WHEEL, 0L, 0, 5, 5, 0, false,
+                java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, 1),
+        )
+        assertEquals(java.awt.Point(before.x, before.y - 40), session.viewBounds("method:bar")!!.location)
+    }
+
+    fun testResetLayoutDropsPinsAndRestoresAutoPositions() {
+        val session = open()
+        val auto = session.viewBounds("method:bar")!!.location
+        session.blockMoved("method:bar", Point(900, 900))
+        session.resetLayout()
+        assertTrue(PinStore.getInstance(project).pins(myFixture.file.virtualFile.path).isEmpty())
+        assertEquals(auto, session.viewBounds("method:bar")!!.location)
+    }
+
+    fun testBackgroundRebuildPicksUpANewMethod() {
+        val session = open()
+        edit("        return ${'$'}s;\n    }\n", "        return ${'$'}s;\n    }\n\n    public function added(): void {}\n")
+        val deadline = System.currentTimeMillis() + 10_000
+        while (!session.blockIds().contains("method:added") && System.currentTimeMillis() < deadline) {
+            com.intellij.testFramework.PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+            com.intellij.openapi.application.impl.NonBlockingReadActionImpl.waitForAsyncTaskCompletion()
+            Thread.sleep(20)
+        }
+        assertTrue(session.blockIds().contains("method:added"))
+    }
 }

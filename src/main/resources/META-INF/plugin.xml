@@ -24,6 +24,11 @@
             <keyboard-shortcut keymap="$default" first-keystroke="control alt shift B"/>
             <add-to-group group-id="ViewMenu" anchor="last"/>
         </action>
+        <action id="ReadCode.ResetBlocksLayout"
+                class="com.readcodelikeahuman.ide.ResetBlocksLayoutAction"
+                text="Reset Blocks Layout">
+            <add-to-group group-id="ViewMenu" anchor="last"/>
+        </action>
         <action id="ReadCode.BlocksByDefault"
                 class="com.readcodelikeahuman.ide.BlocksByDefaultAction"
                 text="Open PHP Files as Blocks by Default">

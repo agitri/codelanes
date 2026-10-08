@@ -11,7 +11,7 @@ import java.beans.PropertyChangeListener
 import javax.swing.JComponent
 
 class BlocksFileEditor(project: Project, private val file: VirtualFile) : UserDataHolderBase(), FileEditor {
-    private val session = BlocksSession(project, file).also { Disposer.register(this, it) }
+    internal val session = BlocksSession(project, file).also { Disposer.register(this, it) }
 
     override fun getComponent(): JComponent = session.canvas
     override fun getPreferredFocusedComponent(): JComponent = session.canvas
