@@ -34,29 +34,9 @@ object PhpBlockBuilder {
     private val HEADER_TOKENS = setOf("<?php", "<?", "namespace", ";", "{")
 
     fun build(file: PsiFile): BuildResult {
-        if (file !is PhpFile) return BuildResult.Unsupported("Not a PHP file")
-
-        val classes = PsiTreeUtil.findChildrenOfType(file, PhpClass::class.java).filterNot { it.isAnonymous }
-        if (classes.size != 1) {
-            return BuildResult.Unsupported("Expected exactly one class, interface, trait or enum, found ${classes.size}")
-        }
-        val phpClass = classes.single()
-
-        val functions = PsiTreeUtil.findChildrenOfType(file, PhpFunction::class.java)
-            .filter { it !is Method && !it.isClosure }
-        if (functions.isNotEmpty()) return BuildResult.Unsupported("File contains top-level functions")
-
+        unsupportedReason(file)?.let { return BuildResult.Unsupported(it) }
+        val phpClass = singleClass(file as PhpFile)
         val classRange = rangeWithDoc(phpClass)
-        if (file.text.substring(classRange.end).isNotBlank()) {
-            return BuildResult.Unsupported("File contains code after the ${keyword(phpClass)}")
-        }
-
-        if (hasCodeBefore(file, classRange.start)) {
-            return BuildResult.Unsupported("File contains code before the ${keyword(phpClass)}")
-        }
-        phpClass.ownMethods.groupBy { it.name.lowercase() }.values.firstOrNull { it.size > 1 }?.let {
-            return BuildResult.Unsupported("Duplicate method name ${it.first().name}")
-        }
 
         val path = file.virtualFile.path
         val classId = "class:${phpClass.fqn}"
@@ -105,6 +85,33 @@ object PhpBlockBuilder {
 
         return BuildResult.Supported(BlockModel(blocks, links))
     }
+
+    /**
+     * Why [file] can't be shown as blocks, or null if it can. Structure only: no reference resolving,
+     * so it is cheap and safe while the IDE is indexing.
+     */
+    fun unsupportedReason(file: PsiFile): String? {
+        if (file !is PhpFile) return "Not a PHP file"
+
+        val classes = PsiTreeUtil.findChildrenOfType(file, PhpClass::class.java).filterNot { it.isAnonymous }
+        if (classes.size != 1) return "Expected exactly one class, interface, trait or enum, found ${classes.size}"
+        val phpClass = classes.single()
+
+        val functions = PsiTreeUtil.findChildrenOfType(file, PhpFunction::class.java)
+            .filter { it !is Method && !it.isClosure }
+        if (functions.isNotEmpty()) return "File contains top-level functions"
+
+        val classRange = rangeWithDoc(phpClass)
+        if (file.text.substring(classRange.end).isNotBlank()) return "File contains code after the ${keyword(phpClass)}"
+        if (hasCodeBefore(file, classRange.start)) return "File contains code before the ${keyword(phpClass)}"
+        phpClass.ownMethods.groupBy { it.name.lowercase() }.values.firstOrNull { it.size > 1 }?.let {
+            return "Duplicate method name ${it.first().name}"
+        }
+        return null
+    }
+
+    private fun singleClass(file: PhpFile): PhpClass =
+        PsiTreeUtil.findChildrenOfType(file, PhpClass::class.java).single { !it.isAnonymous }
 
     private fun externalBlock(kind: BlockKind, target: PhpClass): Block = Block(
         id = "${kind.name.lowercase()}:${target.fqn}",

@@ -47,4 +47,13 @@ class BlocksEditorProviderTest : BasePlatformTestCase() {
             Disposer.dispose(editor)
         }
     }
+
+    fun testAcceptWorksWhileIndexingWithoutResolvingReferences() {
+        myFixture.addFileToProject("Barro.php", "<?php\ninterface Barro {}\n")
+        val file = myFixture.configureByText("Foo.php", "<?php\nclass Foo implements Barro {\n    public function a() { \$this->b(); }\n    public function b() {}\n}\n").virtualFile
+        assertTrue((provider as Any) is com.intellij.openapi.project.DumbAware)
+        com.intellij.testFramework.DumbModeTestUtils.runInDumbModeSynchronously(project) {
+            assertTrue(provider.accept(project, file))
+        }
+    }
 }
