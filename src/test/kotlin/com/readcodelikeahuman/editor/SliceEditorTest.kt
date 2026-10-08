@@ -86,4 +86,54 @@ class SliceEditorTest : BasePlatformTestCase() {
         slice.show(cls.range, emptyList())
         assertTrue(visible(slice).contains("function bar"))
     }
+
+    private fun runEditorAction(slice: SliceEditor, actionId: String) {
+        WriteCommandAction.runWriteCommandAction(project) {
+            com.intellij.openapi.editor.actionSystem.EditorActionManager.getInstance().getActionHandler(actionId)
+                .execute(slice.editor, slice.editor.caretModel.currentCaret, com.intellij.openapi.actionSystem.DataContext.EMPTY_CONTEXT)
+        }
+    }
+
+    fun testBackspaceAtTheEndOfAHoleDoesNotTouchTheHiddenMethod() {
+        val (slice, model) = open()
+        val cls = model.block("class:\\Foo")
+        slice.show(cls.range, cls.excluded)
+        val hole = slice.editor.foldingModel.allFoldRegions.single { it.startOffset > cls.range.start && it.endOffset < cls.range.end }
+        val before = slice.editor.document.text
+        slice.editor.caretModel.moveToOffset(hole.endOffset)
+        runEditorAction(slice, com.intellij.openapi.actionSystem.IdeActions.ACTION_EDITOR_BACKSPACE)
+        assertEquals(before, slice.editor.document.text)
+    }
+
+    fun testDeleteBeforeAHoleDoesNotGlueTheMethodOntoTheClassLine() {
+        myFixture.configureByText("A.php", "<?php\nclass A\n{\n    public function m(): void\n    {\n    }\n}\n")
+        val model = (PhpBlockBuilder.build(myFixture.file) as BuildResult.Supported).model
+        val slice = SliceEditor(project, myFixture.file.virtualFile, myFixture.editor.document)
+        Disposer.register(testRootDisposable, slice)
+        val cls = model.block("class:\\A")
+        slice.show(cls.range, cls.excluded)
+        val hole = slice.editor.foldingModel.allFoldRegions.single { it.startOffset > cls.range.start && it.endOffset < cls.range.end }
+        val before = slice.editor.document.text
+        slice.editor.caretModel.moveToOffset(hole.startOffset - 1)
+        runEditorAction(slice, com.intellij.openapi.actionSystem.IdeActions.ACTION_EDITOR_DELETE)
+        assertEquals(before, slice.editor.document.text)
+    }
+
+    fun testBackspaceInsideAMethodStillWorks() {
+        val (slice, model) = open()
+        val bar = model.block("method:bar")
+        slice.show(bar.range, bar.excluded)
+        val afterSemicolon = slice.editor.document.text.indexOf("echo 1;") + "echo 1;".length
+        slice.editor.caretModel.moveToOffset(afterSemicolon)
+        runEditorAction(slice, com.intellij.openapi.actionSystem.IdeActions.ACTION_EDITOR_BACKSPACE)
+        assertTrue(slice.editor.document.text.contains("echo 1\n"))
+    }
+
+    fun testSelectionAcrossAHiddenMethodIsDropped() {
+        val (slice, model) = open()
+        val cls = model.block("class:\\Foo")
+        slice.show(cls.range, cls.excluded)
+        slice.editor.selectionModel.setSelection(cls.range.start, cls.range.end)
+        assertFalse(slice.editor.selectionModel.hasSelection())
+    }
 }
