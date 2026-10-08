@@ -8,6 +8,7 @@ import com.jetbrains.php.lang.psi.elements.Method
 import com.jetbrains.php.lang.psi.elements.PhpClass
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement
 import com.jetbrains.php.lang.psi.elements.PhpNamespace
+import com.jetbrains.php.lang.psi.elements.PhpTypeDeclaration
 import com.jetbrains.php.lang.psi.elements.PhpUse
 import com.readcodelikeahuman.model.Block
 import com.readcodelikeahuman.model.BlockKind
@@ -79,6 +80,10 @@ object PhpBlockBuilder {
             blocks += block
             links += Link(linkKind, block.id, classId)
         }
+        dependencies(phpClass).forEach { block ->
+            blocks += block
+            links += Link(LinkKind.INJECTS, block.id, classId)
+        }
 
         return BuildResult.Supported(BlockModel(blocks, links))
     }
@@ -101,6 +106,16 @@ object PhpBlockBuilder {
         return resolved(phpClass.implementsList.referenceElements).map { externalBlock(BlockKind.INTERFACE, it) to LinkKind.IMPLEMENTS } +
             resolved(phpClass.extendsList.referenceElements).map { externalBlock(parentKind, it) to LinkKind.EXTENDS } +
             phpClass.traits.distinctBy { it.fqn }.map { externalBlock(BlockKind.TRAIT, it) to LinkKind.USES }
+    }
+
+    private fun dependencies(phpClass: PhpClass): List<Block> {
+        val constructor = phpClass.ownMethods.firstOrNull { it.name.equals("__construct", ignoreCase = true) }
+            ?: return emptyList()
+        val typeReferences = constructor.parameters.flatMap { parameter ->
+            PsiTreeUtil.findChildrenOfType(parameter, ClassReference::class.java)
+                .filter { PsiTreeUtil.getParentOfType(it, PhpTypeDeclaration::class.java) != null }
+        }
+        return resolved(typeReferences).map { externalBlock(BlockKind.DEPENDENCY, it) }
     }
 
     internal fun rangeWithDoc(element: PhpNamedElement): SourceRange {
