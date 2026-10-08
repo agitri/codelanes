@@ -92,6 +92,24 @@ relationships decide how many columns there are and what goes in them.
 - `calls` and `overrides` lines are drawn only for the focused block, to keep
   the canvas calm.
 
+### Implemented by (reverse lanes)
+
+Opening an **interface**, **trait** or **abstract class** also shows who builds on it, mirrored to the right:
+
+```
+[interface Renderable] ─► [render();]
+                     └──► [class Order]   ─► [Order::render()]
+                     └──► [class Invoice] ─► [Invoice::render()]
+```
+
+- **Implementers lane** (right of the type's own methods): classes that directly implement the interface,
+  directly extend the abstract class, or use the trait. Project code only (libraries/vendor are skipped).
+  At most 10, alphabetical; if there are more, an extra block says "and N more".
+- **Implementations lane** (right of the implementers): only the methods of each implementer that implement or
+  override a method of the opened type. Collapsed by default, expandable and editable like other-file blocks.
+- Lines: type → implementer (`implemented by`), implementer → its implementation (`has method`), and each
+  implementation → the type's own method (`overrides`, focus-only, coloured per line).
+
 ### Blocks from other files
 
 Interfaces, parents, traits and dependencies live in other files. They appear
