@@ -1,21 +1,21 @@
 # Roadmap
 
-Not done yet, in order of priority.
+## Done on `feat/interactions` (needs a manual check in the IDE)
 
-1. **Cmd+click stays on the canvas.** Go to declaration in the same file focuses and expands the target block;
-   in another file, that file opens as a canvas.
-2. **Usage highlighting.** With the caret on a symbol, every block that uses it gets a coloured border, and the
-   defining block a stronger one.
-3. **+ method / delete method.** A `+` on the class block creates an empty method block; a block menu deletes one
-   (with confirmation).
-4. **Keyboard navigation.** Tab between blocks; arrow keys at a block's first/last line move to the neighbouring block.
-5. **Reveal deeper parents.** A `+` on a parent/interface block shows its own parents and interfaces.
-6. **Rename (Shift+F6) inside a block.** Investigate why it doesn't work and fix it.
-7. **Small fixes.**
-   - A rebuild during a drag snaps the block back.
-   - The toggle shortcut does nothing when the caret is in another file's block.
-   - The red notice should be a calm banner.
-   - Possible leak if the very first build throws.
-   - Corrupt saved positions crash the pin store.
-   - Collapsed summaries of other files don't refresh.
-8. **Docs.** Fresh README screenshots; publish to the JetBrains Marketplace.
+| # | Item | How to check (playground/layers) |
+|---|---|---|
+| 1 | Cmd+click stays on the canvas | In `Order.php`, Cmd+click `subtotal()` inside `total()`: the `subtotal` block is centred and focused, no text editor. |
+| 2 | Usage highlighting | Caret on `total` in `render()`: `total()` gets an orange border, `render()` and `validate()` yellow. |
+| 3 | `+ method` / Delete method | Click `+ method` on the class title: `newMethod` appears with its name selected. Right-click a method title → Delete method. |
+| 4 | Keyboard navigation | Up on a block's first line / Down on its last line moves into the neighbouring block. |
+| 5 | Reveal deeper parents | `+ parents` on `Model` shows `Entity` and `Identifiable`; `− parents` hides them. |
+| 6 | Rename in a block | Shift+F6 (fn+Shift+F6 on a Mac) on a method name opens the rename dialog. |
+| 7 | Small fixes | Drag isn't snapped back; toggle works with the caret in an interface block; calm notice banner; corrupt pins ignored; other-file summaries refresh. |
+
+## Next
+
+1. **Fresh screenshots** for the README (current ones are from early builds).
+2. **More languages**: Java/Kotlin, then TypeScript/JavaScript (a new `BlockBuilder` per language; layout and canvas stay).
+3. **JetBrains Marketplace** release (plugin icon, change notes, signing, `publishPlugin`).
+4. **VS Code** (later; the slice-editor technique needs a VS Code equivalent).
+5. Keyboard: Tab-based block switching (Tab is indentation today, so it needs a different shortcut).

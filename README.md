@@ -31,6 +31,11 @@ summaries, everything comes from the real code.
   canvas stays calm. Lines go around blocks instead of through them.
 - **Who implements this?** Open an interface, trait or abstract class and you also see the classes that
   implement, use or extend it, plus the methods they implement.
+- **Follow the code.** Cmd/Ctrl+click jumps to the right block instead of leaving the canvas. With the caret on
+  a symbol, the block that defines it gets an orange border and every block using it a yellow one.
+- **Dig deeper.** `+ parents` on a parent, interface or trait shows its own parents, as deep as you like.
+- **Edit the structure.** `+ method` on the class adds a method; right-click a method's title to delete it.
+  Up/Down at the edge of a block moves into the next block.
 - **Drag to arrange.** Your arrangement is remembered per file (just for you, not in git). **Tidy up** puts
   everything back in its lanes.
 - **Safe editing.** Typing never ends up inside a hidden block. While the code is half-typed or broken, the
@@ -61,18 +66,18 @@ Then in PhpStorm: **Settings → Plugins → ⚙ → Install Plugin from Disk…
 - **Ctrl+Alt+Shift+B** (or **View → Toggle Blocks / Text View**) switches between the canvas and the classic
   text editor. The **Blocks | Text** tabs at the bottom of the editor do the same.
 - Pan by dragging the background or scrolling; **Cmd/Ctrl+scroll** zooms.
-- Click a block's title to collapse or expand it; drag the title to move it.
+- Click a block's title to collapse or expand it; drag the title to move it; right-click it for its menu.
+- `+ method` (class title) adds a method; `+ parents` (parent/interface/trait title) reveals the next level.
+- Up on a block's first line / Down on its last line moves into the neighbouring block.
+- Shift+F6 inside a block opens the rename dialog.
 - **Tidy up** (top right) or **View → Reset Blocks Layout** forgets dragged positions.
 - **View → Open PHP Files as Blocks by Default** turns the canvas on or off as the default.
 - Files with several classes, top-level functions or loose code open as text, with a banner saying why.
 
 ## Status
 
-Early, but usable for reading and editing PHP classes. Not there yet:
-
-- Cmd+click (go to declaration) still jumps to the text editor instead of the block
-- Usage highlighting, a `+ method` button, keyboard navigation between blocks, revealing deeper parents
-- Languages other than PHP (Java/Kotlin and TypeScript are next), VS Code
+Early, but usable for reading and editing PHP classes. Next up: languages other than PHP (Java/Kotlin and
+TypeScript), a Marketplace release, and VS Code later. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Develop
 
