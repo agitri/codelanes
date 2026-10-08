@@ -8,7 +8,7 @@
 
 **Tech Stack:** Kotlin 2.4, IntelliJ Platform Gradle Plugin 2.19, PhpStorm 2026.1 + PHP plugin, Swing, JUnit 4 + `BasePlatformTestCase`.
 
-**Spec:** `docs/superpowers/specs/2026-10-08-block-canvas-editor-design.md` (sections: Canvas layout, Arrows, Blocks from other files, Editing, Error handling). Spike findings: `docs/superpowers/spikes/2026-10-08-slice-editor-findings.md`.
+**Spec:** `docs/superpowers/specs/2026-10-08-block-canvas-editor-design.md` (sections: Canvas layout, Arrows, Blocks from other files, Editing, Error handling). Spike findings: `docs/superpowers/research/2026-10-08-slice-editor-findings.md`.
 
 ## Global Constraints
 
@@ -2214,7 +2214,7 @@ git commit -m "feat: open supported PHP files as a blocks canvas in PhpStorm"
 Automated tests cover logic, not feel. This task is done by the human partner with the agent guiding.
 
 **Files:**
-- Create: `docs/superpowers/spikes/2026-10-08-canvas-see-and-edit-checklist.md` (results)
+- Create: `docs/superpowers/research/2026-10-08-canvas-see-and-edit-checklist.md` (results)
 
 - [ ] **Step 1: Start the sandbox**
 

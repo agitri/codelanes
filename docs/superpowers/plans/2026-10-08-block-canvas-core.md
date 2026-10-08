@@ -54,7 +54,7 @@ src/test/kotlin/com/readcodelikeahuman/
   php/PhpBlockBuilderRelatedTypesTest.kt Task 6
   php/PhpBlockBuilderDependencyTest.kt   Task 7
   php/PhpBlockBuilderCallsTest.kt        Task 8
-docs/superpowers/spikes/2026-10-08-slice-editor-findings.md   Task 2 output
+docs/superpowers/research/2026-10-08-slice-editor-findings.md   Task 2 output
 ```
 
 ---
@@ -153,7 +153,7 @@ build/
 <idea-plugin>
     <id>com.readcodelikeahuman.blocks</id>
     <name>Read Code Like a Human</name>
-    <vendor email="rtm.gerrits@gmail.com">Rene Gerrits</vendor>
+    <vendor>Rene Gerrits</vendor>
     <description><![CDATA[
         Shows code as editable blocks on a 2D canvas instead of a vertical
         line-by-line editor, so humans really read and understand the code.
@@ -214,7 +214,7 @@ All code in this task lives in `spike/` and is deleted in the last step. Only th
 - Create (throwaway): `src/main/kotlin/com/readcodelikeahuman/spike/SliceEditorSpikeAction.kt`
 - Create (throwaway): `src/test/kotlin/com/readcodelikeahuman/spike/SliceEditorSpikeTest.kt`
 - Modify (temporarily): `src/main/resources/META-INF/plugin.xml`
-- Create (kept): `docs/superpowers/spikes/2026-10-08-slice-editor-findings.md`
+- Create (kept): `docs/superpowers/research/2026-10-08-slice-editor-findings.md`
 
 **Interfaces:**
 - Consumes: Task 1 scaffold.
@@ -476,7 +476,7 @@ Run: `./gradlew runIde`. In the sandbox, create a project with a PHP class that 
 
 - [ ] **Step 7: Write the findings**
 
-`docs/superpowers/spikes/2026-10-08-slice-editor-findings.md` with exactly these sections:
+`docs/superpowers/research/2026-10-08-slice-editor-findings.md` with exactly these sections:
 ```markdown
 # Slice Editor Spike — Findings
 
@@ -1549,4 +1549,4 @@ git commit -m "feat: add method-to-method call links"
 
 ## After this plan
 
-Write the **Canvas Editor plan** using the spike findings (`docs/superpowers/spikes/2026-10-08-slice-editor-findings.md`). It covers the remaining spec items, which are intentionally not in this plan: the `FileEditorProvider` that replaces the text editor and the "blocks by default" setting, the open-as-blocks command, the classic-view toggle and the unsupported-file notice, pan/zoom canvas rendering of `Layout`, slice editors per block, expand/collapse of other-file blocks, usage-highlight borders, `+ method` and pop-out on re-parse, delete with confirmation, keyboard/focus navigation, go-to-declaration focusing blocks, and keeping the last good layout while the PSI is invalid.
+Write the **Canvas Editor plan** using the spike findings (`docs/superpowers/research/2026-10-08-slice-editor-findings.md`). It covers the remaining spec items, which are intentionally not in this plan: the `FileEditorProvider` that replaces the text editor and the "blocks by default" setting, the open-as-blocks command, the classic-view toggle and the unsupported-file notice, pan/zoom canvas rendering of `Layout`, slice editors per block, expand/collapse of other-file blocks, usage-highlight borders, `+ method` and pop-out on re-parse, delete with confirmation, keyboard/focus navigation, go-to-declaration focusing blocks, and keeping the last good layout while the PSI is invalid.

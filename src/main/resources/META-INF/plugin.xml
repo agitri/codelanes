@@ -1,7 +1,7 @@
 <idea-plugin>
-    <id>com.readcodelikeahuman.blocks</id>
-    <name>Read Code Like a Human</name>
-    <vendor email="rtm.gerrits@gmail.com">Rene Gerrits</vendor>
+    <id>dev.codelanes</id>
+    <name>CodeLanes</name>
+    <vendor>Rene Gerrits</vendor>
     <description><![CDATA[
         Shows code as editable blocks on a 2D canvas instead of a vertical
         line-by-line editor, so humans really read and understand the code.
@@ -11,26 +11,26 @@
     <depends>com.jetbrains.php</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <fileEditorProvider implementation="com.readcodelikeahuman.ide.BlocksEditorProvider"/>
-        <editorNotificationProvider implementation="com.readcodelikeahuman.ide.BlocksUnavailableNotification"/>
-        <editorActionHandler action="EditorBackSpace" implementationClass="com.readcodelikeahuman.editor.SliceBackspaceGuard" order="first"/>
-        <editorActionHandler action="EditorDelete" implementationClass="com.readcodelikeahuman.editor.SliceDeleteGuard" order="first"/>
+        <fileEditorProvider implementation="dev.codelanes.ide.BlocksEditorProvider"/>
+        <editorNotificationProvider implementation="dev.codelanes.ide.BlocksUnavailableNotification"/>
+        <editorActionHandler action="EditorBackSpace" implementationClass="dev.codelanes.editor.SliceBackspaceGuard" order="first"/>
+        <editorActionHandler action="EditorDelete" implementationClass="dev.codelanes.editor.SliceDeleteGuard" order="first"/>
     </extensions>
 
     <actions>
-        <action id="ReadCode.ToggleBlocksView"
-                class="com.readcodelikeahuman.ide.ToggleBlocksViewAction"
+        <action id="CodeLanes.ToggleBlocksView"
+                class="dev.codelanes.ide.ToggleBlocksViewAction"
                 text="Toggle Blocks / Text View">
             <keyboard-shortcut keymap="$default" first-keystroke="control alt shift B"/>
             <add-to-group group-id="ViewMenu" anchor="last"/>
         </action>
-        <action id="ReadCode.ResetBlocksLayout"
-                class="com.readcodelikeahuman.ide.ResetBlocksLayoutAction"
+        <action id="CodeLanes.ResetBlocksLayout"
+                class="dev.codelanes.ide.ResetBlocksLayoutAction"
                 text="Reset Blocks Layout">
             <add-to-group group-id="ViewMenu" anchor="last"/>
         </action>
-        <action id="ReadCode.BlocksByDefault"
-                class="com.readcodelikeahuman.ide.BlocksByDefaultAction"
+        <action id="CodeLanes.BlocksByDefault"
+                class="dev.codelanes.ide.BlocksByDefaultAction"
                 text="Open PHP Files as Blocks by Default">
             <add-to-group group-id="ViewMenu" anchor="last"/>
         </action>

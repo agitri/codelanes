@@ -79,18 +79,31 @@ relationships decide how many columns there are and what goes in them.
 - Interface, trait and enum files use the same rules: that type is the central
   block (enum cases count as constants), with its methods to its right.
 
-### Arrows
+### Related-type lanes (staircase)
 
-- Into the type: `implements`, `extends`, `uses` (trait), `injects`. Each has
-  its own line style.
-- Type → its methods: `owns`.
-- Method → method in the same class: `calls` (e.g. `$this->footest()`).
-- Method → parent/interface method: `overrides` (labelled "implements" when the
-  target is an interface or abstract method). When the target block is
-  expanded, the line lands on that method's line; when it is collapsed, it lands
-  on the block's edge.
-- `calls` and `overrides` lines are drawn only for the focused block, to keep
-  the canvas calm.
+Parents, interfaces, traits and dependencies each get their **own lane**, in that order from top to bottom, each in its
+own height band (a staircase). All lanes are right-aligned one gap left of the class, so they stay close to it and
+lines into the class never cross other blocks. Revealed deeper levels extend a lane further left.
+
+Inside the methods lane, a method is followed directly by the methods it calls (otherwise source order).
+
+A **Tidy up** button on the canvas (and View → Reset Blocks Layout) drops all dragged positions of the file.
+
+### Lines
+
+- Lines are orthogonal (horizontal/vertical) elbows: out of the source's side, along a vertical, into the target.
+  Lines into the same block each get their own vertical and entry point, so they never merge. A call between
+  stacked methods loops out on the right and comes back in.
+- Where a simple elbow would cross a block (e.g. after dragging), the line is routed around blocks instead.
+- **Colour carries meaning, not dash patterns** (all lines are solid): extends blue, implements green, uses trait
+  amber, injected purple, has method grey, calls red, implemented/used by teal. Override lines each get their own
+  colour from a separate palette. A legend in the corner lists the kinds present.
+- Kinds: `implements`, `extends`, `uses`, `injects` (into the type), `owns` (type → method), `calls`
+  (method → method), `overrides` (method → the parent/interface method it implements or overrides; lands on that
+  method's line when the target block is expanded), `implemented by` (type → implementer).
+- `calls` and `overrides` are drawn only for the focused block. In a parent/interface block, an override line shows
+  only while the caret is inside the overridden method.
+- A method typed inside the focused block pops out into its own block when focus leaves that block.
 
 ### Implemented by (reverse lanes)
 
@@ -218,7 +231,7 @@ document, with completion and inspections still working, is not a standard
 platform feature.
 
 **Result:** the spike passed (see
-`docs/superpowers/spikes/2026-10-08-slice-editor-findings.md`). Approach A
+`docs/superpowers/research/2026-10-08-slice-editor-findings.md`). Approach A
 (fold-based slice editors) is confirmed.
 
 **First step (throwaway spike):** prove that a slice editor can display one
