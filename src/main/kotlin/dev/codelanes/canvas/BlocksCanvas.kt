@@ -122,6 +122,13 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             }
         }
 
+    /** Pans so that block [id] sits in the middle of the canvas. */
+    fun centerOn(id: String) {
+        val view = views[id] ?: return
+        pan.translate(width / 2 - (view.x + view.width / 2), height / 2 - (view.y + view.height / 2))
+        moveViews()
+    }
+
     /** Panning only moves blocks; no re-layout of the editors inside them, which keeps scrolling smooth. */
     private fun moveViews() {
         for ((id, view) in views) {

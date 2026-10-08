@@ -243,4 +243,28 @@ class BlocksSessionTest : BasePlatformTestCase() {
         session.collapseToggled("more:implementers")
         assertFalse(session.hasSliceEditor("more:implementers"))
     }
+
+    fun testRevealFocusesTheBlockAtAnOffsetAndPutsTheCaretThere() {
+        val session = open()
+        val offset = myFixture.editor.document.text.indexOf("footest(string")
+        session.reveal(offset)
+        assertEquals("method:footest", session.canvas.focusedId)
+        assertEquals(offset, session.sliceEditor("method:footest")!!.editor.caretModel.offset)
+    }
+
+    fun testRevealExpandsACollapsedBlock() {
+        val session = open()
+        session.collapseToggled("method:footest")
+        session.reveal(myFixture.editor.document.text.indexOf("footest(string"))
+        assertTrue(session.hasSliceEditor("method:footest"))
+    }
+
+    fun testRevealCentresTheBlockOnTheCanvas() {
+        val session = open()
+        session.canvas.setSize(1000, 800)
+        session.reveal(myFixture.editor.document.text.indexOf("footest(string"))
+        val bounds = session.viewBounds("method:footest")!!
+        assertEquals(500, bounds.centerX.toInt())
+        assertEquals(400, bounds.centerY.toInt())
+    }
 }

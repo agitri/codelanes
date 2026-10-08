@@ -322,6 +322,33 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         relayout()
     }
 
+    /**
+     * Shows the code at [offset] of this file: picks the block that displays it (expanding it if collapsed),
+     * centres it on the canvas, focuses it and puts the caret there. Used by go-to-declaration.
+     */
+    fun reveal(offset: Int) = withModelAccess {
+        val current = model ?: return@withModelAccess
+        val target = current.blocks
+            .filter { it.filePath == file.path && it.kind != BlockKind.MORE }
+            .mapNotNull { block -> tracked[block.id]?.current()?.let { block to it } }
+            .filter { (_, ranges) ->
+                val (range, excluded) = ranges
+                offset in range.start..range.end && excluded.none { offset >= it.start && offset < it.end }
+            }
+            .minByOrNull { (_, ranges) -> ranges.first.end - ranges.first.start }
+            ?.first ?: return@withModelAccess
+        if (collapsed[target.id] == true) {
+            collapsed[target.id] = false
+            render()
+        }
+        canvas.centerOn(target.id)
+        focusMovedTo(target.id)
+        slices[target.id]?.let { slice ->
+            slice.editor.caretModel.moveToOffset(offset)
+            slice.editor.contentComponent.requestFocusInWindow()
+        }
+    }
+
     fun blockIds(): List<String> = views.keys.toList()
     fun hasSliceEditor(id: String): Boolean = id in slices
     fun sliceEditor(id: String): SliceEditor? = slices[id]
