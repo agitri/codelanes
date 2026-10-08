@@ -328,4 +328,12 @@ class BlocksSessionTest : BasePlatformTestCase() {
         assertEquals(listOf("+ method"), session.view("class:\\App\\Foo")!!.actionTexts())
         assertEquals(listOf("Delete method"), session.view("method:bar")!!.menuTexts())
     }
+
+    fun testMovingFocusDownEntersTheNextBlockAtItsStart() {
+        val session = open()
+        assertTrue(session.moveFocus("method:bar", down = true))
+        assertEquals("method:footest", session.canvas.focusedId)
+        val footest = session.sliceEditor("method:footest")!!.editor
+        assertEquals(myFixture.editor.document.text.indexOf("public function footest"), footest.caretModel.offset)
+    }
 }

@@ -136,4 +136,18 @@ class SliceEditorTest : BasePlatformTestCase() {
         slice.editor.selectionModel.setSelection(cls.range.start, cls.range.end)
         assertFalse(slice.editor.selectionModel.hasSelection())
     }
+
+    fun testUpOnTheFirstLineHandsOverToTheNeighbourBlock() {
+        val (slice, model) = open()
+        val bar = model.block("method:bar")
+        slice.show(bar.range, bar.excluded)
+        val handedOver = mutableListOf<Boolean>()
+        slice.onEdge = { up -> handedOver += up; true }
+        slice.editor.caretModel.moveToOffset(slice.editor.document.text.indexOf("echo 1"))
+        runEditorAction(slice, com.intellij.openapi.actionSystem.IdeActions.ACTION_EDITOR_MOVE_CARET_UP)
+        assertEquals(emptyList<Boolean>(), handedOver)
+        slice.editor.caretModel.moveToOffset(bar.range.start + 3)
+        runEditorAction(slice, com.intellij.openapi.actionSystem.IdeActions.ACTION_EDITOR_MOVE_CARET_UP)
+        assertEquals(listOf(true), handedOver)
+    }
 }

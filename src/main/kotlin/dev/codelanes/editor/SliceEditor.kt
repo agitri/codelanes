@@ -34,6 +34,16 @@ class SliceEditor(project: Project, file: VirtualFile, private val document: Doc
 
     val component: JComponent get() = editor.component
 
+    /** Called with up=true/false when the caret tries to leave the block over its top/bottom line; true = handled. */
+    var onEdge: ((up: Boolean) -> Boolean)? = null
+
+    /** True when the caret is on the block's first (up) or last (down) line. */
+    fun atEdge(up: Boolean): Boolean {
+        val marker = bounds?.takeIf { it.isValid } ?: return false
+        val caretLine = document.getLineNumber(editor.caretModel.offset)
+        return caretLine == document.getLineNumber(if (up) marker.startOffset else marker.endOffset)
+    }
+
     /** True when the block is taller than its cap and scrolls inside. */
     val scrollable: Boolean get() = editor.scrollPane.isWheelScrollingEnabled
 

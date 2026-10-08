@@ -242,6 +242,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val slice = SliceEditor(project, target, targetDocument)
         Disposer.register(this, slice)
         slice.setFontSize(fontSize())
+        slice.onEdge = { up -> slices.entries.firstOrNull { it.value === slice }?.key?.let { moveFocus(it, down = !up) } ?: false }
         // The wheel anywhere over a block (code, gutter, frame) pans/zooms the canvas, unless the block itself
         // needs to scroll. Every part needs it: blocks slide under the pointer while panning.
         listOf(slice.editor.contentComponent, slice.editor.gutterComponentEx, slice.editor.scrollPane).forEach { part ->
@@ -453,6 +454,18 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         BlockKind.CLASS -> listOf<Pair<String, () -> Unit>>("+ method" to { addMethod() }) to emptyList()
         BlockKind.METHOD -> emptyList<Pair<String, () -> Unit>>() to listOf<Pair<String, () -> Unit>>("Delete method" to { deleteMethod(block.id) })
         else -> emptyList<Pair<String, () -> Unit>>() to emptyList()
+    }
+
+    /** Moves the caret into the next (down) or previous block that has an editor, in reading order. */
+    fun moveFocus(from: String, down: Boolean): Boolean {
+        val rects = views.mapValues { (_, v) -> dev.codelanes.layout.Rect(v.x, v.y, v.width, v.height) }
+        val target = dev.codelanes.layout.BlockNavigation.next(rects, from, down, slices.keys) ?: return false
+        val slice = slices[target] ?: return false
+        val (range, _) = tracked[target]?.current() ?: return false
+        focusMovedTo(target)
+        slice.editor.caretModel.moveToOffset(if (down) range.start else range.end)
+        slice.editor.contentComponent.requestFocusInWindow()
+        return true
     }
 
     fun view(id: String): BlockView? = views[id]

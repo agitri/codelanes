@@ -14,6 +14,8 @@
         <fileEditorProvider implementation="dev.codelanes.ide.BlocksEditorProvider"/>
         <editorNotificationProvider implementation="dev.codelanes.ide.BlocksUnavailableNotification"/>
         <editorActionHandler action="EditorBackSpace" implementationClass="dev.codelanes.editor.SliceBackspaceGuard" order="first"/>
+        <editorActionHandler action="EditorUp" implementationClass="dev.codelanes.editor.SliceUpNavigation" order="first"/>
+        <editorActionHandler action="EditorDown" implementationClass="dev.codelanes.editor.SliceDownNavigation" order="first"/>
         <editorActionHandler action="EditorDelete" implementationClass="dev.codelanes.editor.SliceDeleteGuard" order="first"/>
     </extensions>
 
