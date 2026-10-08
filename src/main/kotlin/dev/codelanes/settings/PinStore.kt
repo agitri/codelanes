@@ -22,10 +22,12 @@ class PinStore : SimplePersistentStateComponent<PinStore.PinState>(PinState()) {
     fun pins(filePath: String): Map<String, Point> =
         state.pins.entries
             .filter { it.key.startsWith("$filePath|") }
-            .associate { (key, value) ->
-                val (x, y) = value.split(',').map(String::toInt)
-                key.substringAfter('|') to Point(x, y)
+            .mapNotNull { (key, value) ->
+                // Hand-edited or corrupt workspace values are skipped, never fatal.
+                val parts = value.split(',').mapNotNull { it.trim().toIntOrNull() }
+                if (parts.size == 2) key.substringAfter('|') to Point(parts[0], parts[1]) else null
             }
+            .toMap()
 
     fun pin(filePath: String, blockId: String, at: Point) {
         state.pins["$filePath|$blockId"] = "${at.x},${at.y}"

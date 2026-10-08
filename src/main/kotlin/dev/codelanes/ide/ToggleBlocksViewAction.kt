@@ -17,8 +17,9 @@ class ToggleBlocksViewAction : AnAction(), DumbAware {
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val file = e.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
         val manager = FileEditorManager.getInstance(project)
+        // The caret may sit in a block that shows another file (e.g. an expanded interface): toggle the open tab's file.
+        val file = manager.selectedEditor?.file ?: e.getData(CommonDataKeys.VIRTUAL_FILE) ?: return
         val target = if (manager.getSelectedEditor(file) is BlocksFileEditor) "text-editor" else BlocksEditorProvider.TYPE_ID
         manager.setSelectedEditor(file, target)
     }

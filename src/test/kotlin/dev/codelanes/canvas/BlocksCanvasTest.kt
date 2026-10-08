@@ -138,4 +138,15 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         canvas.setContent(listOf("render", "total", "subtotal").associateWith { BlockView(it, canvas) }, listOf(first, second))
         assertFalse(canvas.colorFor(first) == canvas.colorFor(second))
     }
+
+    fun testABlockBeingDraggedIsNotSnappedBackByARelayout() {
+        val canvas = BlocksCanvas(NoListener)
+        val view = BlockView("a", canvas)
+        canvas.setContent(mapOf("a" to view), emptyList())
+        canvas.place(mapOf("a" to Rect(10, 20, 100, 50)))
+        view.setLocation(300, 300)
+        view.dragging = true
+        canvas.place(mapOf("a" to Rect(10, 20, 100, 50)))
+        assertEquals(java.awt.Point(300, 300), view.location)
+    }
 }

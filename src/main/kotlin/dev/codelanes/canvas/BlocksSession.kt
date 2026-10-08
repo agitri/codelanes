@@ -76,7 +76,13 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     init {
         canvas.targetLineY = ::targetLineY
         watch(document)
-        rebuildNow()
+        try {
+            rebuildNow()
+        } catch (e: Throwable) {
+            // Not yet registered with a parent disposable: release editors and listeners ourselves.
+            Disposer.dispose(this)
+            throw e
+        }
     }
 
     private fun watch(doc: Document) {
@@ -118,13 +124,14 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     fun rebuildNow() {
         if (disposed) return
         val documents = PsiDocumentManager.getInstance(project)
-        if (!documents.isCommitted(document)) {
+        // Blocks can show other files (an expanded interface), so every pending edit must reach the parser.
+        if (documents.hasUncommitedDocuments()) {
             // Committing is a model change; e.g. inside FileEditorProvider.createEditor it isn't allowed.
             if (!TransactionGuard.getInstance().isWritingAllowed) {
                 scheduleRebuild()
                 return
             }
-            documents.commitDocument(document)
+            documents.commitAllDocuments()
         }
         if (DumbService.isDumb(project)) {
             scheduleRebuild()
@@ -478,6 +485,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         focusMovedTo(null)
         rebuildNow()
     }
+
+    fun summaryText(id: String): String = (summaries[id]?.second as? JBLabel)?.text.orEmpty()
 
     fun view(id: String): BlockView? = views[id]
 

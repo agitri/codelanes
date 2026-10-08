@@ -51,11 +51,13 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
                 if (!dragged && kotlin.math.abs(dx) < DRAG_THRESHOLD && kotlin.math.abs(dy) < DRAG_THRESHOLD) return
                 setLocation(o.x + e.locationOnScreen.x - s.x, o.y + e.locationOnScreen.y - s.y)
                 dragged = true
+                dragging = true
                 canvas.repaint()
             }
 
             override fun mouseReleased(e: MouseEvent) {
                 if (e.isPopupTrigger) return showMenu(e)
+                dragging = false
                 if (dragged) canvas.listener.blockMoved(id, canvas.toCanvas(location))
                 start = null
             }
@@ -77,6 +79,9 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
         this.actions = actions
         this.menu = menu
     }
+
+    /** True while the user drags this block; relayouts leave it where the mouse is. */
+    var dragging = false
 
     internal fun actionTexts(): List<String> = actions.map { it.first }
     internal fun menuTexts(): List<String> = menu.map { it.first }

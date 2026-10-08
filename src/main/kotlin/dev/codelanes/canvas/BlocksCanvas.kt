@@ -142,6 +142,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     private fun moveViews() {
         for ((id, view) in views) {
             val r = rects[id] ?: continue
+            if (view.dragging) continue
             view.setLocation(pan.x + (r.x * zoom).roundToInt(), pan.y + (r.y * zoom).roundToInt())
         }
         repaint()
@@ -155,6 +156,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     private fun placeViews() {
         for ((id, view) in views) {
             val r = rects[id] ?: continue
+            if (view.dragging) continue
             view.bounds = Rectangle(
                 pan.x + (r.x * zoom).roundToInt(),
                 pan.y + (r.y * zoom).roundToInt(),
@@ -179,11 +181,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
                 arrowHead(g2, route[route.size - 2], route.last())
             }
             paintLegend(g2)
-            notice?.let {
-                g2.font = JBFont.label().asBold()
-                g2.color = JBColor.RED
-                g2.drawString(it, 12, 20)
-            }
+            notice?.let { paintNotice(g2, it) }
         } finally {
             g2.dispose()
         }
@@ -233,6 +231,24 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     /** All lines are solid: colour carries the meaning (people read colours far better than dash patterns). */
     internal fun strokeFor(kind: LinkKind): BasicStroke =
         BasicStroke((if (kind == LinkKind.OWNS) 1.2 * zoom else 1.8 * zoom).toFloat(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+
+    /** A calm banner at the top centre (not red text): the canvas is waiting for valid code, nothing is wrong. */
+    private fun paintNotice(g2: Graphics2D, text: String) {
+        g2.font = JBFont.label()
+        val metrics = g2.fontMetrics
+        val padding = 10
+        val w = metrics.stringWidth(text) + 2 * padding
+        val h = metrics.height + padding
+        val x = (width - w) / 2
+        val y = 8
+        g2.color = JBColor.namedColor("Banner.infoBackground", JBColor(java.awt.Color(0xE8F0FE), java.awt.Color(0x25324D)))
+        g2.fillRoundRect(x, y, w, h, 10, 10)
+        g2.color = JBColor.namedColor("Banner.infoBorderColor", JBColor(java.awt.Color(0x9DB6E8), java.awt.Color(0x35538F)))
+        g2.stroke = BasicStroke(1f)
+        g2.drawRoundRect(x, y, w, h, 10, 10)
+        g2.color = JBColor.foreground()
+        g2.drawString(text, x + padding, y + padding / 2 + metrics.ascent)
+    }
 
     /** Small key in the bottom-left corner: which colour means which kind of line. */
     private fun paintLegend(g2: Graphics2D) {

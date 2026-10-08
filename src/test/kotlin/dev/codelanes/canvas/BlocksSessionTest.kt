@@ -350,4 +350,16 @@ class BlocksSessionTest : BasePlatformTestCase() {
         session.toggleReveal(base)
         assertFalse(session.blockIds().contains("parent:\\App\\Root"))
     }
+
+    fun testCollapsedSummaryOfAnotherFileRefreshesWhenThatFileChanges() {
+        val barro = myFixture.addFileToProject("Barro.php", "<?php\nnamespace App;\n\ninterface Barro\n{\n    public function bar(): string;\n}\n")
+        val psi = myFixture.configureByText("Foo.php", source.replace("class Foo", "class Foo implements Barro"))
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        WriteCommandAction.runWriteCommandAction(project) {
+            val doc = com.intellij.psi.PsiDocumentManager.getInstance(project).getDocument(barro)!!
+            doc.insertString(doc.text.lastIndexOf("}"), "    public function extra(): void;\n")
+        }
+        session.rebuildNow()
+        assertTrue(session.summaryText("interface:\\App\\Barro").contains("extra()"))
+    }
 }

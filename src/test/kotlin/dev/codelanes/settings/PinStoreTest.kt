@@ -40,4 +40,12 @@ class PinStoreTest : BasePlatformTestCase() {
     fun testBlocksByDefaultIsOnInitially() {
         assertTrue(BlocksSettings().state.openAsBlocksByDefault)
     }
+
+    fun testCorruptSavedPositionsAreIgnored() {
+        val store = PinStore.getInstance(project)
+        store.state.pins["$file|method:broken"] = "not,a-number"
+        store.state.pins["$file|method:half"] = "12"
+        store.pin(file, "method:ok", Point(1, 2))
+        assertEquals(mapOf("method:ok" to Point(1, 2)), store.pins(file))
+    }
 }
