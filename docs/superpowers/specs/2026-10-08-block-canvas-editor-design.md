@@ -1,7 +1,7 @@
 # Block Canvas Editor — Design
 
 **Date:** 2026-10-08
-**Status:** Draft for review
+**Status:** Approved; revised 2026-10-08 (free graph layout replaces columns)
 
 ## Purpose
 
@@ -23,7 +23,7 @@ class / interface / trait / enum.
 and terminal. Explanations / junior mode possibly later.
 
 **Not in v1:** other languages, multi-class or procedural files as blocks,
-user-draggable layouts, explanations, VS Code, terminal.
+explanations, VS Code, terminal.
 
 ## User experience
 
@@ -35,36 +35,55 @@ user-draggable layouts, explanations, VS Code, terminal.
 - Unsupported files open in the classic text editor automatically, with a small
   notice saying why.
 
-### Canvas layout (automatic, deterministic)
+### Canvas layout (free graph)
+
+There are no fixed columns. Blocks form a graph that follows the code's
+relationships, at any depth and in any direction:
 
 ```
-                     [ file header: namespace + use imports ]   (collapsed)
-
-[ interface Barro ] ──►  ┌─ class Foo implements Barro ─┐ ──► [ method bar()      ]
-[ parent class    ] ──►  │ properties                   │
-[ trait X         ] ──►  │ constants                    │ ──► [ method footest()  ]
-[ dep UserRepo    ] ──►  │ constructor                  │
-                         └──────────────────────────────┘
+  [abstract Base]                 [header: namespace + use]
+        │ extends
+        ▼
+  [class Child] ◄── implements ── [X] [Y] [Z]
+     │      │
+     ▼      ▼
+  [bar()] ──calls──► [footest()]
+     │
+     └── overrides ──► [Base::bar()]   (line lands on that method when Base is expanded)
 ```
 
-- **Left column:** implemented interfaces, parent class, used traits,
-  constructor-injected dependencies.
-- **Center:** file header block (namespace + `use` imports, collapsed by
-  default, editable when expanded) above the class block (signature,
-  properties, constants, constructor).
-- **Right column:** one block per method, in source order.
-- Interface, trait and enum files use the same layout: that type sits in the
-  center block (enum cases count as constants), with its methods or abstract
-  signatures on the right.
-- Layout is computed automatically only; the same file always looks the same.
+- **Automatic layered layout.** Structural links decide the layers: parents,
+  interfaces, traits and dependencies sit above the type they feed into, and
+  the class sits above its methods. Blocks within a layer are ordered to reduce
+  crossing lines. A layer wider than the maximum row width wraps onto more rows.
+  The header block sits next to the class block.
+- **Drag to arrange.** Any block can be dragged. A dragged block is *pinned*
+  and keeps its position; auto-placed blocks move out of the way of pinned
+  ones. New blocks are auto-placed by the same rules.
+- **Pins are per user** and stored in the IDE workspace (`.idea/workspace.xml`,
+  normally not in git), keyed by file and block id. If a block's id changes
+  (e.g. a method is renamed), its pin is dropped and the block is auto-placed.
+- **Deterministic:** the same model plus the same pins always gives the same
+  picture.
+- **Depth on demand:** one level of related types (direct parent, interfaces,
+  traits, dependencies) is shown by default. Each related-type block has a `+`
+  that reveals *its* parents, interfaces and traits; you can repeat this as deep
+  as you want.
+- Interface, trait and enum files use the same rules: that type is the central
+  block (enum cases count as constants), with its methods below it.
 
 ### Arrows
 
-- Left → class: `implements`, `extends`, `uses` (trait), `injects` — each with
+- Into the type: `implements`, `extends`, `uses` (trait), `injects`. Each has
   its own line style.
-- Class → methods: `owns`.
-- Method → method: `calls` (e.g. `$this->footest()`), drawn only for the focused
-  block to keep the canvas calm.
+- Type → its methods: `owns`.
+- Method → method in the same class: `calls` (e.g. `$this->footest()`).
+- Method → parent/interface method: `overrides` (labelled "implements" when the
+  target is an interface or abstract method). When the target block is
+  expanded, the line lands on that method's line; when it is collapsed, it lands
+  on the block's edge.
+- `calls` and `overrides` lines are drawn only for the focused block, to keep
+  the canvas calm.
 
 ### Blocks from other files
 
@@ -82,7 +101,7 @@ resolution logic.
 When the caret is on a symbol (a `use` import, `new TestCodeClass`, a type
 hint, `$this->repo`, a method name), every block containing a usage of that
 symbol gets a highlighted border; the block defining it gets a stronger border.
-Works across all columns. Uses the IDE's own usage search, not text matching.
+Works across the whole canvas. Uses the IDE's own usage search, not text matching.
 Updates as the caret moves.
 
 ### Editing
@@ -109,24 +128,34 @@ Four units, each with one job:
 1. **Block Model** (language-agnostic data)
    - `Block`: kind (`header | interface | parent | trait | dependency | class | method`),
      source file, text range, collapsed state.
-   - `Link`: kind (`implements | extends | uses | injects | owns | calls`), from, to.
+   - `Link`: kind (`implements | extends | uses | injects | owns | calls | overrides`),
+     from, to, and an optional target range (for lines that land on one method
+     inside a block).
    - No knowledge of PHP or rendering. Future languages produce the same model.
 
 2. **PHP Block Builder** (one per language)
-   - Input: PHP PSI file. Output: Block Model, or `Unsupported(reason)`.
+   - Input: PHP PSI file plus the set of revealed related-type blocks. Output:
+     Block Model, or `Unsupported(reason)`.
    - Extracts header, class block, methods, interfaces/parent/traits (resolved
-     via PSI to their files), constructor-injected dependencies, and
-     intra-class method calls.
+     via PSI to their files, plus the parents of every revealed block),
+     constructor-injected dependencies, intra-class method calls, and
+     overrides/implements links to parent methods.
 
 3. **Layout Engine**
-   - Input: Block Model. Output: block positions and arrow routes.
-   - Pure and deterministic; three-column rule above.
+   - Input: Block Model, block sizes, pinned positions. Output: block positions.
+   - Pure and deterministic; layered graph rules above. Pinned blocks keep
+     their positions, and auto-placed blocks never overlap them.
+   - A separate pure geometry helper computes line endpoints between two
+     rectangles (or a rectangle and a line inside it).
 
 4. **Canvas Editor** (JetBrains UI)
    - A `FileEditorProvider` registered for PHP files that replaces the default
      text editor when enabled.
    - Swing canvas with pan/zoom; renders blocks, arrows, highlight borders.
-   - Hosts one slice editor per expanded block.
+   - Hosts one slice editor per expanded block. Hidden ranges inside a slice
+     cover whole lines, so the class block has no editable holes where its
+     methods were (found in the spike as "ghost typing").
+   - Drag to pin blocks; pins persisted per user in the workspace.
    - Provides the toggle to the classic text view.
 
 ### Data flow
@@ -144,8 +173,10 @@ AI agent writing the file) follow the same path.
 - **Unsupported files:** fall back to the text editor with a notice.
 - **Unresolved references:** handled by the IDE as described above; no extra
   logic.
-- **Very large classes (50+ methods):** v1 simply stacks them in the right
-  column; optimize later if needed.
+- **Very large classes (50+ methods):** v1 wraps the method layer into rows;
+  optimize later if needed.
+- **Stale pins:** pins for block ids that no longer exist are ignored and
+  dropped on the next save.
 
 ## Technology
 
@@ -160,6 +191,10 @@ AI agent writing the file) follow the same path.
 document, with completion and inspections still working, is not a standard
 platform feature.
 
+**Result:** the spike passed (see
+`docs/superpowers/spikes/2026-10-08-slice-editor-findings.md`). Approach A
+(fold-based slice editors) is confirmed.
+
 **First step (throwaway spike):** prove that a slice editor can display one
 method of a PHP file, keep PHP completion working, and write edits back to the
 right lines of the real file. If it works, proceed with this design. If not,
@@ -171,7 +206,8 @@ a live slice editor (same building blocks, fewer simultaneous editors).
 - **PHP Block Builder:** IntelliJ platform test fixtures with PHP sample files
   (class + interface, traits, injected deps, intra-class calls, unsupported
   files) asserting the resulting Block Model.
-- **Layout Engine:** plain unit tests; same model → same positions.
+- **Layout Engine:** plain unit tests: layering, wrapping, pins respected,
+  no overlaps, same input → same positions.
 - **Slice editing:** tests that edits in a slice editor modify the correct range
   of the real document, and that adding a method yields a new block.
 - **Canvas visuals:** manual verification in a sandbox IDE (`runIde`); no
