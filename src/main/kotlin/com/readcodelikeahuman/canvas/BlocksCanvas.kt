@@ -105,7 +105,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         Point(((screen.x - pan.x) / zoom).roundToInt(), ((screen.y - pan.y) / zoom).roundToInt())
 
     internal fun visibleLinks(): List<Link> =
-        links.filter { it.kind != LinkKind.CALLS || focusedId == it.from || focusedId == it.to }
+        links.filter { it.kind !in FOCUS_ONLY || focusedId == it.from || focusedId == it.to }
 
     /** Panning only moves blocks; no re-layout of the editors inside them, which keeps scrolling smooth. */
     private fun moveViews() {
@@ -142,7 +142,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
             for ((link, route) in routes(visibleLinks())) {
-                g2.color = colorFor(link.kind)
+                g2.color = colorFor(link)
                 g2.stroke = strokeFor(link.kind)
                 g2.drawPolyline(route.map { it.x }.toIntArray(), route.map { it.y }.toIntArray(), route.size)
                 arrowHead(g2, route[route.size - 2], route.last())
@@ -184,10 +184,16 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         g2.fillPolygon(xs, ys, 3)
     }
 
+    /** Override lines each get their own colour (stable per line), so lines shown together never look alike. */
+    internal fun colorFor(link: Link): java.awt.Color {
+        if (link.kind != LinkKind.OVERRIDES) return colorFor(link.kind)
+        val overrides = links.filter { it.kind == LinkKind.OVERRIDES }.sortedWith(compareBy({ it.from }, { it.to }))
+        return OVERRIDE_PALETTE[overrides.indexOf(link).coerceAtLeast(0) % OVERRIDE_PALETTE.size]
+    }
+
     private fun colorFor(kind: LinkKind) = when (kind) {
         LinkKind.OWNS -> JBColor.GRAY
         LinkKind.CALLS -> JBColor.BLUE
-        LinkKind.OVERRIDES -> JBColor(java.awt.Color(0x3E8E41), java.awt.Color(0x6AAB73))
         else -> JBColor.foreground()
     }
 
@@ -206,6 +212,18 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
 
     companion object {
         const val SLOT_STEP = 12
+
+        /** Calls and overrides only show for the focused block; otherwise the canvas drowns in lines. */
+        private val FOCUS_ONLY = setOf(LinkKind.CALLS, LinkKind.OVERRIDES)
+
+        private val OVERRIDE_PALETTE = listOf(
+            JBColor(java.awt.Color(0x2E7D32), java.awt.Color(0x6AAB73)),
+            JBColor(java.awt.Color(0xC2185B), java.awt.Color(0xF06292)),
+            JBColor(java.awt.Color(0xEF6C00), java.awt.Color(0xFFB74D)),
+            JBColor(java.awt.Color(0x6A1B9A), java.awt.Color(0xBA68C8)),
+            JBColor(java.awt.Color(0x00838F), java.awt.Color(0x4DD0E1)),
+            JBColor(java.awt.Color(0x9E9D24), java.awt.Color(0xDCE775)),
+        )
         const val MIN_ZOOM = 0.2
         const val MAX_ZOOM = 2.0
     }

@@ -91,10 +91,25 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         assertEquals(1, recorder.tidied)
     }
 
-    fun testOverrideLinesAreAlwaysShown() {
+    fun testOverrideLinesAreOnlyShownForTheFocusedBlock() {
         val canvas = BlocksCanvas(NoListener)
         val overrides = Link(LinkKind.OVERRIDES, "a", "b")
-        canvas.setContent(listOf("a", "b").associateWith { BlockView(it, canvas) }, listOf(overrides))
+        canvas.setContent(listOf("a", "b", "c").associateWith { BlockView(it, canvas) }, listOf(overrides))
+        assertEquals(emptyList<Link>(), canvas.visibleLinks())
+        canvas.focusedId = "a"
         assertEquals(listOf(overrides), canvas.visibleLinks())
+        canvas.focusedId = "b"
+        assertEquals(listOf(overrides), canvas.visibleLinks())
+        canvas.focusedId = "c"
+        assertEquals(emptyList<Link>(), canvas.visibleLinks())
+    }
+
+    fun testEachOverrideLineGetsItsOwnColour() {
+        val canvas = BlocksCanvas(NoListener)
+        val first = Link(LinkKind.OVERRIDES, "m", "i1")
+        val second = Link(LinkKind.OVERRIDES, "m", "i2")
+        canvas.setContent(listOf("m", "i1", "i2").associateWith { BlockView(it, canvas) }, listOf(first, second))
+        assertFalse(canvas.colorFor(first) == canvas.colorFor(second))
+        assertEquals(canvas.colorFor(first), canvas.colorFor(first))
     }
 }
