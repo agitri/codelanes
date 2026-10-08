@@ -2,72 +2,163 @@ package com.readcodelikeahuman.layout
 
 import com.readcodelikeahuman.model.Block
 import com.readcodelikeahuman.model.BlockKind
+import com.readcodelikeahuman.model.BlockKind.CLASS
+import com.readcodelikeahuman.model.BlockKind.HEADER
+import com.readcodelikeahuman.model.BlockKind.INTERFACE
+import com.readcodelikeahuman.model.BlockKind.METHOD
+import com.readcodelikeahuman.model.BlockKind.PARENT
 import com.readcodelikeahuman.model.BlockModel
 import com.readcodelikeahuman.model.Link
-import com.readcodelikeahuman.model.LinkKind
+import com.readcodelikeahuman.model.LinkKind.CALLS
+import com.readcodelikeahuman.model.LinkKind.EXTENDS
+import com.readcodelikeahuman.model.LinkKind.IMPLEMENTS
+import com.readcodelikeahuman.model.LinkKind.OWNS
 import com.readcodelikeahuman.model.SourceRange
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LayoutEngineTest {
     private fun block(id: String, kind: BlockKind) =
         Block(id = id, kind = kind, title = id, filePath = "/Foo.php", range = SourceRange(0, 1))
 
-    private val sizeOf: (Block) -> Size = { if (it.kind == BlockKind.CLASS) Size(200, 120) else Size(100, 50) }
+    private val sizeOf: (Block) -> Size = { if (it.kind == CLASS) Size(300, 160) else Size(200, 60) }
 
-    private val fullModel = BlockModel(
-        blocks = listOf(
-            block("dependency:Repo", BlockKind.DEPENDENCY),
-            block("header", BlockKind.HEADER),
-            block("class:Foo", BlockKind.CLASS),
-            block("method:bar", BlockKind.METHOD),
-            block("method:footest", BlockKind.METHOD),
-            block("interface:Barro", BlockKind.INTERFACE),
+    private val foo = BlockModel(
+        listOf(
+            block("header", HEADER),
+            block("class:Foo", CLASS),
+            block("method:bar", METHOD),
+            block("method:footest", METHOD),
+            block("interface:X", INTERFACE),
+            block("interface:Y", INTERFACE),
+            block("parent:Base", PARENT),
         ),
-        links = listOf(
-            Link(LinkKind.IMPLEMENTS, "interface:Barro", "class:Foo"),
-            Link(LinkKind.INJECTS, "dependency:Repo", "class:Foo"),
-            Link(LinkKind.OWNS, "class:Foo", "method:bar"),
-            Link(LinkKind.CALLS, "method:bar", "method:footest"),
+        listOf(
+            Link(OWNS, "class:Foo", "method:bar"),
+            Link(OWNS, "class:Foo", "method:footest"),
+            Link(IMPLEMENTS, "interface:X", "class:Foo"),
+            Link(IMPLEMENTS, "interface:Y", "class:Foo"),
+            Link(EXTENDS, "parent:Base", "class:Foo"),
+            Link(CALLS, "method:bar", "method:footest"),
         ),
     )
 
-    @Test
-    fun placesBlocksInThreeColumns() {
-        val rects = LayoutEngine.layout(fullModel, sizeOf).rects
-        // left column: interfaces before dependencies, regardless of model order
-        assertEquals(Rect(0, 0, 100, 50), rects["interface:Barro"])
-        assertEquals(Rect(0, 74, 100, 50), rects["dependency:Repo"])
-        // center column at x = 100 + 80
-        assertEquals(Rect(180, 0, 100, 50), rects["header"])
-        assertEquals(Rect(180, 74, 200, 120), rects["class:Foo"])
-        // right column at x = 180 + 200 + 80
-        assertEquals(Rect(460, 0, 100, 50), rects["method:bar"])
-        assertEquals(Rect(460, 74, 100, 50), rects["method:footest"])
+    private fun assertNoOverlap(rects: Map<String, Rect>) {
+        val entries = rects.entries.toList()
+        for (i in entries.indices) for (j in i + 1 until entries.size) {
+            assertFalse("${entries[i].key} overlaps ${entries[j].key}", entries[i].value.overlaps(entries[j].value))
+        }
     }
 
     @Test
-    fun anchorsArrowsOnBlockEdges() {
-        val arrows = LayoutEngine.layout(fullModel, sizeOf).arrows.associate { it.link.kind to (it.from to it.to) }
-        assertEquals(Point(100, 25) to Point(180, 134), arrows[LinkKind.IMPLEMENTS])
-        assertEquals(Point(100, 99) to Point(180, 134), arrows[LinkKind.INJECTS])
-        assertEquals(Point(380, 134) to Point(460, 25), arrows[LinkKind.OWNS])
-        assertEquals(Point(560, 25) to Point(560, 99), arrows[LinkKind.CALLS])
+    fun relatedTypesLeftOfClassAndMethodsRight() {
+        val r = LayoutEngine.layout(foo, sizeOf).rects
+        val cls = r.getValue("class:Foo")
+        listOf("interface:X", "interface:Y", "parent:Base").forEach { assertTrue(it, r.getValue(it).right <= cls.x) }
+        listOf("method:bar", "method:footest").forEach { assertTrue(it, r.getValue(it).x >= cls.right) }
     }
 
     @Test
-    fun emptyLeftColumnTakesNoSpace() {
+    fun headerSitsDirectlyAboveClass() {
+        val r = LayoutEngine.layout(foo, sizeOf).rects
+        val header = r.getValue("header")
+        val cls = r.getValue("class:Foo")
+        assertEquals(cls.x, header.x)
+        assertTrue(header.bottom <= cls.y)
+    }
+
+    @Test
+    fun noTwoBlocksOverlap() {
+        assertNoOverlap(LayoutEngine.layout(foo, sizeOf).rects)
+    }
+
+    @Test
+    fun tallMethodColumnWrapsToTheRight() {
+        val methods = (1..30).map { block("method:m$it", METHOD) }
+        val model = BlockModel(listOf(block("class:A", CLASS)) + methods, methods.map { Link(OWNS, "class:A", it.id) })
+        val r = LayoutEngine.layout(model, sizeOf).rects
+        val cls = r.getValue("class:A")
+        val columns = methods.map { r.getValue(it.id) }.groupBy { it.x }
+        assertTrue("expected wrapping, got ${columns.size} column(s)", columns.size >= 2)
+        columns.values.forEach { col ->
+            assertTrue(col.maxOf { it.bottom } - col.minOf { it.y } <= LayoutEngine.MAX_COLUMN_HEIGHT)
+            col.forEach { assertTrue(it.x >= cls.right) }
+        }
+        assertNoOverlap(r)
+    }
+
+    @Test
+    fun revealedChainsDoNotCross() {
         val model = BlockModel(
-            listOf(block("class:Foo", BlockKind.CLASS), block("method:bar", BlockKind.METHOD)),
-            emptyList(),
+            listOf(
+                block("interface:I0", INTERFACE),
+                block("parent:G", PARENT),
+                block("parent:P", PARENT),
+                block("interface:I1", INTERFACE),
+                block("class:A", CLASS),
+            ),
+            listOf(
+                Link(EXTENDS, "parent:G", "parent:P"),
+                Link(EXTENDS, "interface:I0", "interface:I1"),
+                Link(EXTENDS, "parent:P", "class:A"),
+                Link(IMPLEMENTS, "interface:I1", "class:A"),
+            ),
         )
-        val rects = LayoutEngine.layout(model, sizeOf).rects
-        assertEquals(Rect(0, 0, 200, 120), rects["class:Foo"])
-        assertEquals(Rect(280, 0, 100, 50), rects["method:bar"])
+        val r = LayoutEngine.layout(model, sizeOf).rects
+        assertTrue(r.getValue("parent:G").right <= r.getValue("parent:P").x)
+        assertTrue(r.getValue("interface:I0").right <= r.getValue("interface:I1").x)
+        assertTrue(r.getValue("parent:P").right <= r.getValue("class:A").x)
+        assertEquals(
+            r.getValue("parent:G").y < r.getValue("interface:I0").y,
+            r.getValue("parent:P").y < r.getValue("interface:I1").y,
+        )
+    }
+
+    @Test
+    fun pinnedBlockKeepsPositionAndOthersMoveAway() {
+        val classPos = LayoutEngine.layout(foo, sizeOf).rects.getValue("class:Foo")
+        val pins = mapOf("method:bar" to Point(classPos.x, classPos.y))
+        val r = LayoutEngine.layout(foo, sizeOf, pins).rects
+        assertEquals(classPos.x, r.getValue("method:bar").x)
+        assertEquals(classPos.y, r.getValue("method:bar").y)
+        assertNoOverlap(r)
+    }
+
+    @Test
+    fun newMethodAppendsBelowOthersAndNothingElseMoves() {
+        val before = LayoutEngine.layout(foo, sizeOf).rects
+        val grown = BlockModel(
+            foo.blocks + block("method:added", METHOD),
+            foo.links + Link(OWNS, "class:Foo", "method:added"),
+        )
+        val after = LayoutEngine.layout(grown, sizeOf).rects
+        before.forEach { (id, rect) -> assertEquals(id, rect, after.getValue(id)) }
+        val added = after.getValue("method:added")
+        val footest = after.getValue("method:footest")
+        assertEquals(footest.x, added.x)
+        assertEquals(footest.bottom + LayoutEngine.V_GAP, added.y)
+    }
+
+    @Test
+    fun pinnedBlockLeavesNoGapInItsLane() {
+        val auto = LayoutEngine.layout(foo, sizeOf).rects
+        val r = LayoutEngine.layout(foo, sizeOf, mapOf("method:bar" to Point(2000, 2000))).rects
+        assertEquals(auto.getValue("method:bar").y, r.getValue("method:footest").y)
+        assertEquals(auto.getValue("method:bar").x, r.getValue("method:footest").x)
+    }
+
+    @Test
+    fun stalePinsAreIgnored() {
+        assertEquals(
+            LayoutEngine.layout(foo, sizeOf),
+            LayoutEngine.layout(foo, sizeOf, mapOf("method:gone" to Point(5, 5))),
+        )
     }
 
     @Test
     fun isDeterministic() {
-        assertEquals(LayoutEngine.layout(fullModel, sizeOf), LayoutEngine.layout(fullModel, sizeOf))
+        assertEquals(LayoutEngine.layout(foo, sizeOf), LayoutEngine.layout(foo, sizeOf))
     }
 }
