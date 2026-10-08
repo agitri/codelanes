@@ -5,6 +5,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.php.lang.psi.PhpFile
 import com.jetbrains.php.lang.psi.elements.ClassReference
 import com.jetbrains.php.lang.psi.elements.Method
+import com.jetbrains.php.lang.psi.elements.MethodReference
 import com.jetbrains.php.lang.psi.elements.PhpClass
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement
 import com.jetbrains.php.lang.psi.elements.PhpNamespace
@@ -84,6 +85,7 @@ object PhpBlockBuilder {
             blocks += block
             links += Link(LinkKind.INJECTS, block.id, classId)
         }
+        links += calls(phpClass, methods)
 
         return BuildResult.Supported(BlockModel(blocks, links))
     }
@@ -117,6 +119,15 @@ object PhpBlockBuilder {
         }
         return resolved(typeReferences).map { externalBlock(BlockKind.DEPENDENCY, it) }
     }
+
+    private fun calls(phpClass: PhpClass, methods: List<Method>): List<Link> =
+        methods.flatMap { caller ->
+            PsiTreeUtil.findChildrenOfType(caller, MethodReference::class.java)
+                .mapNotNull { it.resolve() as? Method }
+                .filter { callee -> callee != caller && callee in methods && callee.containingClass == phpClass }
+                .distinct()
+                .map { callee -> Link(LinkKind.CALLS, "method:${caller.name}", "method:${callee.name}") }
+        }
 
     internal fun rangeWithDoc(element: PhpNamedElement): SourceRange {
         val start = minOf(element.textRange.startOffset, element.docComment?.textRange?.startOffset ?: Int.MAX_VALUE)
