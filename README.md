@@ -82,3 +82,7 @@ Early, but usable for reading and editing PHP classes. Not there yet:
 ```
 
 The design and the implementation plans live in [`docs/superpowers`](docs/superpowers).
+
+## License
+
+[MIT](LICENSE) © 2026 Rene Gerrits
