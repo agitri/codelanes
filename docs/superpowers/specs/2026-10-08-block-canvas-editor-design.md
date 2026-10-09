@@ -137,6 +137,14 @@ Each mark remembers a fingerprint of the block's code; when the code changes aft
 by file (relative path) and block id, so they can be committed and reviewed together. A renamed method keeps its
 review.
 
+### Note blocks
+
+**+ Note** (canvas toolbar) adds a free-standing note card to the canvas: a text area typed in directly, saved
+shortly after typing stops. Its title menu offers **Link to block…** (pick a block; drawn as a grey **dashed** line
+labelled `note`, the only dashed line, so it never looks like a code relation), **Remove links** and **Delete note**.
+Notes can be dragged and collapsed (first line shown). Notes, their links and positions are stored per canvas file in
+`.codelanes/notes.json` (merge-safe, see shared files), so a reviewer sees the same notes in the same place.
+
 ### Working sets
 
 **View → CodeLanes Working Sets**: **Save Working Set…** stores every open canvas under a name: its file and its

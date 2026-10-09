@@ -35,6 +35,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         fun tidyUp()
         fun layoutModeChosen(mode: dev.codelanes.layout.LayoutMode) {}
         fun runAction(id: String) {}
+        fun addNote() {}
     }
 
     var zoom: Double = 1.0
@@ -62,6 +63,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     )
     internal val followButton = javax.swing.JButton("Follow a Request…")
     private val addButton = javax.swing.JButton("Add method…")
+    private val noteButton = javax.swing.JButton("+ Note")
     private val setsButton = javax.swing.JButton("Working sets ▾")
 
     internal fun toolbarTexts(): List<String> =
@@ -93,6 +95,8 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         followButton.addActionListener { listener.runAction("CodeLanes.FollowRequest") }
         addButton.toolTipText = "Find any method in the project and drop it on this canvas"
         addButton.addActionListener { listener.runAction("CodeLanes.AddMethodToCanvas") }
+        noteButton.toolTipText = "Add a note to this canvas (shared with your team in .codelanes/notes.json)"
+        noteButton.addActionListener { listener.addNote() }
         setsButton.toolTipText = "Save or reopen the canvases you opened for a task or review"
         setsButton.addActionListener {
             val menu = javax.swing.JPopupMenu()
@@ -106,6 +110,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         toolbar.add(switch)
         toolbar.add(followButton)
         toolbar.add(addButton)
+        toolbar.add(noteButton)
         toolbar.add(setsButton)
         toolbar.add(tidyButton)
         add(toolbar)
@@ -323,6 +328,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         link.kind == LinkKind.INJECTS -> "injected"
         link.kind == LinkKind.IMPLEMENTED_BY -> "implemented by"
         link.kind == LinkKind.CALLS_INTO -> "calls"
+        link.kind == LinkKind.NOTE -> "note"
         link.kind == LinkKind.CALLS && link.from == focusedId -> "calls"
         link.kind == LinkKind.CALLS && link.to == focusedId -> "called by"
         link.kind == LinkKind.OVERRIDES && link.from == focusedId -> "overrides"
@@ -333,8 +339,12 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     private fun colorFor(kind: LinkKind): java.awt.Color = KIND_COLORS.getValue(kind)
 
     /** All lines are solid: colour carries the meaning (people read colours far better than dash patterns). */
-    internal fun strokeFor(kind: LinkKind): BasicStroke =
-        BasicStroke((if (kind == LinkKind.OWNS) 1.2 * zoom else 1.8 * zoom).toFloat(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+    internal fun strokeFor(kind: LinkKind): BasicStroke {
+        val width = (if (kind == LinkKind.OWNS) 1.2 * zoom else 1.8 * zoom).toFloat()
+        // Note links aren't code relations: the one dashed line, so they never look like one.
+        val dash = if (kind == LinkKind.NOTE) floatArrayOf(6f, 5f) else null
+        return BasicStroke(width, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10f, dash, 0f)
+    }
 
     /**
      * Writes [text] just above the line segment next to the focused block, in the line's colour, sliding along the
@@ -457,6 +467,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             LinkKind.IMPLEMENTED_BY to JBColor(java.awt.Color(0x00695C), java.awt.Color(0x80CBC4)),
             // Its own cyan, not one of the per-line "calls" shades.
             LinkKind.CALLS_INTO to JBColor(java.awt.Color(0x00838F), java.awt.Color(0x4DD0E1)),
+            LinkKind.NOTE to JBColor(java.awt.Color(0x8D8D8D), java.awt.Color(0x8F8F8F)),
         )
 
         private val LEGEND = listOf(
@@ -467,6 +478,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             LinkKind.OWNS to "has method",
             LinkKind.IMPLEMENTED_BY to "implemented / used by",
             LinkKind.CALLS_INTO to "calls into another class",
+            LinkKind.NOTE to "note (dashed)",
         )
         const val MIN_ZOOM = 0.2
         const val MAX_ZOOM = 2.0

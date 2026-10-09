@@ -128,7 +128,7 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         val kinds = LinkKind.entries.filter { it != LinkKind.OVERRIDES }
         val colours = kinds.map { canvas.colorFor(Link(it, "a", "b")) }
         assertEquals(kinds.size, colours.toSet().size)
-        LinkKind.entries.forEach { assertNull("$it is dashed", canvas.strokeFor(it).dashArray) }
+        LinkKind.entries.filter { it != LinkKind.NOTE }.forEach { assertNull("$it is dashed", canvas.strokeFor(it).dashArray) }
     }
 
     fun testEachCallLineGetsItsOwnColour() {
@@ -172,7 +172,7 @@ class BlocksCanvasTest : BasePlatformTestCase() {
 
     fun testTheToolbarOffersLayoutFollowWorkingSetsAndTidyUp() {
         val canvas = BlocksCanvas(NoListener)
-        assertEquals(listOf("Lanes", "Column", "Tree", "Follow a Request…", "Add method…", "Working sets ▾", "Tidy up"), canvas.toolbarTexts())
+        assertEquals(listOf("Lanes", "Column", "Tree", "Follow a Request…", "Add method…", "+ Note", "Working sets ▾", "Tidy up"), canvas.toolbarTexts())
     }
 
     fun testChoosingALayoutOnTheCanvasTellsTheListener() {

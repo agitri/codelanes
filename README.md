@@ -44,6 +44,9 @@ summaries, everything comes from the real code.
   **! Needs change**, or to add a note. Marks are saved in `.codelanes/review.json`, so you can commit them and
   review AI-written code together in a pull request. When the code changes after you marked it, the mark turns
   into a grey **~** ("changed since review").
+- **Notes on the canvas.** **+ Note** (toolbar) adds a note card you type in directly; right-click its title to
+  link it to blocks (dashed lines) or delete it. Notes and their positions are shared in `.codelanes/notes.json`,
+  so a review summary sits right next to the code for everyone.
 - **Working sets.** **View → CodeLanes Working Sets → Save Working Set…** saves every open canvas, including
   followed calls, revealed parents, collapsed blocks and zoom, under a name (e.g. "checkout flow") in
   `.codelanes/working-sets.json`. **Open Working Set…** brings it all back, also for a teammate.

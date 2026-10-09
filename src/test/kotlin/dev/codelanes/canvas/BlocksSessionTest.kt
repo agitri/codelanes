@@ -533,4 +533,27 @@ class BlocksSessionTest : BasePlatformTestCase() {
         assertFalse(session.blockIds().any { it.startsWith("callee:") })
         assertEquals("method:footest", session.canvas.focusedId)
     }
+
+    fun testANoteAppearsOnTheCanvasLinksToABlockAndCanBeMovedAndDeleted() {
+        val session = open()
+        val id = session.addNote("Check the rounding here")
+        val noteId = "note:$id"
+        assertTrue(session.blockIds().contains(noteId))
+        assertEquals("Check the rounding here", session.noteText(id))
+        session.linkNote(id, "method:footest")
+        assertTrue(session.canvas.visibleLinks().any { it.from == noteId && it.to == "method:footest" && it.kind == dev.codelanes.model.LinkKind.NOTE })
+        session.blockMoved(noteId, Point(1200, 40))
+        assertEquals(java.awt.Point(1240, 80), session.viewBounds(noteId)!!.location)
+        assertTrue(session.view(noteId)!!.menuTexts().containsAll(listOf("Link to block…", "Remove links", "Delete note")))
+        session.deleteNote(id)
+        assertFalse(session.blockIds().contains(noteId))
+    }
+
+    fun testNotesComeBackInANewSession() {
+        val first = open()
+        val id = first.addNote("Shared summary")
+        val second = BlocksSession(project, myFixture.file.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        assertTrue(second.blockIds().contains("note:$id"))
+        first.deleteNote(id)
+    }
 }

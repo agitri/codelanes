@@ -39,6 +39,7 @@ import dev.codelanes.model.BlockKind
 import dev.codelanes.model.BlockModel
 import dev.codelanes.model.LinkKind
 import dev.codelanes.model.SourceRange
+import dev.codelanes.notes.NotesFile
 import dev.codelanes.php.PhpBlockBuilder
 import dev.codelanes.review.Review
 import dev.codelanes.review.ReviewEntry
@@ -79,6 +80,9 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private var heldBack = false
     private var rebuildAfterRename = false
     private val revealed = mutableSetOf<String>()
+    private val notesFile = NotesFile.getInstance(project)
+    private val noteAreas = mutableMapOf<String, com.intellij.ui.components.JBTextArea>()
+    private val noteAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
     private val reviews = ReviewFile.getInstance(project)
     private val followedCalls = mutableSetOf<String>()
     private val added = mutableSetOf<String>()
@@ -95,7 +99,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         // Review marks changed on disk (git pull, a teammate, another canvas): refresh the badges.
         project.messageBus.connect(this).subscribe(com.intellij.openapi.vfs.VirtualFileManager.VFS_CHANGES, object : com.intellij.openapi.vfs.newvfs.BulkFileListener {
             override fun after(events: List<com.intellij.openapi.vfs.newvfs.events.VFileEvent>) {
-                if (events.any { it.path.endsWith("/" + ReviewFile.PATH) }) {
+                if (events.any { it.path.endsWith("/" + ReviewFile.PATH) || it.path.endsWith("/" + NotesFile.PATH) }) {
                     com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater({ if (!disposed) withModelAccess { render() } }, { disposed })
                 }
             }
@@ -208,7 +212,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     /** Takes over a freshly built model: decides which blocks exist and re-tracks their ranges. */
     private fun adopt(next: BlockModel) {
-        val live = next.blocks.map { it.id }.toSet()
+        val live = next.blocks.map { it.id }.toSet() + notesFile.notes(file.path).map { NOTE_PREFIX + it.id }
         carryOverRename(next, views.keys - live, live - views.keys)
         (views.keys - live).toList().forEach(::forget)
         model = next
@@ -274,7 +278,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             val status = review?.mark?.let { Review.status(review, codeHash(block)) }
             view.setReview(status, review?.note.orEmpty())
         }
-        canvas.setContent(LinkedHashMap(views), current.links)
+        renderNotes()
+        canvas.setContent(LinkedHashMap(views), current.links + noteLinks())
         relayout()
         slices.forEach { (id, slice) -> slice.setScrollable(views[id]?.overflows(canvas.zoom) == true) }
     }
@@ -285,7 +290,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val mode = dev.codelanes.settings.BlocksSettings.instance.mode
         canvas.tree = mode == dev.codelanes.layout.LayoutMode.TREE
         val layout = LayoutEngine.layout(current, { views.getValue(it.id).naturalSize(canvas.zoom) }, pins, mode)
-        canvas.place(layout.rects)
+        canvas.place(layout.rects + noteRects(layout.rects))
     }
 
     private fun fileOf(block: Block): VirtualFile? =
@@ -353,6 +358,11 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private fun fontSize(): Int = (baseFontSize * canvas.zoom).roundToInt().coerceAtLeast(2)
 
     override fun blockMoved(id: String, position: Point) = withModelAccess {
+        if (id.startsWith(NOTE_PREFIX)) {
+            notesFile.move(file.path, id.removePrefix(NOTE_PREFIX), position.x, position.y)
+            relayout()
+            return@withModelAccess
+        }
         PinStore.getInstance(project).pin(file.path, id, position)
         relayout()
     }
@@ -702,6 +712,113 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         rebuildNow()
     }
 
+    /** "+ Note": a free-standing note on this canvas (shared in .codelanes/notes.json). Returns its id. */
+    fun addNote(text: String): String {
+        val id = notesFile.add(file.path, text)
+        withModelAccess { render() }
+        return id
+    }
+
+    override fun addNote() {
+        addNote("")
+    }
+
+    fun noteText(id: String): String = notesFile.notes(file.path).firstOrNull { it.id == id }?.text.orEmpty()
+
+    fun linkNote(id: String, blockId: String) {
+        notesFile.link(file.path, id, blockId)
+        withModelAccess { render() }
+    }
+
+    fun deleteNote(id: String) {
+        notesFile.delete(file.path, id)
+        views.remove(NOTE_PREFIX + id)
+        noteAreas.remove(id)
+        withModelAccess { render() }
+    }
+
+    /** Note cards: an editable text area in a block, saved shortly after typing stops. */
+    private fun renderNotes() {
+        val notes = notesFile.notes(file.path)
+        val ids = notes.map { NOTE_PREFIX + it.id }.toSet()
+        views.keys.filter { it.startsWith(NOTE_PREFIX) && it !in ids }.forEach {
+            views.remove(it)
+            noteAreas.remove(it.removePrefix(NOTE_PREFIX))
+        }
+        for (note in notes) {
+            val id = NOTE_PREFIX + note.id
+            val view = views.getOrPut(id) { BlockView(id, canvas) }
+            val area = noteAreas.getOrPut(note.id) {
+                com.intellij.ui.components.JBTextArea(note.text, 3, 28).apply {
+                    lineWrap = true
+                    wrapStyleWord = true
+                    background = NOTE_BACKGROUND
+                    border = JBUI.Borders.empty(6, 8)
+                    document.addDocumentListener(object : com.intellij.ui.DocumentAdapter() {
+                        override fun textChanged(e: javax.swing.event.DocumentEvent) = scheduleNoteSave(note.id)
+                    })
+                }
+            }
+            if (!area.hasFocus() && area.text != note.text) area.text = note.text
+            val isCollapsed = collapsed[id] ?: false
+            val block = Block(id, BlockKind.NOTE, "Note", file.path, SourceRange(0, 0), collapsed = isCollapsed,
+                summary = listOf(note.text.lineSequence().firstOrNull().orEmpty()))
+            view.update(block, isCollapsed, if (isCollapsed) summaryOf(block) else area, canvas.zoom)
+            view.setActions(emptyList(), noteMenu(note.id))
+            view.setReview(null, "")
+        }
+    }
+
+    private fun scheduleNoteSave(id: String) {
+        noteAlarm.cancelAllRequests()
+        noteAlarm.addRequest({ noteAreas[id]?.let { notesFile.setText(file.path, id, it.text) } }, NOTE_SAVE_DELAY_MS)
+    }
+
+    private fun noteLinks(): List<dev.codelanes.model.Link> {
+        val present = views.keys
+        return notesFile.notes(file.path).flatMap { note ->
+            note.links.filter { it in present }.map { dev.codelanes.model.Link(LinkKind.NOTE, NOTE_PREFIX + note.id, it) }
+        }
+    }
+
+    /** Where notes go: where they were dragged, or else stacked to the right of everything else. */
+    private fun noteRects(blocks: Map<String, dev.codelanes.layout.Rect>): Map<String, dev.codelanes.layout.Rect> {
+        var freeX = (blocks.values.maxOfOrNull { it.right } ?: 0) + LayoutEngine.H_GAP
+        var freeY = 0
+        return notesFile.notes(file.path).mapNotNull { note ->
+            val id = NOTE_PREFIX + note.id
+            val size = views[id]?.naturalSize(canvas.zoom) ?: return@mapNotNull null
+            val rect = if (note.x != null && note.y != null) {
+                dev.codelanes.layout.Rect(note.x, note.y, size.width, size.height)
+            } else {
+                dev.codelanes.layout.Rect(freeX, freeY, size.width, size.height).also { freeY += size.height + LayoutEngine.V_GAP }
+            }
+            id to rect
+        }.toMap()
+    }
+
+    private fun noteMenu(id: String): List<Pair<String, () -> Unit>> = listOf(
+        "Link to block…" to { chooseBlockToLink(id) },
+        "Remove links" to {
+            notesFile.unlinkAll(file.path, id)
+            withModelAccess { render() }
+        },
+        "Delete note" to {
+            if (Messages.showYesNoDialog(project, "Delete this note?", "Delete Note", null) == Messages.YES) deleteNote(id)
+        },
+    )
+
+    private fun chooseBlockToLink(id: String) {
+        val blocks = model?.blocks.orEmpty().filter { it.kind != BlockKind.MORE }
+        com.intellij.openapi.ui.popup.JBPopupFactory.getInstance().createPopupChooserBuilder(blocks)
+            .setTitle("Link Note to Block")
+            .setRenderer(com.intellij.ui.SimpleListCellRenderer.create("") { it.title })
+            .setNamerForFiltering { it.title }
+            .setItemChosenCallback { linkNote(id, it.id) }
+            .createPopup()
+            .showInCenterOf(canvas)
+    }
+
     fun view(id: String): BlockView? = views[id]
 
     fun blockIds(): List<String> = views.keys.toList()
@@ -733,6 +850,9 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     companion object {
         const val REBUILD_DELAY_MS = 300
+        const val NOTE_SAVE_DELAY_MS = 500
+        const val NOTE_PREFIX = "note:"
+        private val NOTE_BACKGROUND = JBColor(java.awt.Color(0xFFF8E1), java.awt.Color(0x3A3628))
         const val HIGHLIGHT_DELAY_MS = 200
     }
 }

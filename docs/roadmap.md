@@ -24,7 +24,7 @@
 
 ## Next
 
-1. **Free-standing note blocks**: review summaries next to the code ("this flow is fine except …").
+1. **Free-standing note blocks** (built on `feat/note-blocks`, needs an IDE check): `+ Note` on the canvas.
 2. **Routes from YAML/XML** (Symfony), not only `#[Route]` attributes.
 
 ## Later
