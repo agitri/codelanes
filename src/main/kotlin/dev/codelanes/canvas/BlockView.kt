@@ -96,7 +96,7 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
     fun setReview(status: dev.codelanes.review.ReviewStatus?, noteText: String) {
         val (symbol, colour) = when (status) {
             dev.codelanes.review.ReviewStatus.UNDERSTOOD -> "✓" to JBColor(java.awt.Color(0x2E7D32), java.awt.Color(0x81C784))
-            dev.codelanes.review.ReviewStatus.UNCLEAR -> "?" to JBColor(java.awt.Color(0xE65100), java.awt.Color(0xFFB74D))
+            dev.codelanes.review.ReviewStatus.UNCLEAR -> "?" to JBColor(java.awt.Color(0x6A1B9A), java.awt.Color(0xCE93D8))
             dev.codelanes.review.ReviewStatus.NEEDS_CHANGE -> "!" to JBColor(java.awt.Color(0xC62828), java.awt.Color(0xEF9A9A))
             dev.codelanes.review.ReviewStatus.CHANGED -> "~" to JBColor.GRAY
             null -> "" to JBColor.foreground()
@@ -108,12 +108,18 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
             null -> null
             else -> status.name.lowercase().replace('_', ' ')
         }
-        note.text = noteText
+        rawNote = noteText
+        // Notes come from a shared file: always shown as text (escaped), never interpreted as HTML.
+        note.text = if (noteText.isBlank()) "" else
+            "<html>" + com.intellij.openapi.util.text.StringUtil.escapeXmlEntities(noteText).replace("\n", "<br>") + "</html>"
         note.isVisible = noteText.isNotBlank()
     }
 
     internal fun reviewBadge(): String = badge.text
-    internal fun noteText(): String = note.text
+    private var rawNote = ""
+
+    internal fun noteText(): String = rawNote
+    internal fun noteLabelText(): String = note.text
 
     internal fun actionTexts(): List<String> = actions.map { it.first }
     internal fun menuTexts(): List<String> = menu.map { it.first }

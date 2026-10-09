@@ -442,4 +442,22 @@ class BlocksSessionTest : BasePlatformTestCase() {
         assertEquals(0.8, second.canvas.zoom, 0.001)
         assertEquals(psi.virtualFile.path, state.file)
     }
+
+    fun testAddingAnUnrelatedMethodKeepsTheClassReviewed() {
+        val session = open()
+        session.markBlock("class:\\App\\Foo", dev.codelanes.review.ReviewMark.UNDERSTOOD)
+        edit("        return ${'$'}s;\n    }\n", "        return ${'$'}s;\n    }\n\n    public function added(): void {}\n")
+        session.rebuildNow()
+        assertEquals("✓", session.view("class:\\App\\Foo")!!.reviewBadge())
+    }
+
+    fun testFollowedCallsSurviveARename() {
+        myFixture.addFileToProject("Repo.php", "<?php\nnamespace App;\n\nclass Repo\n{\n    public function find(): string\n    {\n        return 'x';\n    }\n}\n")
+        val psi = myFixture.configureByText("Foo.php", source.replace("return ${'$'}s;", "return (new Repo())->find();"))
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        session.toggleCalls("method:footest")
+        edit("function footest(", "function footester(")
+        session.rebuildNow()
+        assertTrue(session.blockIds().contains("callee:\\App\\Repo::find"))
+    }
 }

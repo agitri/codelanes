@@ -32,4 +32,16 @@ class WorkingSetFileTest : BasePlatformTestCase() {
         file.delete("zeta")
         assertFalse(WorkingSetFile(project).names().contains("zeta"))
     }
+
+    fun testATeammatesWorkingSetPulledFromGitIsKept() {
+        val sets = WorkingSetFile.getInstance(project)
+        sets.save(WorkingSet("mine", emptyList()))
+        com.intellij.openapi.application.WriteAction.runAndWait<RuntimeException> {
+            val file = project.guessProjectDir()!!.findFileByRelativePath(".codelanes/working-sets.json")!!
+            val text = String(file.contentsToByteArray()).replace("\"mine\"", "\"theirs\": [],\n  \"mine\"")
+            com.intellij.openapi.vfs.VfsUtil.saveText(file, text)
+        }
+        sets.save(WorkingSet("mine2", emptyList()))
+        assertTrue(WorkingSetFile(project).names().containsAll(listOf("mine", "mine2", "theirs")))
+    }
 }

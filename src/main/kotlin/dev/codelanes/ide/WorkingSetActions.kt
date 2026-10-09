@@ -13,7 +13,7 @@ import dev.codelanes.workingset.WorkingSet
 import dev.codelanes.workingset.WorkingSetFile
 
 private fun openCanvases(project: Project): List<BlocksFileEditor> =
-    FileEditorManager.getInstance(project).allEditors.filterIsInstance<BlocksFileEditor>()
+    FileEditorManager.getInstance(project).allEditors.filterIsInstance<BlocksFileEditor>().distinctBy { it.file }
 
 /** Lets the user pick a saved working set by name, then runs [onChosen]. */
 private fun chooseWorkingSet(project: Project, title: String, onChosen: (String) -> Unit) {
@@ -42,7 +42,11 @@ class SaveWorkingSetAction : AnAction(), DumbAware {
         }
         val name = Messages.showInputDialog(project, "Name for this working set:", "Save Working Set", null)
             ?.trim()?.takeIf { it.isNotEmpty() } ?: return
-        WorkingSetFile.getInstance(project).save(WorkingSet(name, canvases.map { it.session.snapshot() }))
+        val sets = WorkingSetFile.getInstance(project)
+        if (sets.exists(name) &&
+            Messages.showYesNoDialog(project, "Replace working set \"$name\"?", "Save Working Set", null) != Messages.YES
+        ) return
+        sets.save(WorkingSet(name, canvases.map { it.session.snapshot() }))
     }
 }
 
@@ -55,11 +59,24 @@ class OpenWorkingSetAction : AnAction(), DumbAware {
         chooseWorkingSet(project, "Open Working Set") { name ->
             val set = WorkingSetFile.getInstance(project).get(name) ?: return@chooseWorkingSet
             val manager = FileEditorManager.getInstance(project)
+            val missing = mutableListOf<String>()
             for (state in set.canvases) {
-                val file = LocalFileSystem.getInstance().findFileByPath(state.file) ?: continue
+                val file = LocalFileSystem.getInstance().findFileByPath(state.file)
+                if (file == null) {
+                    missing += state.file.substringAfterLast('/')
+                    continue
+                }
                 manager.openFile(file, true)
                 manager.setSelectedEditor(file, BlocksEditorProvider.TYPE_ID)
-                (manager.getSelectedEditor(file) as? BlocksFileEditor)?.session?.restore(state)
+                val canvas = manager.getSelectedEditor(file) as? BlocksFileEditor
+                if (canvas == null) missing += file.name else canvas.session.restore(state)
+            }
+            if (missing.isNotEmpty()) {
+                Messages.showWarningDialog(
+                    project,
+                    "Couldn't restore ${missing.size} canvas(es): ${missing.joinToString(", ")} (moved, deleted or no longer shown as blocks).",
+                    "Open Working Set",
+                )
             }
         }
     }

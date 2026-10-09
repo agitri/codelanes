@@ -241,4 +241,12 @@ class BlocksCanvasTest : BasePlatformTestCase() {
             assertEquals("$kind", route, canvas.drawnRoute(Link(kind, "a", "b"), route))
         }
     }
+
+    fun testANoteIsShownAsTextNeverAsHtml() {
+        val view = BlockView("a", BlocksCanvas(NoListener))
+        view.setReview(null, "<html><img src='http://example.com/x.png'>\nsecond line")
+        assertFalse(view.noteLabelText().contains("<img"))
+        assertTrue(view.noteLabelText().contains("&lt;img"))
+        assertTrue(view.noteLabelText().contains("<br>second line"))
+    }
 }

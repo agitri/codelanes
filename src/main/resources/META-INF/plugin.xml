@@ -12,6 +12,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <fileEditorProvider implementation="dev.codelanes.ide.BlocksEditorProvider"/>
+        <notificationGroup id="CodeLanes" displayType="BALLOON"/>
         <editorNotificationProvider implementation="dev.codelanes.ide.BlocksUnavailableNotification"/>
         <editorActionHandler action="EditorBackSpace" implementationClass="dev.codelanes.editor.SliceBackspaceGuard" order="first"/>
         <editorActionHandler action="EditorUp" implementationClass="dev.codelanes.editor.SliceUpNavigation" order="first"/>

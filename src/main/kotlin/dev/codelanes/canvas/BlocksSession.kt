@@ -76,6 +76,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private var disposed = false
     private var focused: String? = null
     private var heldBack = false
+    private var rebuildAfterRename = false
     private val revealed = mutableSetOf<String>()
     private val reviews = ReviewFile.getInstance(project)
     private val followedCalls = mutableSetOf<String>()
@@ -83,6 +84,14 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     init {
         canvas.targetLineY = ::targetLineY
         watch(document)
+        // Review marks changed on disk (git pull, a teammate, another canvas): refresh the badges.
+        project.messageBus.connect(this).subscribe(com.intellij.openapi.vfs.VirtualFileManager.VFS_CHANGES, object : com.intellij.openapi.vfs.newvfs.BulkFileListener {
+            override fun after(events: List<com.intellij.openapi.vfs.newvfs.events.VFileEvent>) {
+                if (events.any { it.path.endsWith("/" + ReviewFile.PATH) }) {
+                    com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater({ if (!disposed) withModelAccess { render() } }, { disposed })
+                }
+            }
+        })
         try {
             rebuildNow()
         } catch (e: Throwable) {
@@ -164,6 +173,10 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             return
         }
         withModelAccess { adopt(next) }
+        if (rebuildAfterRename) {
+            rebuildAfterRename = false
+            rebuildNow()
+        }
     }
 
     /**
@@ -202,10 +215,10 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     /** One method gone and one method new in the same build is a rename: keep its view, editor, state and pin. */
     private fun carryOverRename(next: BlockModel, vanished: Set<String>, appeared: Set<String>) {
-        val old = vanished.singleOrNull() ?: return
-        val new = appeared.singleOrNull() ?: return
-        val wasMethod = model?.blocks?.firstOrNull { it.id == old }?.kind == BlockKind.METHOD
-        if (!wasMethod || next.block(new).kind != BlockKind.METHOD) return
+        // Only method blocks count: blocks hanging off a method (e.g. its followed callees) may vanish with it.
+        val oldMethods = model?.blocks.orEmpty().filter { it.kind == BlockKind.METHOD }.map { it.id }.toSet()
+        val old = vanished.filter { it in oldMethods }.singleOrNull() ?: return
+        val new = appeared.filter { next.block(it).kind == BlockKind.METHOD }.singleOrNull() ?: return
         views.remove(old)?.let { it.id = new; views[new] = it }
         slices.remove(old)?.let { slices[new] = it }
         collapsed.remove(old)?.let { collapsed[new] = it }
@@ -214,6 +227,10 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val pins = PinStore.getInstance(project)
         pins.pins(file.path)[old]?.let { pins.pin(file.path, new, it) }
         reviews.move(file.path, old, new)
+        if (followedCalls.remove(old)) {
+            followedCalls += new
+            rebuildAfterRename = true // this build still used the old name for its followed calls
+        }
         if (focused == old) {
             focused = new
             canvas.focusedId = new
@@ -245,7 +262,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
                 view.setActions(actions, if (block.kind == BlockKind.MORE) menu else menu + reviewMenu(block))
             }
             val review = reviews.get(block.filePath, block.id)
-            view.setReview(Review.status(review, codeHash(block)), review?.note.orEmpty())
+            val status = review?.mark?.let { Review.status(review, codeHash(block)) }
+            view.setReview(status, review?.note.orEmpty())
         }
         canvas.setContent(LinkedHashMap(views), current.links)
         relayout()

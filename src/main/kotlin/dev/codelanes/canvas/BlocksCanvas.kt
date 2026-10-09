@@ -361,7 +361,6 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         /** "This method calls …": blue/cyan shades, one per line. */
         internal val CALLS_OUT = listOf(
             JBColor(java.awt.Color(0x0277BD), java.awt.Color(0x4FC3F7)),
-            JBColor(java.awt.Color(0x00838F), java.awt.Color(0x4DD0E1)),
             JBColor(java.awt.Color(0x283593), java.awt.Color(0x9FA8DA)),
             JBColor(java.awt.Color(0x006064), java.awt.Color(0x80DEEA)),
         )
@@ -390,7 +389,8 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             LinkKind.CALLS to CALLS_OUT.first(),
             LinkKind.OVERRIDES to OVERRIDE_PALETTE.first(),
             LinkKind.IMPLEMENTED_BY to JBColor(java.awt.Color(0x00695C), java.awt.Color(0x80CBC4)),
-            LinkKind.CALLS_INTO to CALLS_OUT[1],
+            // Its own cyan, not one of the per-line "calls" shades.
+            LinkKind.CALLS_INTO to JBColor(java.awt.Color(0x00838F), java.awt.Color(0x4DD0E1)),
         )
 
         private val LEGEND = listOf(

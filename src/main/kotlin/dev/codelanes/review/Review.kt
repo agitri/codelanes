@@ -1,11 +1,8 @@
 package dev.codelanes.review
 
-import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
-import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.project.guessProjectDir
-import com.intellij.openapi.vfs.VfsUtil
+import dev.codelanes.shared.SharedJsonFile
 import java.security.MessageDigest
 import java.util.TreeMap
 
@@ -19,9 +16,13 @@ enum class ReviewStatus { UNDERSTOOD, UNCLEAR, NEEDS_CHANGE, CHANGED }
 data class ReviewEntry(val mark: ReviewMark?, val note: String, val hash: String)
 
 object Review {
-    /** Short fingerprint of a block's code, to notice changes after a review. */
-    fun hash(text: CharSequence): String =
-        MessageDigest.getInstance("SHA-1").digest(text.toString().toByteArray()).take(8).joinToString("") { "%02x".format(it) }
+    /** Short fingerprint of a block's code, ignoring whitespace (reformatting isn't a change worth re-reviewing). */
+    fun hash(text: CharSequence): String {
+        val normalized = text.split(WHITESPACE).filter { it.isNotEmpty() }.joinToString(" ")
+        return MessageDigest.getInstance("SHA-1").digest(normalized.toByteArray()).take(8).joinToString("") { "%02x".format(it) }
+    }
+
+    private val WHITESPACE = Regex("\\s+")
 
     fun status(entry: ReviewEntry?, currentHash: String): ReviewStatus? {
         val mark = entry?.mark ?: return null
@@ -31,65 +32,48 @@ object Review {
 
 /**
  * Review marks and notes, shared in the repository as `.codelanes/review.json` (sorted, so it diffs well in a PR).
- * Keyed by file path relative to the project and block id.
+ * Keyed by file path relative to the project and block id. Files outside the project are never stored.
  */
 @com.intellij.openapi.components.Service(com.intellij.openapi.components.Service.Level.PROJECT)
-class ReviewFile(private val project: Project) {
+class ReviewFile(project: Project) {
     private class Stored(var mark: String? = null, var note: String? = null, var hash: String? = null)
 
-    private val gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
-    private val data: TreeMap<String, TreeMap<String, Stored>> = load()
+    private val file = SharedJsonFile<TreeMap<String, TreeMap<String, Stored>>>(
+        project, PATH, object : TypeToken<TreeMap<String, TreeMap<String, Stored>>>() {}.type, { TreeMap() },
+    )
 
     fun get(filePath: String, id: String): ReviewEntry? {
-        val stored = data[relative(filePath)]?.get(id) ?: return null
+        val key = file.relative(filePath) ?: return null
+        val stored = file.read()[key]?.get(id) ?: return null
         return ReviewEntry(stored.mark?.let { runCatching { ReviewMark.valueOf(it) }.getOrNull() }, stored.note.orEmpty(), stored.hash.orEmpty())
     }
 
-    /** Stores [entry] for block [id] of [filePath]; null (or an entry without mark and note) removes it. */
-    fun put(filePath: String, id: String, entry: ReviewEntry?) {
-        val key = relative(filePath)
-        if (entry == null || (entry.mark == null && entry.note.isBlank())) {
-            data[key]?.remove(id)
-            if (data[key]?.isEmpty() == true) data.remove(key)
-        } else {
-            data.getOrPut(key) { TreeMap() }[id] = Stored(entry.mark?.name, entry.note.ifBlank { null }, entry.hash)
+    /**
+     * Stores [entry] for block [id] of [filePath]; null (or an entry without mark and note) removes it.
+     * False when nothing was written (file outside the project, or review.json can't be read).
+     */
+    fun put(filePath: String, id: String, entry: ReviewEntry?): Boolean {
+        val key = file.relative(filePath) ?: return false
+        return file.update { data ->
+            if (entry == null || (entry.mark == null && entry.note.isBlank())) {
+                data[key]?.remove(id)
+                if (data[key]?.isEmpty() == true) data.remove(key)
+            } else {
+                data.getOrPut(key) { TreeMap() }[id] = Stored(entry.mark?.name, entry.note.ifBlank { null }, entry.hash)
+            }
         }
-        save()
     }
 
     /** A renamed block keeps its review. */
     fun move(filePath: String, from: String, to: String) {
         val entry = get(filePath, from) ?: return
-        data[relative(filePath)]?.remove(from)
+        put(filePath, from, null)
         put(filePath, to, entry)
-    }
-
-    private fun relative(path: String): String {
-        val base = project.guessProjectDir()?.path ?: return path
-        return path.removePrefix("$base/")
-    }
-
-    private fun load(): TreeMap<String, TreeMap<String, Stored>> {
-        val file = project.guessProjectDir()?.findFileByRelativePath(PATH) ?: return TreeMap()
-        val type = object : TypeToken<TreeMap<String, TreeMap<String, Stored>>>() {}.type
-        return runCatching { gson.fromJson<TreeMap<String, TreeMap<String, Stored>>>(String(file.contentsToByteArray()), type) }
-            .getOrNull() ?: TreeMap()
-    }
-
-    private fun save() {
-        val base = project.guessProjectDir() ?: return
-        WriteAction.runAndWait<RuntimeException> {
-            val dir = VfsUtil.createDirectoryIfMissing(base, DIRECTORY) ?: return@runAndWait
-            val file = dir.findChild(FILE_NAME) ?: dir.createChildData(this, FILE_NAME)
-            VfsUtil.saveText(file, gson.toJson(data) + "\n")
-        }
     }
 
     companion object {
         fun getInstance(project: Project): ReviewFile = project.getService(ReviewFile::class.java)
 
-        const val DIRECTORY = ".codelanes"
-        const val FILE_NAME = "review.json"
-        const val PATH = "$DIRECTORY/$FILE_NAME"
+        const val PATH = ".codelanes/review.json"
     }
 }

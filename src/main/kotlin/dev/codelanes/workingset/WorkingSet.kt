@@ -1,12 +1,9 @@
 package dev.codelanes.workingset
 
-import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
-import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.project.guessProjectDir
-import com.intellij.openapi.vfs.VfsUtil
+import dev.codelanes.shared.SharedJsonFile
 import java.util.TreeMap
 
 /** One canvas in a working set: which file, and how it was opened up (followed calls, revealed parents, …). */
@@ -26,7 +23,7 @@ data class WorkingSet(val name: String, val canvases: List<CanvasState>)
  * relative to the project, so the set works on every checkout.
  */
 @Service(Service.Level.PROJECT)
-class WorkingSetFile(private val project: Project) {
+class WorkingSetFile(project: Project) {
     private class StoredCanvas(
         var file: String? = null,
         var followedCalls: List<String>? = null,
@@ -35,17 +32,20 @@ class WorkingSetFile(private val project: Project) {
         var zoom: Double? = null,
     )
 
-    private val gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
-    private val data: TreeMap<String, List<StoredCanvas>> = load()
+    private val file = SharedJsonFile<TreeMap<String, List<StoredCanvas>>>(
+        project, PATH, object : TypeToken<TreeMap<String, List<StoredCanvas>>>() {}.type, { TreeMap() },
+    )
 
-    fun names(): List<String> = data.keys.toList()
+    fun names(): List<String> = file.read().keys.toList()
+
+    fun exists(name: String): Boolean = name in file.read()
 
     fun get(name: String): WorkingSet? {
-        val canvases = data[name] ?: return null
+        val canvases = file.read()[name] ?: return null
         return WorkingSet(name, canvases.mapNotNull { stored ->
-            val file = stored.file ?: return@mapNotNull null
+            val path = stored.file ?: return@mapNotNull null
             CanvasState(
-                absolute(file),
+                file.absolute(path),
                 stored.followedCalls.orEmpty(),
                 stored.revealed.orEmpty(),
                 stored.collapsed.orEmpty(),
@@ -54,44 +54,18 @@ class WorkingSetFile(private val project: Project) {
         })
     }
 
-    fun save(set: WorkingSet) {
-        data[set.name] = set.canvases.map {
-            StoredCanvas(relative(it.file), it.followedCalls.sorted(), it.revealed.sorted(), TreeMap(it.collapsed), it.zoom)
-        }
-        write()
-    }
-
-    fun delete(name: String) {
-        if (data.remove(name) != null) write()
-    }
-
-    private fun base(): String? = project.guessProjectDir()?.path
-
-    private fun relative(path: String): String = base()?.let { path.removePrefix("$it/") } ?: path
-
-    private fun absolute(path: String): String = if (path.startsWith("/")) path else base()?.let { "$it/$path" } ?: path
-
-    private fun load(): TreeMap<String, List<StoredCanvas>> {
-        val file = project.guessProjectDir()?.findFileByRelativePath(PATH) ?: return TreeMap()
-        val type = object : TypeToken<TreeMap<String, List<StoredCanvas>>>() {}.type
-        return runCatching { gson.fromJson<TreeMap<String, List<StoredCanvas>>>(String(file.contentsToByteArray()), type) }
-            .getOrNull() ?: TreeMap()
-    }
-
-    private fun write() {
-        val dir = project.guessProjectDir() ?: return
-        WriteAction.runAndWait<RuntimeException> {
-            val folder = VfsUtil.createDirectoryIfMissing(dir, DIRECTORY) ?: return@runAndWait
-            val file = folder.findChild(FILE_NAME) ?: folder.createChildData(this, FILE_NAME)
-            VfsUtil.saveText(file, gson.toJson(data) + "\n")
+    /** False when nothing was written (working-sets.json can't be read). */
+    fun save(set: WorkingSet): Boolean = file.update { data ->
+        data[set.name] = set.canvases.distinctBy { it.file }.map {
+            StoredCanvas(file.relative(it.file) ?: it.file, it.followedCalls.sorted(), it.revealed.sorted(), TreeMap(it.collapsed), it.zoom)
         }
     }
+
+    fun delete(name: String): Boolean = file.update { data -> data.remove(name) }
 
     companion object {
         fun getInstance(project: Project): WorkingSetFile = project.getService(WorkingSetFile::class.java)
 
-        const val DIRECTORY = ".codelanes"
-        const val FILE_NAME = "working-sets.json"
-        const val PATH = "$DIRECTORY/$FILE_NAME"
+        const val PATH = ".codelanes/working-sets.json"
     }
 }
