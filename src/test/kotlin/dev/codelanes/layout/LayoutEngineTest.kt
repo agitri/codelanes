@@ -346,4 +346,21 @@ class LayoutEngineTest {
         assertTrue(r.getValue("callee:save").bottom <= r.getValue("callee:doctrineSave").y)
         assertTrue(r.getValue("callee:place").bottom <= r.getValue("callee:save").y)
     }
+
+    private fun withAddedMethod() = BlockModel(
+        listOf(block("parent:B", PARENT), block("class:A", CLASS), block("method:m", METHOD),
+            block("callee:followed", BlockKind.CALLEE), block("callee:added", BlockKind.CALLEE)),
+        listOf(Link(EXTENDS, "parent:B", "class:A"), Link(OWNS, "class:A", "method:m"),
+            Link(dev.codelanes.model.LinkKind.CALLS_INTO, "method:m", "callee:followed")),
+    )
+
+    @Test
+    fun aMethodAddedFromSearchJoinsTheChainRightOfTheMethodsInEveryLayout() {
+        val lanes = LayoutEngine.layout(withAddedMethod(), sizeOf, mode = LayoutMode.LANES).rects
+        listOf("callee:followed", "callee:added").forEach { assertTrue(it, lanes.getValue(it).x >= lanes.getValue("method:m").right) }
+        val column = LayoutEngine.layout(withAddedMethod(), sizeOf, mode = LayoutMode.COLUMN).rects
+        listOf("callee:followed", "callee:added").forEach { assertTrue(it, column.getValue(it).y >= column.getValue("method:m").bottom) }
+        val tree = LayoutEngine.layout(withAddedMethod(), sizeOf, mode = LayoutMode.TREE).rects
+        listOf("callee:followed", "callee:added").forEach { assertTrue(it, tree.getValue(it).y >= tree.getValue("method:m").bottom) }
+    }
 }

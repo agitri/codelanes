@@ -673,13 +673,22 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     /** Drops method [method] of [classFqn] (found with search) on this canvas, centred and focused. */
     fun addToCanvas(classFqn: String, method: String) = withModelAccess {
+        // A method of the open class already has its own block: just go there.
+        val own = model?.blocks?.firstOrNull { it.id == "method:$method" }
+        if (own != null && model?.blocks?.any { it.id == "class:$classFqn" } == true) {
+            tracked[own.id]?.current()?.let { (range, _) -> reveal(range.start) }
+            return@withModelAccess
+        }
         val key = "$classFqn::$method"
         val id = "callee:$key"
         added += key
-        collapsed[id] = false
         focusMovedTo(null)
         rebuildNow()
-        if (id !in views) return@withModelAccess
+        if (id !in views) {
+            added -= key
+            return@withModelAccess
+        }
+        collapsed[id] = false
         canvas.centerOn(id)
         focusMovedTo(id)
         slices[id]?.editor?.contentComponent?.requestFocusInWindow()

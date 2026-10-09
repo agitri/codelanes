@@ -526,4 +526,11 @@ class BlocksSessionTest : BasePlatformTestCase() {
         session.removeFromCanvas(id)
         assertFalse(session.blockIds().contains(id))
     }
+
+    fun testAddingAMethodOfTheOpenClassFocusesItsBlockInsteadOfDuplicatingIt() {
+        val session = open()
+        session.addToCanvas("\\App\\Foo", "footest")
+        assertFalse(session.blockIds().any { it.startsWith("callee:") })
+        assertEquals("method:footest", session.canvas.focusedId)
+    }
 }

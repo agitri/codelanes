@@ -34,6 +34,8 @@ object PhpBlockBuilder {
     const val MORE_ID = "more:implementers"
     const val MAX_IMPLEMENTERS = 10
     const val MAX_CALLEES = 10
+    const val MAX_CHAIN_BLOCKS = 80
+    const val MORE_CHAIN_ID = "more:chain"
     const val MAX_IMPLEMENTATIONS = 5
 
     /** Leaf tokens allowed in the header besides whitespace and comments. */
@@ -165,6 +167,8 @@ object PhpBlockBuilder {
         val queue = ArrayDeque(methods.filter { "method:${it.name}" in followed }.map { "method:${it.name}" to it })
         val seen = mutableSetOf<String>()
         val blocks = linkedMapOf<String, Block>()
+        var truncated = false
+        val firstRoot = queue.firstOrNull()?.first
         // Methods dropped on the canvas from search ("\Fqn::method"): blocks of their own, followable like any callee.
         for (key in added) {
             val method = methodByKey(phpClass, key) ?: continue
@@ -176,12 +180,20 @@ object PhpBlockBuilder {
         while (queue.isNotEmpty()) {
             val (id, caller) = queue.removeFirst()
             if (!seen.add(id)) continue
+            if (blocks.size >= MAX_CHAIN_BLOCKS) {
+                truncated = true
+                break
+            }
             val callees = PsiTreeUtil.findChildrenOfType(caller, MethodReference::class.java)
-                .mapNotNull { it.resolve() as? Method }
+                .mapNotNull { targetOf(it, caller) }
                 .filter { it.containingClass.let { c -> c != null && c != phpClass } && inProject(it) }
                 .distinct()
                 .take(MAX_CALLEES)
             for (callee in callees) {
+                if (blocks.size >= MAX_CHAIN_BLOCKS) {
+                    truncated = true
+                    break
+                }
                 val owner = callee.containingClass!!
                 val calleeId = "callee:${owner.fqn}::${callee.name}"
                 blocks.getOrPut(calleeId) {
@@ -214,7 +226,24 @@ object PhpBlockBuilder {
                 }
             }
         }
+        if (truncated && firstRoot != null) {
+            blocks[MORE_CHAIN_ID] = Block(
+                MORE_CHAIN_ID, BlockKind.MORE, "chain cut off at $MAX_CHAIN_BLOCKS blocks — use + calls on a block to go further",
+                path, SourceRange(0, 0), collapsed = true,
+            )
+            links += Link(LinkKind.CALLS_INTO, firstRoot, MORE_CHAIN_ID)
+        }
         return blocks.values.toList() to links.distinct()
+    }
+
+    /**
+     * What a call really goes to. With several candidates (e.g. a decorator calling `$this->inner->find()` on an
+     * interface), never the calling method itself, and preferably the declared interface/abstract method, whose
+     * implementations are then shown.
+     */
+    private fun targetOf(reference: MethodReference, caller: Method): Method? {
+        val candidates = reference.multiResolve(false).mapNotNull { it.element as? Method }.filter { it != caller }
+        return candidates.firstOrNull { it.isAbstract || it.containingClass?.isInterface == true } ?: candidates.firstOrNull()
     }
 
     private fun calleeBlock(id: String, method: Method): Block = Block(

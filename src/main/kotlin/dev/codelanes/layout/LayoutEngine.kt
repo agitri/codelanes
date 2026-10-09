@@ -59,8 +59,16 @@ object LayoutEngine {
 
     /** Longest-path ranks over structural links, compacted so sources sit next to what they feed. */
     private fun ranks(model: BlockModel, flattenChain: Boolean): Map<String, Int> {
-        val edges = model.links.filter { it.kind in STRUCTURAL }
         val kindOf = model.blocks.associate { it.id to it.kind }
+        // A method added from search has no caller: treat it as hanging off the class like the followed chain
+        // (one lane after the methods), not as a source on the far left.
+        val chainSteps = setOf(LinkKind.CALLS_INTO, LinkKind.IMPLEMENTED_BY)
+        val orphanEdges = model.ofKind(BlockKind.CLASS).firstOrNull()?.let { cls ->
+            model.ofKind(BlockKind.CALLEE)
+                .filter { callee -> model.links.none { it.to == callee.id && it.kind in chainSteps } }
+                .map { dev.codelanes.model.Link(LinkKind.IMPLEMENTED_BY, cls.id, it.id) }
+        }.orEmpty()
+        val edges = model.links.filter { it.kind in STRUCTURAL } + orphanEdges
         // Implementers of an opened type go one lane further than its own methods (type | methods | implementers);
         // inside a followed chain an implementation is simply the next level after its interface method.
         fun weight(edge: dev.codelanes.model.Link): Int =

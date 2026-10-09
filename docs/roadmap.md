@@ -53,3 +53,7 @@
   appears); a review should follow the method itself.
 - `+ calls` silently drops callees beyond 10 (no "and N more" block yet).
 - Line labels don't scale with zoom, so at low zoom most of them get a background patch.
+- Follow a Request still does a few synchronous rebuilds on the UI thread (bounded by the 80-block cap); one
+  background pass would be smoother.
+- When a chain can't be followed (syntax errors, indexing) there is only the generic notice, no specific message.
+- Tree layout: routing many lines (hundreds of blocks) makes zooming stutter; the toolbar clips on very narrow canvases.

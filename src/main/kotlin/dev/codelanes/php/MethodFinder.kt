@@ -17,12 +17,15 @@ object MethodFinder {
     /** Needs indexes and a read action. Sorted by label. */
     fun find(project: Project): List<MethodRef> {
         val psiManager = PsiManager.getInstance(project)
+        val files = com.intellij.openapi.roots.ProjectFileIndex.getInstance(project)
         val result = mutableListOf<MethodRef>()
         for (virtualFile in FileTypeIndex.getFiles(PhpFileType.INSTANCE, GlobalSearchScope.projectScope(project))) {
+            com.intellij.openapi.progress.ProgressManager.checkCanceled()
+            if (files.isInLibrary(virtualFile)) continue
             val file = psiManager.findFile(virtualFile) as? PhpFile ?: continue
             for (phpClass in PsiTreeUtil.findChildrenOfType(file, PhpClass::class.java).filterNot { it.isAnonymous }) {
                 for (method in phpClass.ownMethods) {
-                    result += MethodRef("${phpClass.name}::${PhpBlockBuilder.methodTitle(method)}", phpClass.fqn, method.name)
+                    result += MethodRef("${phpClass.name}::${PhpBlockBuilder.methodTitle(method)}  ${phpClass.namespaceName.trim('\\')}", phpClass.fqn, method.name)
                 }
             }
         }

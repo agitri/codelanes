@@ -8,7 +8,7 @@ class MethodFinderTest : BasePlatformTestCase() {
         myFixture.addFileToProject("Clock.php", "<?php\nnamespace App;\ninterface Clock\n{\n    public function now(): string;\n}\n")
         val methods = MethodFinder.find(project)
         assertEquals(
-            listOf("Clock::now()", "OrderService::audit()", "OrderService::place(string ${'$'}customer, array ${'$'}products)"),
+            listOf("Clock::now()  App", "OrderService::audit()  App", "OrderService::place(string ${'$'}customer, array ${'$'}products)  App"),
             methods.map { it.label },
         )
         assertEquals("\\App\\OrderService", methods.single { it.method == "place" }.classFqn)

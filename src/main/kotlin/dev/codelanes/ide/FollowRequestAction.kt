@@ -33,7 +33,7 @@ class FollowRequestAction : AnAction() {
             return
         }
         val routes = ProgressManager.getInstance().runProcessWithProgressSynchronously<List<EntryPoint>, RuntimeException>(
-            { ReadAction.compute<List<EntryPoint>, RuntimeException> { RouteFinder.find(project) } },
+            { ReadAction.nonBlocking<List<EntryPoint>> { RouteFinder.find(project) }.inSmartMode(project).executeSynchronously() },
             "Finding routes…",
             true,
             project,

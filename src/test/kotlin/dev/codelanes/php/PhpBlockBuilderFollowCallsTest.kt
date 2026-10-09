@@ -74,4 +74,31 @@ class PhpBlockBuilderFollowCallsTest : PhpBuilderTestCase() {
         assertEquals(BlockKind.CALLEE, block.kind)
         assertEquals("UserRepository::findName(int \$id)", block.title)
     }
+
+    fun testADecoratorCallingTheInnerServiceFollowsThroughTheInterface() {
+        addPhp("src/Repo.php", "<?php\nnamespace App;\ninterface Repo { public function find(): string; }\n")
+        addPhp("src/DbRepo.php", "<?php\nnamespace App;\nclass DbRepo implements Repo { public function find(): string { return 'db'; } }\n")
+        addPhp("src/CachedRepo.php", "<?php\nnamespace App;\nclass CachedRepo implements Repo\n{\n    public function __construct(private Repo \$inner) {}\n    public function find(): string { return \$this->inner->find(); }\n}\n")
+        val file = myFixture.configureByText("Ctl.php", "<?php\nnamespace App;\nclass Ctl\n{\n    public function __construct(private CachedRepo \$repo) {}\n    public function go(): string { return \$this->repo->find(); }\n}\n")
+        val model = (PhpBlockBuilder.build(file, followedCalls = setOf("method:go", "callee:\\App\\CachedRepo::find")) as BuildResult.Supported).model
+        assertTrue(model.links.toString(), model.links.contains(Link(LinkKind.CALLS_INTO, "callee:\\App\\CachedRepo::find", "callee:\\App\\Repo::find")))
+        assertTrue(model.links.contains(Link(LinkKind.IMPLEMENTED_BY, "callee:\\App\\Repo::find", "callee:\\App\\DbRepo::find")))
+    }
+
+    fun testAFollowedChainIsCappedWithAMoreBlock() {
+        val services = (1..10).map { i -> "S$i" }
+        services.forEach { s ->
+            val calls = (1..10).joinToString("") { j -> "\$this->t$j->run(); " }
+            val props = (1..10).joinToString(", ") { j -> "private T${s}x$j \$t$j" }
+            addPhp("src/$s.php", "<?php\nnamespace App;\nclass $s\n{\n    public function __construct($props) {}\n    public function run(): void { $calls }\n}\n")
+            (1..10).forEach { j -> addPhp("src/T${s}x$j.php", "<?php\nnamespace App;\nclass T${s}x$j { public function run(): void {} }\n") }
+        }
+        val ctlProps = services.joinToString(", ") { "private $it \$${it.lowercase()}" }
+        val ctlCalls = services.joinToString(" ") { "\$this->${it.lowercase()}->run();" }
+        val file = myFixture.configureByText("Big.php", "<?php\nnamespace App;\nclass Big\n{\n    public function __construct($ctlProps) {}\n    public function go(): void { $ctlCalls }\n}\n")
+        val followed = setOf("method:go") + services.map { "callee:\\App\\$it::run" }
+        val model = (PhpBlockBuilder.build(file, followedCalls = followed) as BuildResult.Supported).model
+        assertTrue(model.ofKind(BlockKind.CALLEE).size <= PhpBlockBuilder.MAX_CHAIN_BLOCKS)
+        assertTrue(model.ofKind(BlockKind.MORE).any { it.title.startsWith("chain cut off") })
+    }
 }

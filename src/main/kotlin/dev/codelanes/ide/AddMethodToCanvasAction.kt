@@ -19,18 +19,18 @@ class AddMethodToCanvasAction : AnAction() {
 
     override fun update(e: AnActionEvent) {
         val project = e.project
-        e.presentation.isEnabled = project != null && FileEditorManager.getInstance(project).selectedEditor is BlocksFileEditor
+        e.presentation.isEnabled = project != null && canvasOf(e) != null
     }
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val canvas = FileEditorManager.getInstance(project).selectedEditor as? BlocksFileEditor ?: return
+        val canvas = canvasOf(e) ?: return
         if (DumbService.isDumb(project)) {
             Messages.showInfoMessage(project, "Wait until indexing has finished, then try again.", TITLE)
             return
         }
         val methods = ProgressManager.getInstance().runProcessWithProgressSynchronously<List<MethodRef>, RuntimeException>(
-            { ReadAction.compute<List<MethodRef>, RuntimeException> { MethodFinder.find(project) } },
+            { ReadAction.nonBlocking<List<MethodRef>> { MethodFinder.find(project) }.inSmartMode(project).executeSynchronously() },
             "Finding methods…",
             true,
             project,
@@ -46,6 +46,13 @@ class AddMethodToCanvasAction : AnAction() {
             .setItemChosenCallback { canvas.session.addToCanvas(it.classFqn, it.method) }
             .createPopup()
             .showCenteredInCurrentWindow(project)
+    }
+
+    /** The canvas the action was started from (its toolbar), else the selected one. */
+    private fun canvasOf(e: AnActionEvent): BlocksFileEditor? {
+        val project = e.project ?: return null
+        return e.getData(com.intellij.openapi.actionSystem.PlatformDataKeys.FILE_EDITOR) as? BlocksFileEditor
+            ?: FileEditorManager.getInstance(project).selectedEditor as? BlocksFileEditor
     }
 
     companion object {

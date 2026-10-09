@@ -343,7 +343,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     private fun paintLineLabel(g2: Graphics2D, text: String, route: List<Point>, atStart: Boolean, others: List<Pair<Point, Point>>) {
         // Labels sit above a horizontal stretch: the one nearest the chosen end (tree routes start vertically).
         val ordered = if (atStart) route else route.reversed()
-        val (a, b) = ordered.zipWithNext().firstOrNull { (p, q) -> p.y == q.y } ?: (ordered[0] to ordered[1])
+        val (a, b) = ordered.zipWithNext().firstOrNull { (p, q) -> p.y == q.y && p.x != q.x } ?: (ordered[0] to ordered[1])
         g2.font = JBFont.small()
         val metrics = g2.fontMetrics
         val width = metrics.stringWidth(text)
