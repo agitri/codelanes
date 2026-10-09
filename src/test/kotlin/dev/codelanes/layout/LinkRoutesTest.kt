@@ -72,4 +72,21 @@ class LinkRoutesTest {
         val routes = LinkRoutes.compute(listOf(owns, implementedBy), rects)
         assertFalse("both lines start at ${routes.getValue(owns).first()}", routes.getValue(owns).first() == routes.getValue(implementedBy).first())
     }
+
+    private fun inside(r: Rect) = Rect(r.x + 1, r.y + 1, r.width - 2, r.height - 2)
+
+    @Test
+    fun aLineNeverRunsThroughItsOwnStartOrEndBlock() {
+        // render() was dragged under the class's right edge
+        // render() was dragged under the class's right edge; other methods sit in the lane to the right
+        val rects = mapOf(
+            "class" to Rect(0, 0, 300, 400),
+            "log" to Rect(400, 150, 500, 100),
+            "render" to Rect(250, 600, 600, 100),
+        )
+        val link = Link(LinkKind.OWNS, "class", "render")
+        val route = LinkRoutes.compute(listOf(link), rects).getValue(link)
+        assertFalse("route $route runs through render", crosses(route, inside(rects.getValue("render"))))
+        assertFalse("route $route runs through the class", crosses(route, inside(rects.getValue("class"))))
+    }
 }

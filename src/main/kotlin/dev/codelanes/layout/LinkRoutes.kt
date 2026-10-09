@@ -27,8 +27,11 @@ object LinkRoutes {
             }
             val to = rects[link.to] ?: continue
             val obstacles = rects.filterKeys { it != link.from && it != link.to }.values.toList()
+            // A line may touch its own two blocks at their edges, but never run through them.
+            val walls = obstacles + source + to
+            val ownInsides = listOf(source, to).map { Rect(it.x + 1, it.y + 1, maxOf(0, it.width - 2), maxOf(0, it.height - 2)) }
             routes[link] = if (link.kind == LinkKind.OVERRIDES) {
-                aroundBlocks(from, to, targetY[link] ?: to.centerY, obstacles)
+                aroundBlocks(from, to, targetY[link] ?: to.centerY, walls)
             } else {
                 val siblings = incoming.getValue(link.to).sortedBy { rects[it.from]?.y ?: 0 }
                 val sameLane = to.x < from.right && to.right > from.x
@@ -39,7 +42,7 @@ object LinkRoutes {
                 } else {
                     ArrowGeometry.route(from, to, loop)
                 }
-                if (obstacles.none { crosses(simple, it) }) simple else reroute(simple, obstacles)
+                if ((obstacles + ownInsides).none { crosses(simple, it) }) simple else reroute(simple, walls)
             }
         }
         return routes
