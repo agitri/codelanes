@@ -126,6 +126,13 @@ Opening an **interface**, **trait** or **abstract class** also shows who builds 
 - Lines: type → implementer (`implemented by`), implementer → its implementation (`has method`), and each
   implementation → the type's own method (`overrides`, focus-only, coloured per line).
 
+### Following calls across files
+
+Every method block (and every callee block) has a `+ calls` link. It shows the methods it calls in *other* project
+classes as editable blocks in a lane to its right, connected by `calls` lines (always visible, labelled). Callee
+blocks have `+ calls` too, so the flow can be followed as deep as needed; `− calls` folds it away. Calls within the
+same class stay ordinary method-to-method calls. Libraries/vendor are never followed; at most 10 callees per method.
+
 ### Blocks from other files
 
 Interfaces, parents, traits and dependencies live in other files. They appear

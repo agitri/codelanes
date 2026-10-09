@@ -14,7 +14,7 @@
 
 ## Next
 
-1. **Follow the flow across files** (in progress): `+ calls` on a method shows the methods it calls in other
+1. **Follow the flow across files** (built on `feat/cross-file-flow`, needs an IDE check): `+ calls` on a method shows the methods it calls in other
    classes as blocks, repeatable deeper.
 2. **Review notes on blocks**: mark a block "checked", "don't understand", or add a note; turns the canvas into a
    review tool for AI-written code.

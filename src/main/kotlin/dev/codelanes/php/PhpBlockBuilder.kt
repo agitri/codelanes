@@ -33,11 +33,12 @@ object PhpBlockBuilder {
     const val HEADER_ID = "header"
     const val MORE_ID = "more:implementers"
     const val MAX_IMPLEMENTERS = 10
+    const val MAX_CALLEES = 10
 
     /** Leaf tokens allowed in the header besides whitespace and comments. */
     private val HEADER_TOKENS = setOf("<?php", "<?", "namespace", ";", "{")
 
-    fun build(file: PsiFile, revealed: Set<String> = emptySet()): BuildResult {
+    fun build(file: PsiFile, revealed: Set<String> = emptySet(), followedCalls: Set<String> = emptySet()): BuildResult {
         unsupportedReason(file)?.let { return BuildResult.Unsupported(it) }
         val phpClass = singleClass(file as PhpFile)
         val classRange = rangeWithDoc(phpClass)
@@ -83,6 +84,10 @@ object PhpBlockBuilder {
             links += Link(linkKind, block.id, classId)
         }
         links += overrides(methods, related)
+        followCalls(phpClass, methods, followedCalls, path).let { (calleeBlocks, calleeLinks) ->
+            blocks += calleeBlocks
+            links += calleeLinks
+        }
         revealDeeper(related, revealed, classId).let { (deeperBlocks, deeperLinks) ->
             blocks += deeperBlocks
             links += deeperLinks
@@ -151,6 +156,49 @@ object PhpBlockBuilder {
     }
 
     /**
+     * "+ calls": for every followed method (or followed callee), the methods it calls in *other* project classes
+     * become editable blocks, linked with CALLS_INTO; followed callees go one level deeper.
+     */
+    private fun followCalls(phpClass: PhpClass, methods: List<Method>, followed: Set<String>, path: String): Pair<List<Block>, List<Link>> {
+        if (followed.isEmpty()) return emptyList<Block>() to emptyList()
+        val queue = ArrayDeque(methods.filter { "method:${it.name}" in followed }.map { "method:${it.name}" to it })
+        val seen = mutableSetOf<String>()
+        val blocks = linkedMapOf<String, Block>()
+        val links = mutableListOf<Link>()
+        while (queue.isNotEmpty()) {
+            val (id, caller) = queue.removeFirst()
+            if (!seen.add(id)) continue
+            val callees = PsiTreeUtil.findChildrenOfType(caller, MethodReference::class.java)
+                .mapNotNull { it.resolve() as? Method }
+                .filter { it.containingClass.let { c -> c != null && c != phpClass } && inProject(it) }
+                .distinct()
+                .take(MAX_CALLEES)
+            for (callee in callees) {
+                val owner = callee.containingClass!!
+                val calleeId = "callee:${owner.fqn}::${callee.name}"
+                blocks.getOrPut(calleeId) {
+                    Block(
+                        id = calleeId,
+                        kind = BlockKind.CALLEE,
+                        title = "${owner.name}::${methodTitle(callee)}",
+                        filePath = callee.containingFile.virtualFile.path,
+                        range = rangeWithDoc(callee),
+                    )
+                }
+                links += Link(LinkKind.CALLS_INTO, id, calleeId)
+                if (calleeId in followed) queue += calleeId to callee
+            }
+        }
+        return blocks.values.toList() to links.distinct()
+    }
+
+    /** Project code only: libraries and vendor/ are never pulled onto the canvas. */
+    private fun inProject(element: com.intellij.psi.PsiElement): Boolean {
+        val files = ProjectFileIndex.getInstance(element.project)
+        return element.containingFile?.virtualFile?.let { files.isInContent(it) && !files.isInLibrary(it) } == true
+    }
+
+    /**
      * For an interface, trait or abstract class: the project classes that implement / use / extend it (at most
      * [MAX_IMPLEMENTERS], alphabetical, plus a "more" block), and per class only the methods that implement or
      * override one of this type's methods.
@@ -158,10 +206,9 @@ object PhpBlockBuilder {
     private fun implementedBy(phpClass: PhpClass, classId: String, methods: List<Method>, path: String): Pair<List<Block>, List<Link>> {
         if (!phpClass.isInterface && !phpClass.isTrait && !phpClass.isAbstract) return emptyList<Block>() to emptyList()
         val index = PhpIndex.getInstance(phpClass.project)
-        val files = ProjectFileIndex.getInstance(phpClass.project)
         val candidates = (if (phpClass.isTrait) index.getTraitUsages(phpClass) else index.getDirectSubclasses(phpClass.fqn))
             .filter { !it.isInterface && it.fqn != phpClass.fqn }
-            .filter { c -> c.containingFile?.virtualFile?.let { files.isInContent(it) && !files.isInLibrary(it) } == true }
+            .filter(::inProject)
             .distinctBy { it.fqn }
             .sortedWith(compareBy({ it.name }, { it.fqn }))
         val blocks = mutableListOf<Block>()

@@ -253,6 +253,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         link.kind == LinkKind.USES -> "uses trait"
         link.kind == LinkKind.INJECTS -> "injected"
         link.kind == LinkKind.IMPLEMENTED_BY -> "implemented by"
+        link.kind == LinkKind.CALLS_INTO -> "calls"
         link.kind == LinkKind.CALLS && link.from == focusedId -> "calls"
         link.kind == LinkKind.CALLS && link.to == focusedId -> "called by"
         link.kind == LinkKind.OVERRIDES && link.from == focusedId -> "overrides"
@@ -375,6 +376,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             LinkKind.CALLS to CALLS_OUT.first(),
             LinkKind.OVERRIDES to OVERRIDE_PALETTE.first(),
             LinkKind.IMPLEMENTED_BY to JBColor(java.awt.Color(0x00695C), java.awt.Color(0x80CBC4)),
+            LinkKind.CALLS_INTO to CALLS_OUT[1],
         )
 
         private val LEGEND = listOf(
@@ -384,6 +386,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             LinkKind.INJECTS to "injected",
             LinkKind.OWNS to "has method",
             LinkKind.IMPLEMENTED_BY to "implemented / used by",
+            LinkKind.CALLS_INTO to "calls into another class",
         )
         const val MIN_ZOOM = 0.2
         const val MAX_ZOOM = 2.0

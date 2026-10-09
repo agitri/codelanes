@@ -222,4 +222,12 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         assertEquals("implemented by", canvas.labelFor(Link(LinkKind.IMPLEMENTED_BY, "interface", "impl")))
         assertNull(canvas.labelFor(Link(LinkKind.OWNS, "class", "method")))
     }
+
+    fun testFollowedCallLinesAreAlwaysShownAndLabelled() {
+        val canvas = BlocksCanvas(NoListener)
+        val link = Link(LinkKind.CALLS_INTO, "method:render", "callee:Repo::find")
+        canvas.setContent(listOf("method:render", "callee:Repo::find").associateWith { BlockView(it, canvas) }, listOf(link))
+        assertEquals(listOf(link), canvas.visibleLinks())
+        assertEquals("calls", canvas.labelFor(link))
+    }
 }

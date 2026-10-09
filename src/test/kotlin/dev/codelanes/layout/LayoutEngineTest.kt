@@ -241,4 +241,14 @@ class LayoutEngineTest {
         assertEquals(Point(1000, 1000), r.getValue("method:bar").let { Point(it.x, it.y) })
         assertNoOverlap(r)
     }
+
+    @Test
+    fun followedCallsOpenALaneRightOfTheMethods() {
+        val model = BlockModel(
+            listOf(block("class:A", CLASS), block("method:render", METHOD), block("callee:Repo::find", BlockKind.CALLEE)),
+            listOf(Link(OWNS, "class:A", "method:render"), Link(dev.codelanes.model.LinkKind.CALLS_INTO, "method:render", "callee:Repo::find")),
+        )
+        val r = LayoutEngine.layout(model, sizeOf).rects
+        assertTrue(r.getValue("method:render").right <= r.getValue("callee:Repo::find").x)
+    }
 }

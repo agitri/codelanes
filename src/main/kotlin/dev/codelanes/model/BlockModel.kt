@@ -1,8 +1,8 @@
 package dev.codelanes.model
 
-enum class BlockKind { HEADER, INTERFACE, PARENT, TRAIT, DEPENDENCY, CLASS, METHOD, IMPLEMENTER, IMPLEMENTATION, MORE }
+enum class BlockKind { HEADER, INTERFACE, PARENT, TRAIT, DEPENDENCY, CLASS, METHOD, IMPLEMENTER, IMPLEMENTATION, MORE, CALLEE }
 
-enum class LinkKind { IMPLEMENTS, EXTENDS, USES, INJECTS, OWNS, CALLS, OVERRIDES, IMPLEMENTED_BY }
+enum class LinkKind { IMPLEMENTS, EXTENDS, USES, INJECTS, OWNS, CALLS, OVERRIDES, IMPLEMENTED_BY, CALLS_INTO }
 
 /** Half-open character range `[start, end)` in a file. */
 data class SourceRange(val start: Int, val end: Int) {

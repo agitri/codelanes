@@ -33,6 +33,8 @@ summaries, everything comes from the real code.
   implement, use or extend it, plus the methods they implement.
 - **Follow the code.** Cmd/Ctrl+click jumps to the right block instead of leaving the canvas. With the caret on
   a symbol, the block that defines it gets an orange border and every block using it a yellow one.
+- **Follow the flow across files.** `+ calls` on a method puts the methods it calls in other classes on the
+  canvas, as editable blocks; keep clicking `+ calls` to follow the flow deeper.
 - **Dig deeper.** `+ parents` on a parent, interface or trait shows its own parents, as deep as you like.
 - **Edit the structure.** `+ method` on the class adds a method; right-click a method's title to delete it.
   Up/Down at the edge of a block moves into the next block.

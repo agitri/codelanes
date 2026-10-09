@@ -33,7 +33,7 @@ object LayoutEngine {
     const val MAX_COLUMN_HEIGHT = 1400
 
     private val LANE_KINDS = listOf(BlockKind.PARENT, BlockKind.INTERFACE, BlockKind.TRAIT, BlockKind.DEPENDENCY)
-    private val STRUCTURAL = setOf(LinkKind.EXTENDS, LinkKind.IMPLEMENTS, LinkKind.USES, LinkKind.INJECTS, LinkKind.OWNS, LinkKind.IMPLEMENTED_BY)
+    private val STRUCTURAL = setOf(LinkKind.EXTENDS, LinkKind.IMPLEMENTS, LinkKind.USES, LinkKind.INJECTS, LinkKind.OWNS, LinkKind.IMPLEMENTED_BY, LinkKind.CALLS_INTO)
 
     fun layout(model: BlockModel, sizeOf: (Block) -> Size, pins: Map<String, Point> = emptyMap()): Layout {
         val rank = ranks(model)

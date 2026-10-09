@@ -72,6 +72,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private var focused: String? = null
     private var heldBack = false
     private val revealed = mutableSetOf<String>()
+    private val followedCalls = mutableSetOf<String>()
 
     init {
         canvas.targetLineY = ::targetLineY
@@ -111,7 +112,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         }
         val previous = model
         val reveal = revealed.toSet()
-        ReadAction.nonBlocking<CanvasUpdate?> { computeUpdate(previous, reveal) }
+        val follow = followedCalls.toSet()
+        ReadAction.nonBlocking<CanvasUpdate?> { computeUpdate(previous, reveal, follow) }
             .withDocumentsCommitted(project)
             .inSmartMode(project)
             .expireWith(this)
@@ -137,12 +139,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             scheduleRebuild()
             return
         }
-        ReadAction.compute<CanvasUpdate?, RuntimeException> { computeUpdate(model, revealed.toSet()) }?.let(::applyUpdate)
+        ReadAction.compute<CanvasUpdate?, RuntimeException> { computeUpdate(model, revealed.toSet(), followedCalls.toSet()) }?.let(::applyUpdate)
     }
 
-    private fun computeUpdate(previous: BlockModel?, reveal: Set<String>): CanvasUpdate? {
+    private fun computeUpdate(previous: BlockModel?, reveal: Set<String>, follow: Set<String>): CanvasUpdate? {
         val psi = PsiManager.getInstance(project).findFile(file) ?: return null
-        return RebuildPolicy.next(previous, PhpBlockBuilder.build(psi, reveal), PsiTreeUtil.hasErrorElements(psi))
+        return RebuildPolicy.next(previous, PhpBlockBuilder.build(psi, reveal, follow), PsiTreeUtil.hasErrorElements(psi))
     }
 
     private fun applyUpdate(update: CanvasUpdate) {
@@ -488,9 +490,13 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         return Messages.showYesNoDialog(project, "Delete method $title?", "Delete Method", null) == Messages.YES
     }
 
+    private fun followAction(id: String): Pair<String, () -> Unit> =
+        (if (id in followedCalls) "− calls" else "+ calls") to { toggleCalls(id) }
+
     private fun actionsFor(block: Block): Pair<List<Pair<String, () -> Unit>>, List<Pair<String, () -> Unit>>> = when (block.kind) {
         BlockKind.CLASS -> listOf<Pair<String, () -> Unit>>("+ method" to { addMethod() }) to emptyList()
-        BlockKind.METHOD -> emptyList<Pair<String, () -> Unit>>() to listOf<Pair<String, () -> Unit>>("Delete method" to { deleteMethod(block.id) })
+        BlockKind.METHOD -> listOf(followAction(block.id)) to listOf<Pair<String, () -> Unit>>("Delete method" to { deleteMethod(block.id) })
+        BlockKind.CALLEE -> listOf(followAction(block.id)) to emptyList()
         BlockKind.PARENT, BlockKind.INTERFACE, BlockKind.TRAIT ->
             listOf<Pair<String, () -> Unit>>((if (block.id in revealed) "− parents" else "+ parents") to { toggleReveal(block.id) }) to emptyList()
         else -> emptyList<Pair<String, () -> Unit>>() to emptyList()
@@ -516,6 +522,13 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     }
 
     fun summaryText(id: String): String = (summaries[id]?.second as? JBLabel)?.text.orEmpty()
+
+    /** "+ calls" / "− calls": shows or hides the methods that [id] calls in other classes. */
+    fun toggleCalls(id: String) = withModelAccess {
+        if (!followedCalls.remove(id)) followedCalls += id
+        focusMovedTo(null)
+        rebuildNow()
+    }
 
     fun view(id: String): BlockView? = views[id]
 

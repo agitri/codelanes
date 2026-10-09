@@ -390,4 +390,17 @@ class BlocksSessionTest : BasePlatformTestCase() {
         assertTrue(text, text.contains("    public function newMethod(): void\n    {\n    }\n}"))
         assertTrue(session.blockIds().contains("method:newMethod"))
     }
+
+    fun testPlusCallsFollowsAMethodIntoOtherClassesAndBack() {
+        myFixture.addFileToProject("Repo.php", "<?php\nnamespace App;\n\nclass Repo\n{\n    public function find(): string\n    {\n        return 'x';\n    }\n}\n")
+        val psi = myFixture.configureByText("Foo.php", source.replace("return ${'$'}s;", "return (new Repo())->find();"))
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        assertTrue(session.view("method:footest")!!.actionTexts().contains("+ calls"))
+        session.toggleCalls("method:footest")
+        assertTrue(session.blockIds().contains("callee:\\App\\Repo::find"))
+        assertTrue(session.hasSliceEditor("callee:\\App\\Repo::find"))
+        assertTrue(session.view("method:footest")!!.actionTexts().contains("− calls"))
+        session.toggleCalls("method:footest")
+        assertFalse(session.blockIds().contains("callee:\\App\\Repo::find"))
+    }
 }
