@@ -3,12 +3,12 @@ package dev.codelanes.canvas
 import com.intellij.codeInsight.lookup.LookupManager
 import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.TransactionGuard
-import com.intellij.openapi.application.WriteIntentReadAction
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.RangeMarker
 import com.intellij.openapi.editor.colors.EditorColorsManager
@@ -167,7 +167,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             scheduleRebuild()
             return
         }
-        ReadAction.compute<CanvasUpdate?, RuntimeException> { computeUpdate(model, revealed.toSet(), followedCalls.toSet(), added.toSet()) }?.let(::applyUpdate)
+        ApplicationManager.getApplication().runReadAction<CanvasUpdate?> { computeUpdate(model, revealed.toSet(), followedCalls.toSet(), added.toSet()) }?.let(::applyUpdate)
     }
 
     private fun computeUpdate(previous: BlockModel?, reveal: Set<String>, follow: Set<String>, extra: Set<String>): CanvasUpdate? {
@@ -208,7 +208,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     }
 
     /** UI events arrive on the EDT without a read lock; documents, editors and folds need one. */
-    private fun withModelAccess(action: () -> Unit) = WriteIntentReadAction.run(Runnable(action))
+    private fun withModelAccess(action: () -> Unit) = ApplicationManager.getApplication().runWriteIntentReadAction<Unit, RuntimeException> { action() }
 
     /** Takes over a freshly built model: decides which blocks exist and re-tracks their ranges. */
     private fun adopt(next: BlockModel) {
@@ -450,7 +450,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     /** Lights up the blocks that define and use the symbol at [offset] in block [id] (synchronous). */
     fun highlightUsagesAt(id: String, offset: Int) {
         val input = highlightInput(id) ?: return run { canvas.highlights = emptyMap() }
-        canvas.highlights = ReadAction.compute<Map<String, UsageHighlight.Level>, RuntimeException> { computeHighlights(input, offset) }
+        canvas.highlights = ApplicationManager.getApplication().runReadAction<Map<String, UsageHighlight.Level>> { computeHighlights(input, offset) }
     }
 
     /** Everything the background search needs, copied on the EDT so it never touches the session's own maps. */

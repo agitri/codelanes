@@ -30,7 +30,7 @@
 ## Later (in order)
 
 1. **Polish from the reviews** (done for 0.1.0; leftovers below).
-2. **JetBrains Marketplace release 0.1.0**: plugin icon, description, change notes, signing, `publishPlugin`.
+2. **JetBrains Marketplace release 0.1.0**: icon, description, change notes, signing and publishing config are ready and `verifyPlugin` passes on PhpStorm 2025.1 and 2026.1. Left: create the signing key and token, then `./gradlew publishPlugin`.
 3. **Fresh screenshots** for the README and the Marketplace page.
 4. **Java/Kotlin**: a new `BlockBuilder` per language; layout, canvas, reviews and notes stay. The biggest group of
    JetBrains users.

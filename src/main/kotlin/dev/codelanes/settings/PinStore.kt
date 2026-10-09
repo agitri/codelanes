@@ -29,18 +29,18 @@ class PinStore : SimplePersistentStateComponent<PinStore.PinState>(PinState()) {
             }
             .toMap()
 
-    fun pin(filePath: String, blockId: String, at: Point) {
-        state.pins["$filePath|$blockId"] = "${at.x},${at.y}"
-        state.intIncrementModificationCount()
-    }
+    fun pin(filePath: String, blockId: String, at: Point) = edit { it["$filePath|$blockId"] = "${at.x},${at.y}" }
 
-    fun clear(filePath: String) {
-        if (state.pins.keys.removeIf { it.startsWith("$filePath|") }) state.intIncrementModificationCount()
-    }
+    fun clear(filePath: String) = edit { pins -> pins.keys.removeIf { it.startsWith("$filePath|") } }
 
-    fun prune(filePath: String, liveIds: Set<String>) {
-        val removed = state.pins.keys.removeIf { it.startsWith("$filePath|") && it.substringAfter('|') !in liveIds }
-        if (removed) state.intIncrementModificationCount()
+    fun prune(filePath: String, liveIds: Set<String>) =
+        edit { pins -> pins.keys.removeIf { it.startsWith("$filePath|") && it.substringAfter('|') !in liveIds } }
+
+    /** Edits a copy and assigns it back, so the state notices the change and the workspace file gets saved. */
+    private fun edit(change: (MutableMap<String, String>) -> Unit) {
+        val copy = LinkedHashMap(state.pins)
+        change(copy)
+        if (copy != state.pins) state.pins = copy
     }
 
     companion object {

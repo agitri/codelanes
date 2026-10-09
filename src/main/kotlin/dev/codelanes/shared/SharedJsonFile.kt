@@ -77,7 +77,7 @@ class SharedJsonFile<T : Any>(
     }
 
     fun absolute(path: String): String =
-        if (FileUtil.isAbsolutePlatformIndependent(path)) path
+        if (java.nio.file.Path.of(path).isAbsolute || path.startsWith("/")) path
         else project.guessProjectDir()?.path?.let { "$it/$path" } ?: path
 
     private fun warnOnce() {

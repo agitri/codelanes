@@ -268,9 +268,12 @@ object PhpBlockBuilder {
         return owners.firstNotNullOfOrNull { it.findOwnMethodByName(name) }
     }
 
+    private fun allSubclasses(owner: PhpClass): List<PhpClass> =
+        mutableListOf<PhpClass>().also { found -> PhpIndex.getInstance(owner.project).processAllSubclasses(owner.fqn) { found += it; true } }
+
     /** Project implementations of an interface/abstract [method] of [owner] (at most [MAX_IMPLEMENTATIONS]). */
     private fun implementationsOf(owner: PhpClass, method: Method): List<Pair<String, Method>> =
-        PhpIndex.getInstance(owner.project).getAllSubclasses(owner.fqn)
+        allSubclasses(owner)
             .filter { !it.isInterface && inProject(it) }
             .sortedBy { it.fqn }
             .mapNotNull { implClass -> implClass.findOwnMethodByName(method.name)?.takeIf { !it.isAbstract }?.let { "callee:${implClass.fqn}::${method.name}" to it } }

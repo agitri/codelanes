@@ -64,7 +64,7 @@ summaries, everything comes from the real code.
 
 ## Install
 
-CodeLanes isn't on the JetBrains Marketplace yet, so for now you build it from source.
+CodeLanes is on its way to the JetBrains Marketplace (**Settings → Plugins → Marketplace**, search "CodeLanes"). Until it's listed, build it from source.
 
 Requirements: **PhpStorm 2025.1 or newer** and a **JDK 21+** to build (Gradle downloads the right toolchain).
 
