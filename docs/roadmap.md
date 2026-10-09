@@ -20,12 +20,12 @@
 - **Follow a request from its entry point**: pick a `#[Route]`, the
   whole chain on one canvas; through interfaces into their implementations.
 - **Layouts**: Lanes / Column / Tree, switchable from the canvas toolbar.
+- **Search on the canvas**: Add method… drops any project method on the canvas.
 
 ## Next
 
-1. **Search on the canvas** (built on `feat/canvas-search`, needs an IDE check): find any method in the project and drop it on the current canvas.
-2. **Free-standing note blocks**: review summaries next to the code ("this flow is fine except …").
-3. **Routes from YAML/XML** (Symfony), not only `#[Route]` attributes.
+1. **Free-standing note blocks**: review summaries next to the code ("this flow is fine except …").
+2. **Routes from YAML/XML** (Symfony), not only `#[Route]` attributes.
 
 ## Later
 
