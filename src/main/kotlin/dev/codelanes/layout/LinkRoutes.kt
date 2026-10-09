@@ -13,9 +13,18 @@ object LinkRoutes {
         targetY: Map<Link, Int> = emptyMap(),
     ): Map<Link, List<Point>> {
         val incoming = links.filter { it.kind != LinkKind.OVERRIDES }.groupBy { it.to }
+        // Different kinds of lines leaving the same block get their own exit height, so they never merge.
+        val exitKinds = links.filter { it.kind != LinkKind.OVERRIDES }.groupBy { it.from }.mapValues { (_, out) -> out.map { it.kind }.distinct().sorted() }
         val routes = linkedMapOf<Link, List<Point>>()
         for (link in links) {
-            val from = rects[link.from] ?: continue
+            val source = rects[link.from] ?: continue
+            val kinds = exitKinds[link.from].orEmpty()
+            // Same left/right edges, but a zero-height rect at this kind's exit height: routes start there.
+            val from = if (kinds.size > 1 && link.kind in kinds) {
+                Rect(source.x, source.y + source.height * (kinds.indexOf(link.kind) + 1) / (kinds.size + 1), source.width, 0)
+            } else {
+                source
+            }
             val to = rects[link.to] ?: continue
             val obstacles = rects.filterKeys { it != link.from && it != link.to }.values.toList()
             routes[link] = if (link.kind == LinkKind.OVERRIDES) {

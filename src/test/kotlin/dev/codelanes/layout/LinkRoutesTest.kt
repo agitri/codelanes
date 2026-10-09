@@ -59,4 +59,17 @@ class LinkRoutesTest {
         assertFalse("same vertical: $a / $b", a[1].x == b[1].x)
         assertFalse("same entry: $a / $b", a.last() == b.last())
     }
+
+    @Test
+    fun differentKindsOfLinesLeaveABlockAtDifferentPoints() {
+        val rects = mapOf(
+            "class" to Rect(0, 0, 300, 400),
+            "method" to Rect(500, 0, 200, 60),
+            "implementer" to Rect(900, 300, 200, 60),
+        )
+        val owns = Link(LinkKind.OWNS, "class", "method")
+        val implementedBy = Link(LinkKind.IMPLEMENTED_BY, "class", "implementer")
+        val routes = LinkRoutes.compute(listOf(owns, implementedBy), rects)
+        assertFalse("both lines start at ${routes.getValue(owns).first()}", routes.getValue(owns).first() == routes.getValue(implementedBy).first())
+    }
 }
