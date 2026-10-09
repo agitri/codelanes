@@ -37,6 +37,10 @@
                 text="Open PHP Files as Blocks by Default">
             <add-to-group group-id="ViewMenu" anchor="last"/>
         </action>
+        <action id="CodeLanes.VerticalLayout" class="dev.codelanes.ide.VerticalLayoutAction" text="Vertical Layout (experiment)"
+                description="Put every block in one column, top to bottom">
+            <add-to-group group-id="ViewMenu" anchor="last"/>
+        </action>
         <action id="CodeLanes.FollowRequest" class="dev.codelanes.ide.FollowRequestAction" text="Follow a Request…"
                 description="Pick a route and see the whole chain of code it runs on one canvas">
             <add-to-group group-id="ViewMenu" anchor="last"/>

@@ -274,7 +274,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private fun relayout() {
         val current = model ?: return
         val pins = PinStore.getInstance(project).pins(file.path)
-        val layout = LayoutEngine.layout(current, { views.getValue(it.id).naturalSize(canvas.zoom) }, pins)
+        val vertical = dev.codelanes.settings.BlocksSettings.instance.state.verticalLayout
+        val layout = LayoutEngine.layout(current, { views.getValue(it.id).naturalSize(canvas.zoom) }, pins, vertical)
         canvas.place(layout.rects)
     }
 
@@ -642,6 +643,9 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         rebuildNow()
         tracked[from]?.current()?.let { (range, _) -> reveal(range.start) }
     }
+
+    /** Re-places the blocks, e.g. after the vertical-layout switch changed. */
+    fun refreshLayout() = withModelAccess { relayout() }
 
     fun view(id: String): BlockView? = views[id]
 

@@ -12,6 +12,7 @@ import com.intellij.openapi.components.service
 class BlocksSettings : SimplePersistentStateComponent<BlocksSettings.SettingsState>(SettingsState()) {
     class SettingsState : BaseState() {
         var openAsBlocksByDefault by property(true)
+        var verticalLayout by property(false)
     }
 
     companion object {

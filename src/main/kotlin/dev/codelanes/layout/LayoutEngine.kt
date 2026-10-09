@@ -35,11 +35,11 @@ object LayoutEngine {
     private val LANE_KINDS = listOf(BlockKind.PARENT, BlockKind.INTERFACE, BlockKind.TRAIT, BlockKind.DEPENDENCY)
     private val STRUCTURAL = setOf(LinkKind.EXTENDS, LinkKind.IMPLEMENTS, LinkKind.USES, LinkKind.INJECTS, LinkKind.OWNS, LinkKind.IMPLEMENTED_BY, LinkKind.CALLS_INTO)
 
-    fun layout(model: BlockModel, sizeOf: (Block) -> Size, pins: Map<String, Point> = emptyMap()): Layout {
+    fun layout(model: BlockModel, sizeOf: (Block) -> Size, pins: Map<String, Point> = emptyMap(), vertical: Boolean = false): Layout {
         val rank = ranks(model)
         val columns = orderedColumns(model, rank).map { lane -> lane.filter { it.id !in pins } }
         val classRank = model.ofKind(BlockKind.CLASS).firstOrNull()?.let { rank.getValue(it.id) } ?: 0
-        val auto = place(columns, classRank, sizeOf)
+        val auto = if (vertical) placeVertically(columns, classRank, sizeOf) else place(columns, classRank, sizeOf)
         val pinned = model.blocks.filter { it.id in pins }.associate { block ->
             val size = sizeOf(block)
             val at = pins.getValue(block.id)
@@ -187,6 +187,19 @@ object LayoutEngine {
             val stacks = if (column.any { it.kind == BlockKind.CALLEE }) listOf(column) else wrap(column, sizeOf)
             for (stack in stacks) x = placeStack(stack, x, 0, rects, sizeOf).first
         }
+        return rects
+    }
+
+    /**
+     * Experimental: everything in one column, top to bottom, in reading order: what the class builds on (lane by
+     * lane, staircase order), header and class, its methods, then implementers and the followed chain.
+     */
+    private fun placeVertically(columns: List<List<Block>>, classRank: Int, sizeOf: (Block) -> Size): Map<String, Rect> {
+        val left = columns.take(classRank)
+        val kinds = LANE_KINDS + (left.flatten().map { it.kind }.distinct() - LANE_KINDS.toSet())
+        val related = kinds.flatMap { kind -> left.flatMap { column -> column.filter { it.kind == kind } } }
+        val rects = linkedMapOf<String, Rect>()
+        placeStack(related + columns.drop(classRank).flatten(), 0, 0, rects, sizeOf)
         return rects
     }
 

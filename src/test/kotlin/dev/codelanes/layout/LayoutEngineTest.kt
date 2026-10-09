@@ -285,4 +285,13 @@ class LayoutEngineTest {
         assertTrue(r.getValue("method:create").right <= r.getValue("callee:place").x)
         assertEquals("depth-first call order, top to bottom", chain, chain.sortedBy { r.getValue(it).y })
     }
+
+    @Test
+    fun verticalLayoutPutsEverythingInOneColumnTopToBottom() {
+        val r = LayoutEngine.layout(foo, sizeOf, vertical = true).rects
+        assertEquals("one column", 1, r.values.map { it.x }.distinct().size)
+        val order = listOf("parent:Base", "interface:X", "interface:Y", "header", "class:Foo", "method:bar", "method:footest")
+        assertEquals(order, order.sortedBy { r.getValue(it).y })
+        assertNoOverlap(r)
+    }
 }
