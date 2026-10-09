@@ -159,4 +159,13 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         view.setHighlight(UsageHighlight.Level.USAGE)
         assertEquals(plain, view.insets)
     }
+
+    fun testTidyUpSitsInTheBottomLeftCorner() {
+        val canvas = BlocksCanvas(NoListener)
+        canvas.setSize(1000, 800)
+        canvas.doLayout()
+        val button = canvas.tidyButton.bounds
+        assertEquals(12, button.x)
+        assertEquals(800 - 8, button.y + button.height)
+    }
 }

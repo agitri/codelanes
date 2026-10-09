@@ -150,7 +150,8 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
 
     override fun doLayout() {
         val size = tidyButton.preferredSize
-        tidyButton.setBounds(width - size.width - 12, 8, size.width, size.height)
+        // Bottom-left, right above the editor's Blocks | Text tabs; the legend sits above it.
+        tidyButton.setBounds(12, height - size.height - 8, size.width, size.height)
     }
 
     private fun placeViews() {
@@ -257,7 +258,8 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         val lineHeight = metrics.height + 2
         val entries = LEGEND.filter { (kind, _) -> links.any { it.kind == kind } }
         val perLine = links.any { it.kind in FOCUS_ONLY }
-        var y = height - 12 - lineHeight * (entries.size - if (perLine) 0 else 1)
+        val bottom = tidyButton.y - 10
+        var y = bottom - lineHeight * (entries.size - if (perLine) 0 else 1)
         g2.stroke = BasicStroke(2.5f)
         for ((kind, label) in entries) {
             g2.color = colorFor(kind)
