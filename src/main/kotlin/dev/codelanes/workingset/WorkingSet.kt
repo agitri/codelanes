@@ -13,6 +13,8 @@ data class CanvasState(
     val revealed: List<String>,
     val collapsed: Map<String, Boolean>,
     val zoom: Double,
+    /** Methods added from search, as "\\Fqn::method". */
+    val added: List<String> = emptyList(),
 )
 
 /** A named group of canvases for a task or review, e.g. "checkout flow". */
@@ -30,6 +32,7 @@ class WorkingSetFile(project: Project) {
         var revealed: List<String>? = null,
         var collapsed: Map<String, Boolean>? = null,
         var zoom: Double? = null,
+        var added: List<String>? = null,
     )
 
     private val file = SharedJsonFile<TreeMap<String, List<StoredCanvas>>>(
@@ -50,6 +53,7 @@ class WorkingSetFile(project: Project) {
                 stored.revealed.orEmpty(),
                 stored.collapsed.orEmpty(),
                 stored.zoom ?: 1.0,
+                stored.added.orEmpty(),
             )
         })
     }
@@ -57,7 +61,7 @@ class WorkingSetFile(project: Project) {
     /** False when nothing was written (working-sets.json can't be read). */
     fun save(set: WorkingSet): Boolean = file.update { data ->
         data[set.name] = set.canvases.distinctBy { it.file }.map {
-            StoredCanvas(file.relative(it.file) ?: it.file, it.followedCalls.sorted(), it.revealed.sorted(), TreeMap(it.collapsed), it.zoom)
+            StoredCanvas(file.relative(it.file) ?: it.file, it.followedCalls.sorted(), it.revealed.sorted(), TreeMap(it.collapsed), it.zoom, it.added.sorted())
         }
     }
 

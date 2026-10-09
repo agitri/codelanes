@@ -61,6 +61,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         dev.codelanes.layout.LayoutMode.TREE to javax.swing.JToggleButton("Tree"),
     )
     internal val followButton = javax.swing.JButton("Follow a Request…")
+    private val addButton = javax.swing.JButton("Add method…")
     private val setsButton = javax.swing.JButton("Working sets ▾")
 
     internal fun toolbarTexts(): List<String> =
@@ -90,6 +91,8 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         modeButtons.getValue(dev.codelanes.layout.LayoutMode.LANES).isSelected = true
         followButton.toolTipText = "Pick a route and see the whole chain of code it runs"
         followButton.addActionListener { listener.runAction("CodeLanes.FollowRequest") }
+        addButton.toolTipText = "Find any method in the project and drop it on this canvas"
+        addButton.addActionListener { listener.runAction("CodeLanes.AddMethodToCanvas") }
         setsButton.toolTipText = "Save or reopen the canvases you opened for a task or review"
         setsButton.addActionListener {
             val menu = javax.swing.JPopupMenu()
@@ -102,6 +105,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         }
         toolbar.add(switch)
         toolbar.add(followButton)
+        toolbar.add(addButton)
         toolbar.add(setsButton)
         toolbar.add(tidyButton)
         add(toolbar)

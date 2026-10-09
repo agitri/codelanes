@@ -154,6 +154,13 @@ focuses the action. The whole followed chain sits in **one lane** right of the m
 down. Lines between blocks in that lane loop out on the right, nested by length so they never merge. A call to an interface or abstract method also shows its project implementations (at most 5,
 linked "implemented by"), and the chain continues through them.
 
+### Adding any method from search
+
+**Add method…** (canvas toolbar, also View → Add Method to Canvas…) lists every method in the project's own code
+(`Class::method(params)`, filterable). Picking one drops it on the current canvas as an editable block in the
+followed-calls lane, centred and focused, with `+ calls` like any callee. **Remove from canvas** (right-click its
+title) takes it off. Added methods are part of working sets.
+
 ### Following calls across files
 
 Every method block (and every callee block) has a `+ calls` link. It shows the methods it calls in *other* project

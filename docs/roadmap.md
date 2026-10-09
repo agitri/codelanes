@@ -23,7 +23,7 @@
 
 ## Next
 
-1. **Search on the canvas** (in progress): find any method in the project and drop it on the current canvas.
+1. **Search on the canvas** (built on `feat/canvas-search`, needs an IDE check): find any method in the project and drop it on the current canvas.
 2. **Free-standing note blocks**: review summaries next to the code ("this flow is fine except …").
 3. **Routes from YAML/XML** (Symfony), not only `#[Route]` attributes.
 

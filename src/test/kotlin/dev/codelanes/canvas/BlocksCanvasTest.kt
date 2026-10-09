@@ -172,7 +172,7 @@ class BlocksCanvasTest : BasePlatformTestCase() {
 
     fun testTheToolbarOffersLayoutFollowWorkingSetsAndTidyUp() {
         val canvas = BlocksCanvas(NoListener)
-        assertEquals(listOf("Lanes", "Column", "Tree", "Follow a Request…", "Working sets ▾", "Tidy up"), canvas.toolbarTexts())
+        assertEquals(listOf("Lanes", "Column", "Tree", "Follow a Request…", "Add method…", "Working sets ▾", "Tidy up"), canvas.toolbarTexts())
     }
 
     fun testChoosingALayoutOnTheCanvasTellsTheListener() {

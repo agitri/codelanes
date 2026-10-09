@@ -513,4 +513,17 @@ class BlocksSessionTest : BasePlatformTestCase() {
             settings.setMode(dev.codelanes.layout.LayoutMode.LANES)
         }
     }
+
+    fun testAMethodFromSearchCanBeAddedToTheCanvasAndRemovedAgain() {
+        myFixture.addFileToProject("Repo.php", "<?php\nnamespace App;\n\nclass Repo\n{\n    public function find(): string\n    {\n        return 'x';\n    }\n}\n")
+        val session = open()
+        session.addToCanvas("\\App\\Repo", "find")
+        val id = "callee:\\App\\Repo::find"
+        assertTrue(session.blockIds().contains(id))
+        assertEquals(id, session.canvas.focusedId)
+        assertTrue(session.view(id)!!.menuTexts().contains("Remove from canvas"))
+        assertTrue(session.snapshot().added.contains("\\App\\Repo::find"))
+        session.removeFromCanvas(id)
+        assertFalse(session.blockIds().contains(id))
+    }
 }

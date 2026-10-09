@@ -39,7 +39,7 @@ object PhpBlockBuilder {
     /** Leaf tokens allowed in the header besides whitespace and comments. */
     private val HEADER_TOKENS = setOf("<?php", "<?", "namespace", ";", "{")
 
-    fun build(file: PsiFile, revealed: Set<String> = emptySet(), followedCalls: Set<String> = emptySet()): BuildResult {
+    fun build(file: PsiFile, revealed: Set<String> = emptySet(), followedCalls: Set<String> = emptySet(), added: Set<String> = emptySet()): BuildResult {
         unsupportedReason(file)?.let { return BuildResult.Unsupported(it) }
         val phpClass = singleClass(file as PhpFile)
         val classRange = rangeWithDoc(phpClass)
@@ -85,7 +85,7 @@ object PhpBlockBuilder {
             links += Link(linkKind, block.id, classId)
         }
         links += overrides(methods, related)
-        followCalls(phpClass, methods, followedCalls, path).let { (calleeBlocks, calleeLinks) ->
+        followCalls(phpClass, methods, followedCalls, added, path).let { (calleeBlocks, calleeLinks) ->
             blocks += calleeBlocks
             links += calleeLinks
         }
@@ -160,11 +160,18 @@ object PhpBlockBuilder {
      * "+ calls": for every followed method (or followed callee), the methods it calls in *other* project classes
      * become editable blocks, linked with CALLS_INTO; followed callees go one level deeper.
      */
-    private fun followCalls(phpClass: PhpClass, methods: List<Method>, followed: Set<String>, path: String): Pair<List<Block>, List<Link>> {
-        if (followed.isEmpty()) return emptyList<Block>() to emptyList()
+    private fun followCalls(phpClass: PhpClass, methods: List<Method>, followed: Set<String>, added: Set<String>, path: String): Pair<List<Block>, List<Link>> {
+        if (followed.isEmpty() && added.isEmpty()) return emptyList<Block>() to emptyList()
         val queue = ArrayDeque(methods.filter { "method:${it.name}" in followed }.map { "method:${it.name}" to it })
         val seen = mutableSetOf<String>()
         val blocks = linkedMapOf<String, Block>()
+        // Methods dropped on the canvas from search ("\Fqn::method"): blocks of their own, followable like any callee.
+        for (key in added) {
+            val method = methodByKey(phpClass, key) ?: continue
+            val id = "callee:$key"
+            blocks.getOrPut(id) { calleeBlock(id, method) }
+            if (id in followed) queue += id to method
+        }
         val links = mutableListOf<Link>()
         while (queue.isNotEmpty()) {
             val (id, caller) = queue.removeFirst()
@@ -208,6 +215,23 @@ object PhpBlockBuilder {
             }
         }
         return blocks.values.toList() to links.distinct()
+    }
+
+    private fun calleeBlock(id: String, method: Method): Block = Block(
+        id = id,
+        kind = BlockKind.CALLEE,
+        title = "${method.containingClass?.name}::${methodTitle(method)}",
+        filePath = method.containingFile.virtualFile.path,
+        range = rangeWithDoc(method),
+    )
+
+    /** "\Fqn::method" → that method (class, interface or trait), or null if it no longer exists. */
+    private fun methodByKey(context: PhpClass, key: String): Method? {
+        val fqn = key.substringBefore("::")
+        val name = key.substringAfter("::")
+        val index = PhpIndex.getInstance(context.project)
+        val owners = index.getClassesByFQN(fqn) + index.getInterfacesByFQN(fqn) + index.getTraitsByFQN(fqn)
+        return owners.firstNotNullOfOrNull { it.findOwnMethodByName(name) }
     }
 
     /** Project implementations of an interface/abstract [method] of [owner] (at most [MAX_IMPLEMENTATIONS]). */
@@ -359,7 +383,7 @@ object PhpBlockBuilder {
         if (implements.isNotEmpty()) append(" implements ").append(implements.joinToString(", "))
     }
 
-    private fun methodTitle(method: Method): String =
+    internal fun methodTitle(method: Method): String =
         method.name + method.parameters.joinToString(", ", "(", ")") { it.text.substringBefore('=').trim() }
 
     private fun headerTitle(file: PhpFile): String {

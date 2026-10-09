@@ -36,6 +36,8 @@ summaries, everything comes from the real code.
 - **Follow a request.** **View → Follow a Request…** lists the routes in your project (`#[Route]` attributes,
   e.g. `POST /api/orders → OrderController::create`). Pick one and the whole chain it runs (controller, services,
   repositories, through interfaces into their implementations) lands on one canvas.
+- **Search and add.** **Add method…** (canvas toolbar) finds any method in your project and drops it on the
+  canvas as an editable block, ready to follow with `+ calls`; right-click → **Remove from canvas** takes it off.
 - **Follow the flow across files.** `+ calls` on a method puts the methods it calls in other classes on the
   canvas, as editable blocks; keep clicking `+ calls` to follow the flow deeper.
 - **Review as you read.** Right-click a block's title to mark it **✓ Understood**, **? Don't understand** or

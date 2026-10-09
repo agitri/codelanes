@@ -81,6 +81,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private val revealed = mutableSetOf<String>()
     private val reviews = ReviewFile.getInstance(project)
     private val followedCalls = mutableSetOf<String>()
+    private val added = mutableSetOf<String>()
 
     init {
         canvas.targetLineY = ::targetLineY
@@ -135,7 +136,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val previous = model
         val reveal = revealed.toSet()
         val follow = followedCalls.toSet()
-        ReadAction.nonBlocking<CanvasUpdate?> { computeUpdate(previous, reveal, follow) }
+        val extra = added.toSet()
+        ReadAction.nonBlocking<CanvasUpdate?> { computeUpdate(previous, reveal, follow, extra) }
             .withDocumentsCommitted(project)
             .inSmartMode(project)
             .expireWith(this)
@@ -161,12 +163,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             scheduleRebuild()
             return
         }
-        ReadAction.compute<CanvasUpdate?, RuntimeException> { computeUpdate(model, revealed.toSet(), followedCalls.toSet()) }?.let(::applyUpdate)
+        ReadAction.compute<CanvasUpdate?, RuntimeException> { computeUpdate(model, revealed.toSet(), followedCalls.toSet(), added.toSet()) }?.let(::applyUpdate)
     }
 
-    private fun computeUpdate(previous: BlockModel?, reveal: Set<String>, follow: Set<String>): CanvasUpdate? {
+    private fun computeUpdate(previous: BlockModel?, reveal: Set<String>, follow: Set<String>, extra: Set<String>): CanvasUpdate? {
         val psi = PsiManager.getInstance(project).findFile(file) ?: return null
-        return RebuildPolicy.next(previous, PhpBlockBuilder.build(psi, reveal, follow), PsiTreeUtil.hasErrorElements(psi))
+        return RebuildPolicy.next(previous, PhpBlockBuilder.build(psi, reveal, follow, extra), PsiTreeUtil.hasErrorElements(psi))
     }
 
     private fun applyUpdate(update: CanvasUpdate) {
@@ -544,7 +546,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private fun actionsFor(block: Block): Pair<List<Pair<String, () -> Unit>>, List<Pair<String, () -> Unit>>> = when (block.kind) {
         BlockKind.CLASS -> listOf<Pair<String, () -> Unit>>("+ method" to { addMethod() }) to emptyList()
         BlockKind.METHOD -> listOf(followAction(block.id)) to listOf<Pair<String, () -> Unit>>("Delete method" to { deleteMethod(block.id) })
-        BlockKind.CALLEE -> listOf(followAction(block.id)) to emptyList()
+        BlockKind.CALLEE -> listOf(followAction(block.id)) to
+            if (block.id.removePrefix("callee:") in added) listOf<Pair<String, () -> Unit>>("Remove from canvas" to { removeFromCanvas(block.id) }) else emptyList()
         BlockKind.PARENT, BlockKind.INTERFACE, BlockKind.TRAIT ->
             listOf<Pair<String, () -> Unit>>((if (block.id in revealed) "− parents" else "+ parents") to { toggleReveal(block.id) }) to emptyList()
         else -> emptyList<Pair<String, () -> Unit>>() to emptyList()
@@ -622,7 +625,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     /** This canvas's state, for a working set. */
     fun snapshot(): CanvasState =
-        CanvasState(file.path, followedCalls.sorted(), revealed.sorted(), collapsed.toSortedMap(), canvas.zoom)
+        CanvasState(file.path, followedCalls.sorted(), revealed.sorted(), collapsed.toSortedMap(), canvas.zoom, added.sorted())
 
     /** Opens this canvas up the way [state] describes (followed calls, revealed parents, collapsed blocks, zoom). */
     fun restore(state: CanvasState) = withModelAccess {
@@ -630,6 +633,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         followedCalls += state.followedCalls
         revealed.clear()
         revealed += state.revealed
+        added.clear()
+        added += state.added
         collapsed.clear()
         collapsed += state.collapsed
         canvas.setZoom(state.zoom)
@@ -665,6 +670,28 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     /** Re-places the blocks, e.g. after the vertical-layout switch changed. */
     fun refreshLayout() = withModelAccess { relayout() }
+
+    /** Drops method [method] of [classFqn] (found with search) on this canvas, centred and focused. */
+    fun addToCanvas(classFqn: String, method: String) = withModelAccess {
+        val key = "$classFqn::$method"
+        val id = "callee:$key"
+        added += key
+        collapsed[id] = false
+        focusMovedTo(null)
+        rebuildNow()
+        if (id !in views) return@withModelAccess
+        canvas.centerOn(id)
+        focusMovedTo(id)
+        slices[id]?.editor?.contentComponent?.requestFocusInWindow()
+    }
+
+    /** Takes a block that was added from search off the canvas again. */
+    fun removeFromCanvas(id: String) = withModelAccess {
+        added -= id.removePrefix("callee:")
+        followedCalls -= id
+        focusMovedTo(null)
+        rebuildNow()
+    }
 
     fun view(id: String): BlockView? = views[id]
 

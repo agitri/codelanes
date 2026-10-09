@@ -65,4 +65,13 @@ class PhpBlockBuilderFollowCallsTest : PhpBuilderTestCase() {
         assertTrue(model.links.contains(Link(LinkKind.IMPLEMENTED_BY, "callee:\\App\\Clock::now", "callee:\\App\\SystemClock::now")))
         assertEquals("SystemClock::now()", model.block("callee:\\App\\SystemClock::now").title)
     }
+
+    fun testAMethodAddedFromSearchBecomesABlock() {
+        services()
+        val file = myFixture.configureByText("Order.php", order)
+        val model = (PhpBlockBuilder.build(file, added = setOf("\\App\\UserRepository::findName")) as BuildResult.Supported).model
+        val block = model.block("callee:\\App\\UserRepository::findName")
+        assertEquals(BlockKind.CALLEE, block.kind)
+        assertEquals("UserRepository::findName(int \$id)", block.title)
+    }
 }
