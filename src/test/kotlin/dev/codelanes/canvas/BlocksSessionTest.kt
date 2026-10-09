@@ -489,4 +489,17 @@ class BlocksSessionTest : BasePlatformTestCase() {
             settings.layoutMode = "LANES"
         }
     }
+
+    fun testFollowingAnotherRequestReplacesThePreviousChain() {
+        myFixture.addFileToProject("Writer.php", "<?php\nnamespace App;\n\nclass Writer\n{\n    public function write(): void\n    {\n    }\n}\n")
+        myFixture.addFileToProject("Reader.php", "<?php\nnamespace App;\n\nclass Reader\n{\n    public function read(): void\n    {\n    }\n}\n")
+        val controller = "<?php\nnamespace App;\n\nclass Controller\n{\n    public function create(): void\n    {\n        (new Writer())->write();\n    }\n\n    public function show(): void\n    {\n        (new Reader())->read();\n    }\n}\n"
+        val psi = myFixture.configureByText("Controller.php", controller)
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        session.followChain("method:create", depth = 3)
+        assertTrue(session.blockIds().contains("callee:\\App\\Writer::write"))
+        session.followChain("method:show", depth = 3)
+        assertTrue(session.blockIds().contains("callee:\\App\\Reader::read"))
+        assertFalse("the previous request's chain should be gone", session.blockIds().contains("callee:\\App\\Writer::write"))
+    }
 }

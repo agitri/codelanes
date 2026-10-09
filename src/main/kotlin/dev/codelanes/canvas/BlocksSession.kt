@@ -624,9 +624,11 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     /**
      * Follows the calls of [from] automatically, [depth] levels deep (also into the implementations of interface
-     * methods), then focuses [from]. Used for "Follow a Request…".
+     * methods), then focuses [from]. Replaces whatever was followed before. Used for "Follow a Request…".
      */
     fun followChain(from: String, depth: Int) = withModelAccess {
+        // A new request replaces the previous chain on this canvas.
+        followedCalls.clear()
         followedCalls += from
         var frontier = setOf(from)
         for (level in 1 until depth) {
