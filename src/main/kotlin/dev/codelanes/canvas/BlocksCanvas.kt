@@ -178,14 +178,19 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
             val allRoutes = routes(visibleLinks())
             for ((link, route) in allRoutes) {
+                val drawn = drawnRoute(link, route)
                 g2.color = colorFor(link)
                 g2.stroke = strokeFor(link.kind)
-                g2.drawPolyline(route.map { it.x }.toIntArray(), route.map { it.y }.toIntArray(), route.size)
-                arrowHead(g2, route[route.size - 2], route.last())
+                g2.drawPolyline(drawn.map { it.x }.toIntArray(), drawn.map { it.y }.toIntArray(), drawn.size)
+                arrowHead(g2, drawn[drawn.size - 2], drawn.last())
                 labelFor(link)?.let { text ->
                     val others = allRoutes.filterKeys { it != link }.values.flatMap { it.zipWithNext() }
-                    val atStart = link.kind !in FOCUS_ONLY || link.from == focusedId
-                    paintLineLabel(g2, text, route, atStart, others)
+                    val atStart = when {
+                        link.kind in POINTS_AT_RELATED -> false // next to the arrowhead: "… extends → Model"
+                        link.kind !in FOCUS_ONLY -> true
+                        else -> link.from == focusedId
+                    }
+                    paintLineLabel(g2, text, drawn, atStart, others)
                 }
             }
             paintLegend(g2)
@@ -287,6 +292,13 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         g2.drawString(text, at.x, at.y)
     }
 
+    /**
+     * Lines to what the class builds on are drawn from the class to it (arrowhead at the parent, interface, trait or
+     * dependency), so they read like the code: "Order extends Model". The model links run the other way for layout.
+     */
+    internal fun drawnRoute(link: Link, route: List<Point>): List<Point> =
+        if (link.kind in POINTS_AT_RELATED) route.reversed() else route
+
     /** A calm banner at the top centre (not red text): the canvas is waiting for valid code, nothing is wrong. */
     private fun paintNotice(g2: Graphics2D, text: String) {
         g2.font = JBFont.label()
@@ -343,6 +355,8 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
 
         /** Calls and overrides only show for the focused block; otherwise the canvas drowns in lines. */
         private val FOCUS_ONLY = setOf(LinkKind.CALLS, LinkKind.OVERRIDES)
+
+        private val POINTS_AT_RELATED = setOf(LinkKind.EXTENDS, LinkKind.IMPLEMENTS, LinkKind.USES, LinkKind.INJECTS)
 
         /** "This method calls …": blue/cyan shades, one per line. */
         internal val CALLS_OUT = listOf(

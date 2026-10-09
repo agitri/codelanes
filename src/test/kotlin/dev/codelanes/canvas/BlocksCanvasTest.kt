@@ -230,4 +230,15 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         assertEquals(listOf(link), canvas.visibleLinks())
         assertEquals("calls", canvas.labelFor(link))
     }
+
+    fun testWhatAClassBuildsOnIsPointedAtFromTheClass() {
+        val canvas = BlocksCanvas(NoListener)
+        val route = listOf(Point(0, 0), Point(50, 0), Point(50, 100), Point(100, 100))
+        for (kind in listOf(LinkKind.EXTENDS, LinkKind.IMPLEMENTS, LinkKind.USES, LinkKind.INJECTS)) {
+            assertEquals("$kind", route.reversed(), canvas.drawnRoute(Link(kind, "related", "class"), route))
+        }
+        for (kind in listOf(LinkKind.OWNS, LinkKind.CALLS, LinkKind.IMPLEMENTED_BY, LinkKind.CALLS_INTO)) {
+            assertEquals("$kind", route, canvas.drawnRoute(Link(kind, "a", "b"), route))
+        }
+    }
 }
