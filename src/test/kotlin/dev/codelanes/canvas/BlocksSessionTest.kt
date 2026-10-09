@@ -425,4 +425,21 @@ class BlocksSessionTest : BasePlatformTestCase() {
         assertTrue(menu.containsAll(listOf("✓ Understood", "? Don't understand", "! Needs change", "Clear review mark", "Edit review note…")))
         assertTrue(session.view("class:\\App\\Foo")!!.menuTexts().contains("✓ Understood"))
     }
+
+    fun testACanvasStateCanBeSavedAndRestoredInAnotherSession() {
+        myFixture.addFileToProject("Repo.php", "<?php\nnamespace App;\n\nclass Repo\n{\n    public function find(): string\n    {\n        return 'x';\n    }\n}\n")
+        val psi = myFixture.configureByText("Foo.php", source.replace("return ${'$'}s;", "return (new Repo())->find();"))
+        val first = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        first.toggleCalls("method:footest")
+        first.collapseToggled("method:bar")
+        first.canvas.setZoom(0.8)
+        val state = first.snapshot()
+
+        val second = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        second.restore(state)
+        assertTrue(second.blockIds().contains("callee:\\App\\Repo::find"))
+        assertFalse(second.hasSliceEditor("method:bar"))
+        assertEquals(0.8, second.canvas.zoom, 0.001)
+        assertEquals(psi.virtualFile.path, state.file)
+    }
 }

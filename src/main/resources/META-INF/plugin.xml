@@ -36,5 +36,11 @@
                 text="Open PHP Files as Blocks by Default">
             <add-to-group group-id="ViewMenu" anchor="last"/>
         </action>
+        <group id="CodeLanes.WorkingSets" text="CodeLanes Working Sets" popup="true">
+            <action id="CodeLanes.SaveWorkingSet" class="dev.codelanes.ide.SaveWorkingSetAction" text="Save Working Set…"/>
+            <action id="CodeLanes.OpenWorkingSet" class="dev.codelanes.ide.OpenWorkingSetAction" text="Open Working Set…"/>
+            <action id="CodeLanes.DeleteWorkingSet" class="dev.codelanes.ide.DeleteWorkingSetAction" text="Delete Working Set…"/>
+            <add-to-group group-id="ViewMenu" anchor="last"/>
+        </group>
     </actions>
 </idea-plugin>

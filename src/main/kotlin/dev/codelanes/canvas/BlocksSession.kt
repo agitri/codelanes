@@ -43,6 +43,7 @@ import dev.codelanes.review.Review
 import dev.codelanes.review.ReviewEntry
 import dev.codelanes.review.ReviewFile
 import dev.codelanes.review.ReviewMark
+import dev.codelanes.workingset.CanvasState
 import dev.codelanes.settings.PinStore
 import java.awt.event.FocusAdapter
 import java.awt.event.FocusEvent
@@ -581,6 +582,24 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         "Clear review mark" to { markBlock(block.id, null) },
         "Edit review note…" to { editNote(block.id) },
     )
+
+    /** This canvas's state, for a working set. */
+    fun snapshot(): CanvasState =
+        CanvasState(file.path, followedCalls.sorted(), revealed.sorted(), collapsed.toSortedMap(), canvas.zoom)
+
+    /** Opens this canvas up the way [state] describes (followed calls, revealed parents, collapsed blocks, zoom). */
+    fun restore(state: CanvasState) = withModelAccess {
+        followedCalls.clear()
+        followedCalls += state.followedCalls
+        revealed.clear()
+        revealed += state.revealed
+        collapsed.clear()
+        collapsed += state.collapsed
+        canvas.setZoom(state.zoom)
+        focusMovedTo(null)
+        rebuildNow()
+        render()
+    }
 
     fun view(id: String): BlockView? = views[id]
 
