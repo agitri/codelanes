@@ -37,3 +37,8 @@
 - "Rename" carry-over treats any one-removed/one-added method pair as a rename (also after a git checkout).
 - Highlights are scheduled for programmatic caret moves too and aren't cleared when focus leaves the canvas.
 - `+ method` uses a 4-space indent instead of the project's code style.
+- The same method can carry separate reviews as `method:`, `callee:` or `implementation:` block (one per place it
+  appears); a review should follow the method itself.
+- `+ calls` silently drops callees beyond 10 (no "and N more" block yet).
+- Line labels don't scale with zoom, so at low zoom most of them get a background patch.
+- `+ calls` stops at interface methods (DI-style code); to be fixed together with request chains (item 4).
