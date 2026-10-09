@@ -25,7 +25,7 @@
 
 ## Next
 
-1. **Routes from YAML/XML** (Symfony), not only `#[Route]` attributes.
+1. **Routes from YAML/XML** (built on `feat/route-files`, needs an IDE check): `config/routes` files in Follow a Request.
 
 ## Later (in order)
 

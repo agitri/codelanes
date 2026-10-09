@@ -19,6 +19,7 @@ data class EntryPoint(val label: String, val filePath: String, val methodName: S
  * Finds controller actions with a `#[Route]` attribute (Symfony style): class-level prefixes, invokable controllers
  * (`__invoke` with the route on the class), several routes per action, verbs as strings or `Request::METHOD_*`.
  * Paths that aren't a plain string (constants, concatenation, localized arrays) are shown as `?`.
+ * Routes from Symfony route files (YAML/XML) are included, see [RouteFiles].
  */
 object RouteFinder {
     private data class RouteInfo(val path: String, val verbs: List<String>)
@@ -57,7 +58,8 @@ object RouteFinder {
                 }
             }
         }
-        return found.sortedWith(compareBy({ it.first }, { it.second.label })).map { it.second }
+        found += RouteFiles.find(project)
+        return found.distinctBy { it.second.label }.sortedWith(compareBy({ it.first }, { it.second.label })).map { it.second }
     }
 
     private fun routesOf(attributes: Collection<PhpAttribute>): List<RouteInfo> =
