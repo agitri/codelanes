@@ -96,8 +96,11 @@ A **Tidy up** button on the canvas (and View → Reset Blocks Layout) drops all 
   stacked methods loops out on the right and comes back in.
 - Where a simple elbow would cross a block (e.g. after dragging), the line is routed around blocks instead.
 - **Colour carries meaning, not dash patterns** (all lines are solid): extends blue, implements green, uses trait
-  amber, injected purple, has method grey, calls red, implemented/used by teal. Override lines each get their own
-  colour from a separate palette. A legend in the corner lists the kinds present.
+  brown, injected slate, has method grey, implemented/used by teal. Call lines are read from the focused method:
+  "calls" in blue/cyan shades and "called by" in purple/magenta shades, one shade per line, each with a small
+  `calls` / `called by` label. Override lines are green shades labelled `overrides` / `overridden by`. Orange and
+  yellow are reserved for usage-highlight borders and never used for lines. A legend in the corner lists the kinds
+  present.
 - Kinds: `implements`, `extends`, `uses`, `injects` (into the type), `owns` (type → method), `calls`
   (method → method), `overrides` (method → the parent/interface method it implements or overrides; lands on that
   method's line when the target block is expanded), `implemented by` (type → implementer).
