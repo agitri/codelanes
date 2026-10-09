@@ -184,7 +184,8 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
                 arrowHead(g2, route[route.size - 2], route.last())
                 labelFor(link)?.let { text ->
                     val others = allRoutes.filterKeys { it != link }.values.flatMap { it.zipWithNext() }
-                    paintLineLabel(g2, text, route, atStart = link.from == focusedId, others)
+                    val atStart = link.kind !in FOCUS_ONLY || link.from == focusedId
+                    paintLineLabel(g2, text, route, atStart, others)
                 }
             }
             paintLegend(g2)
@@ -242,8 +243,16 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         else -> colorFor(link.kind)
     }
 
-    /** Small label on a call/override line, read from the focused method's point of view. */
+    /**
+     * Small word on a line. Structural lines say what they are (next to the block they start from); call and
+     * override lines are read from the focused method's point of view. "Has method" lines stay unlabelled.
+     */
     internal fun labelFor(link: Link): String? = when {
+        link.kind == LinkKind.EXTENDS -> "extends"
+        link.kind == LinkKind.IMPLEMENTS -> "implements"
+        link.kind == LinkKind.USES -> "uses trait"
+        link.kind == LinkKind.INJECTS -> "injected"
+        link.kind == LinkKind.IMPLEMENTED_BY -> "implemented by"
         link.kind == LinkKind.CALLS && link.from == focusedId -> "calls"
         link.kind == LinkKind.CALLS && link.to == focusedId -> "called by"
         link.kind == LinkKind.OVERRIDES && link.from == focusedId -> "overrides"

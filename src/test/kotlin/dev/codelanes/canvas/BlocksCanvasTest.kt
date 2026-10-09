@@ -212,4 +212,14 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         assertEquals("called by", canvas.labelFor(links[1]))
         assertNull(canvas.labelFor(Link(LinkKind.OWNS, "a", "b")))
     }
+
+    fun testStructuralLinesSayWhatTheyAre() {
+        val canvas = BlocksCanvas(NoListener)
+        assertEquals("extends", canvas.labelFor(Link(LinkKind.EXTENDS, "parent", "class")))
+        assertEquals("implements", canvas.labelFor(Link(LinkKind.IMPLEMENTS, "interface", "class")))
+        assertEquals("uses trait", canvas.labelFor(Link(LinkKind.USES, "trait", "class")))
+        assertEquals("injected", canvas.labelFor(Link(LinkKind.INJECTS, "dep", "class")))
+        assertEquals("implemented by", canvas.labelFor(Link(LinkKind.IMPLEMENTED_BY, "interface", "impl")))
+        assertNull(canvas.labelFor(Link(LinkKind.OWNS, "class", "method")))
+    }
 }
