@@ -556,4 +556,38 @@ class BlocksSessionTest : BasePlatformTestCase() {
         assertTrue(second.blockIds().contains("note:$id"))
         first.deleteNote(id)
     }
+
+    private val repoSource = "<?php\nnamespace App;\n\nclass Repo\n{\n    public function find(): string\n    {\n        return 'x';\n    }\n}\n"
+
+    fun testAReviewFollowsTheMethodWhereverItAppears() {
+        val repo = myFixture.addFileToProject("Repo.php", repoSource)
+        val psi = myFixture.configureByText("Foo.php", source.replace("return ${'$'}s;", "return (new Repo())->find();"))
+        val canvas = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        canvas.toggleCalls("method:footest")
+        canvas.markBlock("callee:\\App\\Repo::find", dev.codelanes.review.ReviewMark.UNDERSTOOD)
+        val repoCanvas = BlocksSession(project, repo.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        assertEquals("✓", repoCanvas.view("method:find")!!.reviewBadge())
+        repoCanvas.markBlock("method:find", null)
+    }
+
+    fun testFollowingARequestThatCantBeFollowedSaysWhy() {
+        val psi = myFixture.configureByText("Broken.php", "<?php\nnamespace App;\n\nclass Broken\n{\n    public function go(): void\n    {\n    }\n}\n")
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        WriteCommandAction.runWriteCommandAction(project) {
+            val doc = myFixture.editor.document
+            doc.insertString(doc.text.lastIndexOf("}"), "    public function (\n")
+        }
+        session.followChain("method:go", depth = 3)
+        assertTrue(session.canvas.notice.orEmpty(), session.canvas.notice.orEmpty().startsWith("Couldn't follow the request"))
+    }
+
+    fun testLeavingTheBlocksClearsTheHighlights() {
+        val session = open()
+        val text = myFixture.editor.document.text
+        session.highlightUsagesAt("method:bar", text.indexOf("footest(${'$'}this"))
+        assertFalse(session.canvas.highlights.isEmpty())
+        session.focusMovedTo("method:bar")
+        session.focusMovedTo(null)
+        assertTrue(session.canvas.highlights.isEmpty())
+    }
 }

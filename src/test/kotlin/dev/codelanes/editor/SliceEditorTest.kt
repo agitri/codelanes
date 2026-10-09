@@ -175,4 +175,18 @@ class SliceEditorTest : BasePlatformTestCase() {
             lookup?.hideLookup(true)
         }
     }
+
+    fun testDownOnTheLastVisibleLineOfTheHeaderIsAnEdge() {
+        myFixture.configureByText("H.php", "<?php\nnamespace App;\n\nclass H\n{\n}\n")
+        val model = (PhpBlockBuilder.build(myFixture.file) as BuildResult.Supported).model
+        val slice = SliceEditor(project, myFixture.file.virtualFile, myFixture.editor.document)
+        Disposer.register(testRootDisposable, slice)
+        val header = model.block("header")
+        slice.show(header.range, header.excluded)
+        // the header's last visible line is the blank line right above "class H"
+        slice.editor.caretModel.moveToOffset(myFixture.editor.document.text.indexOf("class H") - 1)
+        assertTrue(slice.atEdge(up = false))
+        slice.editor.caretModel.moveToOffset(myFixture.editor.document.text.indexOf("namespace"))
+        assertFalse(slice.atEdge(up = false))
+    }
 }

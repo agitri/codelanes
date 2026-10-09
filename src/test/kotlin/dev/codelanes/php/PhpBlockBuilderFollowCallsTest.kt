@@ -101,4 +101,15 @@ class PhpBlockBuilderFollowCallsTest : PhpBuilderTestCase() {
         assertTrue(model.ofKind(BlockKind.CALLEE).size <= PhpBlockBuilder.MAX_CHAIN_BLOCKS)
         assertTrue(model.ofKind(BlockKind.MORE).any { it.title.startsWith("chain cut off") })
     }
+
+    fun testMoreThanTenCallsShowAnAndMoreBlock() {
+        (1..12).forEach { i -> addPhp("src/Svc$i.php", "<?php\nnamespace App;\nclass Svc$i { public function run(): void {} }\n") }
+        val calls = (1..12).joinToString(" ") { "(new Svc$it())->run();" }
+        val file = myFixture.configureByText("Many.php", "<?php\nnamespace App;\nclass Many\n{\n    public function go(): void { $calls }\n}\n")
+        val model = (PhpBlockBuilder.build(file, followedCalls = setOf("method:go")) as BuildResult.Supported).model
+        assertEquals(10, model.ofKind(BlockKind.CALLEE).size)
+        val more = model.ofKind(BlockKind.MORE).single()
+        assertEquals("and 2 more calls", more.title)
+        assertTrue(model.links.contains(Link(LinkKind.CALLS_INTO, "method:go", more.id)))
+    }
 }

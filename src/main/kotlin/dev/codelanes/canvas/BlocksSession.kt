@@ -274,7 +274,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             actionsFor(block).let { (actions, menu) ->
                 view.setActions(actions, if (block.kind == BlockKind.MORE) menu else menu + reviewMenu(block))
             }
-            val review = reviews.get(block.filePath, block.id)
+            val review = reviews.get(block.filePath, reviewKey(block))
             val status = review?.mark?.let { Review.status(review, codeHash(block)) }
             view.setReview(status, review?.note.orEmpty())
         }
@@ -317,7 +317,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             override fun caretPositionChanged(event: com.intellij.openapi.editor.event.CaretEvent) {
                 val id = slices.entries.firstOrNull { it.value === slice }?.key ?: return
                 if (focused == id) canvas.focusedOffset = slice.editor.caretModel.offset
-                scheduleHighlight(id, slice.editor.caretModel.offset)
+                // Only the user's own caret moves ask "what is this symbol?", not programmatic ones.
+                if (slice.editor.contentComponent.isFocusOwner) scheduleHighlight(id, slice.editor.caretModel.offset)
             }
         })
         slice.editor.contentComponent.addFocusListener(object : FocusAdapter() {
@@ -397,6 +398,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     fun focusMovedTo(id: String?) {
         if (focused == id) return
         focused = id
+        if (id == null) canvas.highlights = emptyMap()
         canvas.focusedId = id
         canvas.focusedOffset = id?.let { slices[it] }?.editor?.caretModel?.offset
         if (heldBack) {
@@ -594,22 +596,22 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     /** Sets (or with null clears) the review mark of block [id]; remembers the code it was given for. */
     fun markBlock(id: String, mark: ReviewMark?) = withModelAccess {
         val block = model?.blocks?.firstOrNull { it.id == id } ?: return@withModelAccess
-        val note = reviews.get(block.filePath, id)?.note.orEmpty()
-        reviews.put(block.filePath, id, ReviewEntry(mark, note, codeHash(block)))
+        val note = reviews.get(block.filePath, reviewKey(block))?.note.orEmpty()
+        reviews.put(block.filePath, reviewKey(block), ReviewEntry(mark, note, codeHash(block)))
         render()
     }
 
     /** Sets the review note of block [id] (blank removes it), keeping its mark. */
     fun setNote(id: String, note: String) = withModelAccess {
         val block = model?.blocks?.firstOrNull { it.id == id } ?: return@withModelAccess
-        val current = reviews.get(block.filePath, id)
-        reviews.put(block.filePath, id, ReviewEntry(current?.mark, note.trim(), current?.hash ?: codeHash(block)))
+        val current = reviews.get(block.filePath, reviewKey(block))
+        reviews.put(block.filePath, reviewKey(block), ReviewEntry(current?.mark, note.trim(), current?.hash ?: codeHash(block)))
         render()
     }
 
     private fun editNote(id: String) {
         val block = model?.blocks?.firstOrNull { it.id == id } ?: return
-        val current = reviews.get(block.filePath, id)?.note.orEmpty()
+        val current = reviews.get(block.filePath, reviewKey(block))?.note.orEmpty()
         val note = Messages.showMultilineInputDialog(project, "Note for ${block.title}", "Review Note", current, null, null) ?: return
         setNote(id, note)
     }
@@ -623,6 +625,15 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             if (excluded.none { it.contains(offset) }) visible.append(text[offset])
         }
         return Review.hash(visible)
+    }
+
+    /**
+     * The key a review is stored under: a method reviewed as a callee or implementation elsewhere is the same
+     * method as its own block in its own file, so one review follows the method wherever it appears.
+     */
+    private fun reviewKey(block: Block): String = when (block.kind) {
+        BlockKind.CALLEE, BlockKind.IMPLEMENTATION -> "method:" + block.id.substringAfterLast("::")
+        else -> block.id
     }
 
     private fun reviewMenu(block: Block): List<Pair<String, () -> Unit>> = listOf(
@@ -676,6 +687,13 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         focusMovedTo(null)
         rebuildNow()
         tracked[from]?.current()?.let { (range, _) -> reveal(range.start) }
+        val reason = when {
+            DumbService.isDumb(project) -> "wait until indexing has finished"
+            canvas.notice == RebuildPolicy.SYNTAX_NOTICE -> "fix the syntax errors in this file first"
+            canvas.notice?.startsWith("Blocks paused: ") == true -> canvas.notice!!.removePrefix("Blocks paused: ")
+            else -> null
+        }
+        if (reason != null) canvas.notice = "Couldn't follow the request: $reason"
     }
 
     /** Re-places the blocks, e.g. after the vertical-layout switch changed. */

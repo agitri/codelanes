@@ -43,7 +43,10 @@ class SliceEditor(project: Project, file: VirtualFile, private val document: Doc
     fun atEdge(up: Boolean): Boolean {
         val marker = bounds?.takeIf { it.isValid } ?: return false
         val caretLine = document.getLineNumber(editor.caretModel.offset)
-        return caretLine == document.getLineNumber(if (up) marker.startOffset else marker.endOffset)
+        // A block ending exactly at a line start (the header) really ends on the line before.
+        val end = if (marker.endOffset > marker.startOffset && SliceRanges.lineStartOf(document.charsSequence, marker.endOffset) == marker.endOffset)
+            marker.endOffset - 1 else marker.endOffset
+        return caretLine == document.getLineNumber(if (up) marker.startOffset else end)
     }
 
     /** True when the block is taller than its cap and scrolls inside. */

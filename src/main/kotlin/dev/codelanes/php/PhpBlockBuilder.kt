@@ -184,11 +184,16 @@ object PhpBlockBuilder {
                 truncated = true
                 break
             }
-            val callees = PsiTreeUtil.findChildrenOfType(caller, MethodReference::class.java)
+            val allCallees = PsiTreeUtil.findChildrenOfType(caller, MethodReference::class.java)
                 .mapNotNull { targetOf(it, caller) }
                 .filter { it.containingClass.let { c -> c != null && c != phpClass } && inProject(it) }
                 .distinct()
-                .take(MAX_CALLEES)
+            val callees = allCallees.take(MAX_CALLEES)
+            if (allCallees.size > MAX_CALLEES) {
+                val moreId = "more:calls:$id"
+                blocks[moreId] = Block(moreId, BlockKind.MORE, "and ${allCallees.size - MAX_CALLEES} more calls", path, SourceRange(0, 0), collapsed = true)
+                links += Link(LinkKind.CALLS_INTO, id, moreId)
+            }
             for (callee in callees) {
                 if (blocks.size >= MAX_CHAIN_BLOCKS) {
                     truncated = true
