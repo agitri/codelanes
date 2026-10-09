@@ -27,18 +27,24 @@
 
 1. **Routes from YAML/XML** (Symfony), not only `#[Route]` attributes.
 
-## Later
+## Later (in order)
 
-- **Record the real road a request took** (long haul): read an Xdebug trace of one real request and show exactly
-  the methods that ran, in order (also events and handlers that static analysis can't see).
-- **AI picks the relevant chain** (optional): describe a flow in words; AI chooses blocks *only from the real
-  call graph*, never invents or explains code.
-
-- **Fresh screenshots** for the README (current ones are from early builds).
-- **More languages**: Java/Kotlin, then TypeScript/JavaScript (a new `BlockBuilder` per language; layout and canvas stay).
-- **JetBrains Marketplace** release (plugin icon, change notes, signing, `publishPlugin`).
-- **VS Code** (later; the slice-editor technique needs a VS Code equivalent).
-- Keyboard: Tab-based block switching (Tab is indentation today, so it needs a different shortcut).
+1. **Fresh screenshots** for the README: the current ones are from early builds, and the README is the first thing
+   people see.
+2. **JetBrains Marketplace release**: plugin icon, change notes, signing, `publishPlugin`. Lets people install it
+   without building from source.
+3. **Polish from the reviews**: the "Known small issues" below, starting with the ones a user notices (review that
+   follows the method, "and N more" for calls, labels that scale with zoom, a clear message when a chain can't be
+   followed).
+4. **Java/Kotlin**: a new `BlockBuilder` per language; layout, canvas, reviews and notes stay. The biggest group of
+   JetBrains users.
+5. **TypeScript/JavaScript**.
+6. **Record the real road a request took** (long haul): read an Xdebug trace of one real request and show exactly
+   the methods that ran, in order (also events and handlers that static analysis can't see).
+7. **AI picks the relevant chain** (optional): describe a flow in words; AI chooses blocks *only from the real
+   call graph*, never invents or explains code.
+8. **VS Code**: needs its own equivalent of the slice editors.
+9. Keyboard: Tab-based block switching (Tab is indentation today, so it needs a different shortcut).
 
 ## Known small issues (from code review, deferred)
 
