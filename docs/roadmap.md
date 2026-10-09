@@ -29,7 +29,7 @@
 
 ## Later (in order)
 
-1. **Polish from the reviews** (in progress): the "Known small issues" below.
+1. **Polish from the reviews** (done for 0.1.0; leftovers below).
 2. **JetBrains Marketplace release 0.1.0**: plugin icon, description, change notes, signing, `publishPlugin`.
 3. **Fresh screenshots** for the README and the Marketplace page.
 4. **Java/Kotlin**: a new `BlockBuilder` per language; layout, canvas, reviews and notes stay. The biggest group of
@@ -44,18 +44,8 @@
 
 ## Known small issues (from code review, deferred)
 
-- Synchronous rebuilds after `+ method` / `+ parents` / delete run the full build on the UI thread; may hitch
-  on very large projects or widely implemented interfaces.
-- Down never leaves an expanded header block (its range ends at the start of the class line).
-- With multiple carets, the Backspace/Delete guard only checks the primary caret.
-- "Rename" carry-over treats any one-removed/one-added method pair as a rename (also after a git checkout).
-- Highlights are scheduled for programmatic caret moves too and aren't cleared when focus leaves the canvas.
-- `+ method` uses a 4-space indent instead of the project's code style.
-- The same method can carry separate reviews as `method:`, `callee:` or `implementation:` block (one per place it
-  appears); a review should follow the method itself.
-- `+ calls` silently drops callees beyond 10 (no "and N more" block yet).
-- Line labels don't scale with zoom, so at low zoom most of them get a background patch.
-- Follow a Request still does a few synchronous rebuilds on the UI thread (bounded by the 80-block cap); one
-  background pass would be smoother.
-- When a chain can't be followed (syntax errors, indexing) there is only the generic notice, no specific message.
-- Tree layout: routing many lines (hundreds of blocks) makes zooming stutter; the toolbar clips on very narrow canvases.
+- Synchronous rebuilds after `+ method` / `+ parents` / delete / Follow a Request run on the UI thread; bounded
+  (80-block cap) but can hitch on very large projects or widely implemented interfaces.
+- Tree layout: routing many lines (hundreds of blocks) makes zooming stutter.
+- A class reviewed in its own canvas and as a parent/interface block elsewhere still has separate reviews
+  (methods already share one review wherever they appear).

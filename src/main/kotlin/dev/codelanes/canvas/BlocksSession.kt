@@ -232,6 +232,9 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val oldMethods = model?.blocks.orEmpty().filter { it.kind == BlockKind.METHOD }.map { it.id }.toSet()
         val old = vanished.filter { it in oldMethods }.singleOrNull() ?: return
         val new = appeared.filter { next.block(it).kind == BlockKind.METHOD }.singleOrNull() ?: return
+        // A rename keeps the method where it was; a different method elsewhere (e.g. after a git checkout) isn't one.
+        val oldStart = tracked[old]?.current()?.first?.start ?: return
+        if (oldStart != next.block(new).range.start) return
         views.remove(old)?.let { it.id = new; views[new] = it }
         slices.remove(old)?.let { slices[new] = it }
         collapsed.remove(old)?.let { collapsed[new] = it }
@@ -513,7 +516,13 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val (range, _) = tracked[cls.id]?.current() ?: return@withModelAccess
         val taken = current.ofKind(BlockKind.METHOD).map { it.id.removePrefix("method:").lowercase() }.toSet()
         val name = generateSequence(1) { it + 1 }.map { if (it == 1) "newMethod" else "newMethod$it" }.first { it.lowercase() !in taken }
-        val indent = "    "
+        val psiFile = PsiDocumentManager.getInstance(project).getPsiFile(document)
+        val indentOptions = psiFile?.let { com.intellij.application.options.CodeStyle.getIndentOptions(it) }
+        val indent = when {
+            indentOptions == null -> "    "
+            indentOptions.USE_TAB_CHARACTER -> "\t"
+            else -> " ".repeat(indentOptions.INDENT_SIZE)
+        }
         val method = if (cls.title.startsWith("interface")) "${indent}public function $name(): void;\n"
         else "${indent}public function $name(): void\n$indent{\n$indent}\n"
         // The class range can have grown past its brace (text typed after it): find the brace itself.

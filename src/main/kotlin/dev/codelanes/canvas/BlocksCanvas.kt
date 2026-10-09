@@ -55,7 +55,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         }
 
     /** Bottom-left toolbar: layout switch, Follow a Request…, Working sets ▾, Tidy up. */
-    internal val toolbar = JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply { isOpaque = false }
+    internal val toolbar = JPanel(com.intellij.util.ui.WrapLayout(java.awt.FlowLayout.LEFT, 6, 4)).apply { isOpaque = false }
     private val modeButtons = linkedMapOf(
         dev.codelanes.layout.LayoutMode.LANES to javax.swing.JToggleButton("Lanes"),
         dev.codelanes.layout.LayoutMode.COLUMN to javax.swing.JToggleButton("Column"),
@@ -218,9 +218,12 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     }
 
     override fun doLayout() {
-        val size = toolbar.preferredSize
         // Bottom-left, right above the editor's Blocks | Text tabs; the legend sits above it.
-        toolbar.setBounds(12, height - size.height - 8, size.width, size.height)
+        // On a narrow canvas the toolbar wraps onto more rows instead of being cut off.
+        val width = minOf(toolbar.preferredSize.width, maxOf(120, this.width - 24))
+        toolbar.setSize(width, 0)
+        val rowsHeight = toolbar.preferredSize.height
+        toolbar.setBounds(12, height - rowsHeight - 8, width, rowsHeight)
     }
 
     private fun placeViews() {
@@ -353,8 +356,8 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     private fun paintLineLabel(g2: Graphics2D, text: String, route: List<Point>, atStart: Boolean, others: List<Pair<Point, Point>>) {
         // Labels sit above a horizontal stretch: the one nearest the chosen end (tree routes start vertically).
         val ordered = if (atStart) route else route.reversed()
+        g2.font = JBFont.small().deriveFont((JBFont.small().size2D * zoom).toFloat())
         val (a, b) = ordered.zipWithNext().firstOrNull { (p, q) -> p.y == q.y && p.x != q.x } ?: (ordered[0] to ordered[1])
-        g2.font = JBFont.small()
         val metrics = g2.fontMetrics
         val width = metrics.stringWidth(text)
         val free = LabelPlacement.place(a, b, width, metrics.ascent, others)
