@@ -322,4 +322,28 @@ class LayoutEngineTest {
         assertTrue(r.getValue("method:create").bottom <= r.getValue("callee:place").y)
         assertTrue(r.getValue("callee:place").bottom <= r.getValue("callee:save").y)
     }
+
+    @Test
+    fun inTheTreeCallsFromOneMethodSitSideBySideEvenThroughAnInterface() {
+        val into = dev.codelanes.model.LinkKind.CALLS_INTO
+        val implementedBy = dev.codelanes.model.LinkKind.IMPLEMENTED_BY
+        val callee = BlockKind.CALLEE
+        val model = BlockModel(
+            listOf(
+                block("class:C", CLASS), block("method:create", METHOD),
+                block("callee:place", callee), block("callee:save", callee), block("callee:send", callee), block("callee:doctrineSave", callee),
+            ),
+            listOf(
+                Link(OWNS, "class:C", "method:create"),
+                Link(into, "method:create", "callee:place"),
+                Link(into, "callee:place", "callee:save"),
+                Link(into, "callee:place", "callee:send"),
+                Link(implementedBy, "callee:save", "callee:doctrineSave"),
+            ),
+        )
+        val r = LayoutEngine.layout(model, sizeOf, mode = LayoutMode.TREE).rects
+        assertEquals("save and send on one row", r.getValue("callee:save").y, r.getValue("callee:send").y)
+        assertTrue(r.getValue("callee:save").bottom <= r.getValue("callee:doctrineSave").y)
+        assertTrue(r.getValue("callee:place").bottom <= r.getValue("callee:save").y)
+    }
 }

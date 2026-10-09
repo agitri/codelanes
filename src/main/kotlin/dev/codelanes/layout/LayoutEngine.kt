@@ -60,12 +60,16 @@ object LayoutEngine {
     /** Longest-path ranks over structural links, compacted so sources sit next to what they feed. */
     private fun ranks(model: BlockModel, flattenChain: Boolean): Map<String, Int> {
         val edges = model.links.filter { it.kind in STRUCTURAL }
+        val kindOf = model.blocks.associate { it.id to it.kind }
+        // Implementers of an opened type go one lane further than its own methods (type | methods | implementers);
+        // inside a followed chain an implementation is simply the next level after its interface method.
+        fun weight(edge: dev.codelanes.model.Link): Int =
+            if (edge.kind == LinkKind.IMPLEMENTED_BY && kindOf[edge.from] != BlockKind.CALLEE) 2 else 1
         val rank = model.blocks.associate { it.id to 0 }.toMutableMap()
         for (pass in model.blocks.indices) {
             var changed = false
             for (edge in edges) {
-                // Implementers go one lane further than the type's own methods: type | methods | implementers.
-                val wanted = rank.getValue(edge.from) + if (edge.kind == LinkKind.IMPLEMENTED_BY) 2 else 1
+                val wanted = rank.getValue(edge.from) + weight(edge)
                 if (rank.getValue(edge.to) < wanted) {
                     rank[edge.to] = wanted
                     changed = true
@@ -73,12 +77,13 @@ object LayoutEngine {
             }
             if (!changed) break
         }
+        // Pull sources down next to what they feed, respecting each edge's weight.
         for (pass in model.blocks.indices) {
             var changed = false
             for (block in model.blocks) {
-                val next = edges.filter { it.from == block.id }.minOfOrNull { rank.getValue(it.to) } ?: continue
-                if (next - 1 > rank.getValue(block.id)) {
-                    rank[block.id] = next - 1
+                val latest = edges.filter { it.from == block.id }.minOfOrNull { rank.getValue(it.to) - weight(it) } ?: continue
+                if (latest > rank.getValue(block.id)) {
+                    rank[block.id] = latest
                     changed = true
                 }
             }
