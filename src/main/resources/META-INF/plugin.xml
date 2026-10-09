@@ -37,6 +37,10 @@
                 text="Open PHP Files as Blocks by Default">
             <add-to-group group-id="ViewMenu" anchor="last"/>
         </action>
+        <action id="CodeLanes.FollowRequest" class="dev.codelanes.ide.FollowRequestAction" text="Follow a Request…"
+                description="Pick a route and see the whole chain of code it runs on one canvas">
+            <add-to-group group-id="ViewMenu" anchor="last"/>
+        </action>
         <group id="CodeLanes.WorkingSets" text="CodeLanes Working Sets" popup="true">
             <action id="CodeLanes.SaveWorkingSet" class="dev.codelanes.ide.SaveWorkingSetAction" text="Save Working Set…"/>
             <action id="CodeLanes.OpenWorkingSet" class="dev.codelanes.ide.OpenWorkingSetAction" text="Open Working Set…"/>

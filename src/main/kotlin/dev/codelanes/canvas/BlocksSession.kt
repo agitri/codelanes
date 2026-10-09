@@ -37,6 +37,7 @@ import dev.codelanes.layout.Point
 import dev.codelanes.model.Block
 import dev.codelanes.model.BlockKind
 import dev.codelanes.model.BlockModel
+import dev.codelanes.model.LinkKind
 import dev.codelanes.model.SourceRange
 import dev.codelanes.php.PhpBlockBuilder
 import dev.codelanes.review.Review
@@ -617,6 +618,29 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         focusMovedTo(null)
         rebuildNow()
         render()
+    }
+
+    /**
+     * Follows the calls of [from] automatically, [depth] levels deep (also into the implementations of interface
+     * methods), then focuses [from]. Used for "Follow a Request…".
+     */
+    fun followChain(from: String, depth: Int) = withModelAccess {
+        followedCalls += from
+        var frontier = setOf(from)
+        for (level in 1 until depth) {
+            focusMovedTo(null)
+            rebuildNow()
+            val links = model?.links.orEmpty()
+            val callees = links.filter { it.kind == LinkKind.CALLS_INTO && it.from in frontier }.map { it.to }.toSet()
+            val implementations = links.filter { it.kind == LinkKind.IMPLEMENTED_BY && it.from in callees }.map { it.to }
+            val next = (callees + implementations) - followedCalls
+            if (next.isEmpty()) break
+            followedCalls += next
+            frontier = next
+        }
+        focusMovedTo(null)
+        rebuildNow()
+        tracked[from]?.current()?.let { (range, _) -> reveal(range.start) }
     }
 
     fun view(id: String): BlockView? = views[id]

@@ -34,6 +34,7 @@ object PhpBlockBuilder {
     const val MORE_ID = "more:implementers"
     const val MAX_IMPLEMENTERS = 10
     const val MAX_CALLEES = 10
+    const val MAX_IMPLEMENTATIONS = 5
 
     /** Leaf tokens allowed in the header besides whitespace and comments. */
     private val HEADER_TOKENS = setOf("<?php", "<?", "namespace", ";", "{")
@@ -187,10 +188,36 @@ object PhpBlockBuilder {
                 }
                 links += Link(LinkKind.CALLS_INTO, id, calleeId)
                 if (calleeId in followed) queue += calleeId to callee
+                // A call into an interface/abstract method: the real work happens in its implementations.
+                if (owner.isInterface || callee.isAbstract) {
+                    for ((implId, implementation) in implementationsOf(owner, callee)) {
+                        blocks.getOrPut(implId) {
+                            val implClass = implementation.containingClass!!
+                            Block(
+                                id = implId,
+                                kind = BlockKind.CALLEE,
+                                title = "${implClass.name}::${methodTitle(implementation)}",
+                                filePath = implementation.containingFile.virtualFile.path,
+                                range = rangeWithDoc(implementation),
+                            )
+                        }
+                        links += Link(LinkKind.IMPLEMENTED_BY, calleeId, implId)
+                        if (implId in followed) queue += implId to implementation
+                    }
+                }
             }
         }
         return blocks.values.toList() to links.distinct()
     }
+
+    /** Project implementations of an interface/abstract [method] of [owner] (at most [MAX_IMPLEMENTATIONS]). */
+    private fun implementationsOf(owner: PhpClass, method: Method): List<Pair<String, Method>> =
+        PhpIndex.getInstance(owner.project).getAllSubclasses(owner.fqn)
+            .filter { !it.isInterface && inProject(it) }
+            .sortedBy { it.fqn }
+            .mapNotNull { implClass -> implClass.findOwnMethodByName(method.name)?.takeIf { !it.isAbstract }?.let { "callee:${implClass.fqn}::${method.name}" to it } }
+            .distinctBy { it.first }
+            .take(MAX_IMPLEMENTATIONS)
 
     /** Project code only: libraries and vendor/ are never pulled onto the canvas. */
     private fun inProject(element: com.intellij.psi.PsiElement): Boolean {

@@ -460,4 +460,21 @@ class BlocksSessionTest : BasePlatformTestCase() {
         session.rebuildNow()
         assertTrue(session.blockIds().contains("callee:\\App\\Repo::find"))
     }
+
+    fun testFollowingAChainGoesSeveralLevelsDeepAlsoThroughInterfaces() {
+        myFixture.addFileToProject("Service.php", "<?php\nnamespace App;\n\nclass Service\n{\n    public function __construct(private Store ${'$'}store) {}\n\n    public function place(): void\n    {\n        ${'$'}this->store->save();\n    }\n}\n")
+        myFixture.addFileToProject("Store.php", "<?php\nnamespace App;\n\ninterface Store\n{\n    public function save(): void;\n}\n")
+        myFixture.addFileToProject("DbStore.php", "<?php\nnamespace App;\n\nclass DbStore implements Store\n{\n    public function save(): void\n    {\n        ${'$'}this->flush();\n    }\n\n    private function flush(): void\n    {\n    }\n}\n")
+        val controller = "<?php\nnamespace App;\n\nclass Controller\n{\n    public function __construct(private Service ${'$'}service) {}\n\n    public function create(): void\n    {\n        ${'$'}this->service->place();\n    }\n}\n"
+        val psi = myFixture.configureByText("Controller.php", controller)
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        session.followChain("method:create", depth = 4)
+        assertTrue(session.blockIds().containsAll(listOf(
+            "callee:\\App\\Service::place",
+            "callee:\\App\\Store::save",
+            "callee:\\App\\DbStore::save",
+            "callee:\\App\\DbStore::flush",
+        )))
+        assertEquals("method:create", session.canvas.focusedId)
+    }
 }

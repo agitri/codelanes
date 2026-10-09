@@ -20,7 +20,7 @@
    shared in `.codelanes/review.json`, reset to `~` when the code changes.
 3. **Saved working sets** (built on `feat/working-sets`, needs an IDE check): View → CodeLanes Working Sets.
 
-4. **Follow a request from its entry point** (in progress): pick a route (e.g. `POST /orders`), CodeLanes opens
+4. **Follow a request from its entry point** (built on `feat/entry-point`, needs an IDE check): pick a route (e.g. `POST /orders`), CodeLanes opens
    its controller action and follows the calls a few levels deep automatically: the whole chain on one canvas.
 5. **Record the real road a request took**: read an Xdebug trace of one real request and show exactly the methods
    that ran, in order (also events and handlers that static analysis can't see).
@@ -48,4 +48,3 @@
   appears); a review should follow the method itself.
 - `+ calls` silently drops callees beyond 10 (no "and N more" block yet).
 - Line labels don't scale with zoom, so at low zoom most of them get a background patch.
-- `+ calls` stops at interface methods (DI-style code); to be fixed together with request chains (item 4).

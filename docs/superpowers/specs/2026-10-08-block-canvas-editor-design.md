@@ -144,6 +144,14 @@ state (followed calls, revealed parents, collapsed/expanded blocks, zoom). **Ope
 files as canvases in that state; **Delete Working Set…** removes one. Stored, sorted by name and with paths relative
 to the project, in `.codelanes/working-sets.json`, so a set can be shared (e.g. prepared for a PR review).
 
+### Following a request from its entry point
+
+**View → Follow a Request…** finds every controller action with a `#[Route]` attribute (Symfony style, with a
+class-level prefix) and lists them as `VERBS /path → Controller::action`, filterable by typing. Picking one opens the
+controller as a canvas and follows its calls automatically 3 levels deep (`+ calls` on every new callee), then
+focuses the action. A call to an interface or abstract method also shows its project implementations (at most 5,
+linked "implemented by"), and the chain continues through them.
+
 ### Following calls across files
 
 Every method block (and every callee block) has a `+ calls` link. It shows the methods it calls in *other* project

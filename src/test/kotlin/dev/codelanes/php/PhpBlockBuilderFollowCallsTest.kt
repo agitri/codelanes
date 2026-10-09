@@ -57,4 +57,12 @@ class PhpBlockBuilderFollowCallsTest : PhpBuilderTestCase() {
         val model = build(setOf("method:render", "callee:\\App\\UserRepository::findName"))
         assertTrue(model.links.contains(Link(LinkKind.CALLS_INTO, "callee:\\App\\UserRepository::findName", "callee:\\App\\UserRepository::format")))
     }
+
+    fun testACallToAnInterfaceMethodAlsoShowsItsImplementations() {
+        services()
+        addPhp("src/SystemClock.php", "<?php\nnamespace App;\nclass SystemClock implements Clock\n{\n    public function now(): string { return 'now'; }\n}\n")
+        val model = build(setOf("method:render"))
+        assertTrue(model.links.contains(Link(LinkKind.IMPLEMENTED_BY, "callee:\\App\\Clock::now", "callee:\\App\\SystemClock::now")))
+        assertEquals("SystemClock::now()", model.block("callee:\\App\\SystemClock::now").title)
+    }
 }
