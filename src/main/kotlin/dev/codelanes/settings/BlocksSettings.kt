@@ -12,8 +12,12 @@ import com.intellij.openapi.components.service
 class BlocksSettings : SimplePersistentStateComponent<BlocksSettings.SettingsState>(SettingsState()) {
     class SettingsState : BaseState() {
         var openAsBlocksByDefault by property(true)
-        var verticalLayout by property(false)
+        /** LANES (default), COLUMN or TREE; see [dev.codelanes.layout.LayoutMode]. */
+        var layoutMode by string("LANES")
     }
+
+    val mode: dev.codelanes.layout.LayoutMode
+        get() = runCatching { dev.codelanes.layout.LayoutMode.valueOf(state.layoutMode ?: "LANES") }.getOrDefault(dev.codelanes.layout.LayoutMode.LANES)
 
     companion object {
         val instance: BlocksSettings get() = service()

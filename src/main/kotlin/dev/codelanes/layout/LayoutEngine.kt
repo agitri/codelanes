@@ -22,6 +22,9 @@ data class Point(val x: Int, val y: Int)
 
 data class Layout(val rects: Map<String, Rect>)
 
+/** How blocks are arranged: lanes left to right (default), one column, or a top-down tree. */
+enum class LayoutMode { LANES, COLUMN, TREE }
+
 /**
  * Left-to-right layered layout: what a type builds on sits left of it, what it owns sits right of it.
  * Pinned blocks keep their positions; everything else avoids them.
@@ -31,15 +34,21 @@ object LayoutEngine {
     const val V_GAP = 24
     const val PIN_GAP = 16
     const val MAX_COLUMN_HEIGHT = 1400
+    const val MAX_ROW_WIDTH = 2400
+    const val TREE_V_GAP = 96
 
     private val LANE_KINDS = listOf(BlockKind.PARENT, BlockKind.INTERFACE, BlockKind.TRAIT, BlockKind.DEPENDENCY)
     private val STRUCTURAL = setOf(LinkKind.EXTENDS, LinkKind.IMPLEMENTS, LinkKind.USES, LinkKind.INJECTS, LinkKind.OWNS, LinkKind.IMPLEMENTED_BY, LinkKind.CALLS_INTO)
 
-    fun layout(model: BlockModel, sizeOf: (Block) -> Size, pins: Map<String, Point> = emptyMap(), vertical: Boolean = false): Layout {
-        val rank = ranks(model)
+    fun layout(model: BlockModel, sizeOf: (Block) -> Size, pins: Map<String, Point> = emptyMap(), mode: LayoutMode = LayoutMode.LANES): Layout {
+        val rank = ranks(model, flattenChain = mode != LayoutMode.TREE)
         val columns = orderedColumns(model, rank).map { lane -> lane.filter { it.id !in pins } }
         val classRank = model.ofKind(BlockKind.CLASS).firstOrNull()?.let { rank.getValue(it.id) } ?: 0
-        val auto = if (vertical) placeVertically(columns, classRank, sizeOf) else place(columns, classRank, sizeOf)
+        val auto = when (mode) {
+            LayoutMode.LANES -> place(columns, classRank, sizeOf)
+            LayoutMode.COLUMN -> placeVertically(columns, classRank, sizeOf)
+            LayoutMode.TREE -> placeRows(columns, sizeOf)
+        }
         val pinned = model.blocks.filter { it.id in pins }.associate { block ->
             val size = sizeOf(block)
             val at = pins.getValue(block.id)
@@ -49,7 +58,7 @@ object LayoutEngine {
     }
 
     /** Longest-path ranks over structural links, compacted so sources sit next to what they feed. */
-    private fun ranks(model: BlockModel): Map<String, Int> {
+    private fun ranks(model: BlockModel, flattenChain: Boolean): Map<String, Int> {
         val edges = model.links.filter { it.kind in STRUCTURAL }
         val rank = model.blocks.associate { it.id to 0 }.toMutableMap()
         for (pass in model.blocks.indices) {
@@ -79,8 +88,10 @@ object LayoutEngine {
             model.ofKind(BlockKind.HEADER).forEach { rank[it.id] = rank.getValue(cls.id) }
         }
         // A followed chain is one lane (read top to bottom), not a new lane per call level.
-        val callees = model.ofKind(BlockKind.CALLEE)
-        callees.minOfOrNull { rank.getValue(it.id) }?.let { lane -> callees.forEach { rank[it.id] = lane } }
+        if (flattenChain) {
+            val callees = model.ofKind(BlockKind.CALLEE)
+            callees.minOfOrNull { rank.getValue(it.id) }?.let { lane -> callees.forEach { rank[it.id] = lane } }
+        }
         return rank
     }
 
@@ -200,6 +211,43 @@ object LayoutEngine {
         val related = kinds.flatMap { kind -> left.flatMap { column -> column.filter { it.kind == kind } } }
         val rects = linkedMapOf<String, Rect>()
         placeStack(related + columns.drop(classRank).flatten(), 0, 0, rects, sizeOf)
+        return rects
+    }
+
+    /**
+     * Experimental tree: every level is a row, top to bottom (what the class builds on, the class, its methods, each
+     * call level of a followed chain), blocks side by side, rows centred under each other, long rows wrapped.
+     */
+    private fun placeRows(levels: List<List<Block>>, sizeOf: (Block) -> Size): Map<String, Rect> {
+        val rows = levels.filter { it.isNotEmpty() }.flatMap { level ->
+            val wrapped = mutableListOf(mutableListOf<Block>())
+            var width = 0
+            for (block in level) {
+                val w = sizeOf(block).width
+                if (wrapped.last().isNotEmpty() && width + H_GAP + w > MAX_ROW_WIDTH) {
+                    wrapped += mutableListOf<Block>()
+                    width = 0
+                }
+                width += (if (wrapped.last().isEmpty()) 0 else H_GAP) + w
+                wrapped.last() += block
+            }
+            wrapped
+        }
+        fun rowWidth(row: List<Block>) = row.sumOf { sizeOf(it).width } + H_GAP * (row.size - 1)
+        val widest = rows.maxOfOrNull(::rowWidth) ?: 0
+        val rects = linkedMapOf<String, Rect>()
+        var y = 0
+        for (row in rows) {
+            var x = (widest - rowWidth(row)) / 2
+            var height = 0
+            for (block in row) {
+                val size = sizeOf(block)
+                rects[block.id] = Rect(x, y, size.width, size.height)
+                x += size.width + H_GAP
+                height = maxOf(height, size.height)
+            }
+            y += height + TREE_V_GAP
+        }
         return rects
     }
 

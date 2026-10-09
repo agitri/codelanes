@@ -482,11 +482,11 @@ class BlocksSessionTest : BasePlatformTestCase() {
         val session = open()
         val settings = dev.codelanes.settings.BlocksSettings.instance.state
         try {
-            settings.verticalLayout = true
+            settings.layoutMode = "COLUMN"
             session.refreshLayout()
             assertEquals(1, session.blockIds().map { session.viewBounds(it)!!.x }.distinct().size)
         } finally {
-            settings.verticalLayout = false
+            settings.layoutMode = "LANES"
         }
     }
 }

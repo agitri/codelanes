@@ -105,4 +105,15 @@ class LinkRoutesTest {
         val longX = routes.getValue(long)[1].x
         assertTrue("short loop $shortX should sit inside the long one $longX", shortX < longX)
     }
+
+    @Test
+    fun inTheTreeLinesGoFromTheBottomOfAParentToTheTopOfAChild() {
+        val rects = mapOf("controller" to Rect(100, 0, 200, 60), "post" to Rect(0, 160, 150, 60), "get" to Rect(250, 160, 150, 60))
+        val toPost = Link(LinkKind.OWNS, "controller", "post")
+        val toGet = Link(LinkKind.OWNS, "controller", "get")
+        val routes = LinkRoutes.compute(listOf(toPost, toGet), rects, tree = true)
+        assertEquals(60, routes.getValue(toPost).first().y)
+        assertEquals(160, routes.getValue(toPost).last().y)
+        assertEquals(160, routes.getValue(toGet).last().y)
+    }
 }

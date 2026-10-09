@@ -288,10 +288,38 @@ class LayoutEngineTest {
 
     @Test
     fun verticalLayoutPutsEverythingInOneColumnTopToBottom() {
-        val r = LayoutEngine.layout(foo, sizeOf, vertical = true).rects
+        val r = LayoutEngine.layout(foo, sizeOf, mode = LayoutMode.COLUMN).rects
         assertEquals("one column", 1, r.values.map { it.x }.distinct().size)
         val order = listOf("parent:Base", "interface:X", "interface:Y", "header", "class:Foo", "method:bar", "method:footest")
         assertEquals(order, order.sortedBy { r.getValue(it).y })
         assertNoOverlap(r)
+    }
+
+    @Test
+    fun treeLayoutPutsEachLevelInARowBelowThePrevious() {
+        val r = LayoutEngine.layout(foo, sizeOf, mode = LayoutMode.TREE).rects
+        val cls = r.getValue("class:Foo")
+        listOf("parent:Base", "interface:X", "interface:Y").forEach { assertTrue(it, r.getValue(it).bottom <= cls.y) }
+        // methods side by side in one row below the class
+        val bar = r.getValue("method:bar")
+        val footest = r.getValue("method:footest")
+        assertEquals(bar.y, footest.y)
+        assertTrue(bar.right <= footest.x || footest.right <= bar.x)
+        assertTrue(bar.y >= cls.bottom)
+        // parents and interfaces share a row
+        assertEquals(r.getValue("parent:Base").y, r.getValue("interface:X").y)
+        assertNoOverlap(r)
+    }
+
+    @Test
+    fun inTheTreeAFollowedChainGoesDownLevelByLevel() {
+        val into = dev.codelanes.model.LinkKind.CALLS_INTO
+        val model = BlockModel(
+            listOf(block("class:C", CLASS), block("method:create", METHOD), block("callee:place", BlockKind.CALLEE), block("callee:save", BlockKind.CALLEE)),
+            listOf(Link(OWNS, "class:C", "method:create"), Link(into, "method:create", "callee:place"), Link(into, "callee:place", "callee:save")),
+        )
+        val r = LayoutEngine.layout(model, sizeOf, mode = LayoutMode.TREE).rects
+        assertTrue(r.getValue("method:create").bottom <= r.getValue("callee:place").y)
+        assertTrue(r.getValue("callee:place").bottom <= r.getValue("callee:save").y)
     }
 }

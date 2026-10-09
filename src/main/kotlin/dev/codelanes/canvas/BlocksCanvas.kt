@@ -51,6 +51,9 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             repaint()
         }
 
+    /** Tree layout: lines go out of the bottom of a block into the top of the next. */
+    var tree = false
+
     /** Caret offset inside the focused block's file, if known. */
     var focusedOffset: Int? = null
         set(value) { field = value; repaint() }
@@ -207,7 +210,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     private fun routes(visible: List<Link>): Map<Link, List<Point>> {
         val relative = views.mapValues { (_, v) -> Rect(v.x - pan.x, v.y - pan.y, v.width, v.height) }
         val targetY = visible.mapNotNull { link -> targetLineY(link)?.let { link to it - pan.y } }.toMap()
-        val key = listOf(relative, visible, zoom, targetY)
+        val key = listOf(relative, visible, zoom, targetY, tree)
         if (key != cachedKey) {
             cachedRoutes = LinkRoutes.compute(
                 visible,
@@ -215,6 +218,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
                 (ArrowGeometry.LOOP * zoom).roundToInt(),
                 (SLOT_STEP * zoom).roundToInt().coerceAtLeast(4),
                 targetY,
+                tree,
             )
             cachedKey = key
         }
@@ -277,7 +281,9 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
      * segment until no [others] line runs through it. Without a free stretch it gets a small background patch.
      */
     private fun paintLineLabel(g2: Graphics2D, text: String, route: List<Point>, atStart: Boolean, others: List<Pair<Point, Point>>) {
-        val (a, b) = if (atStart) route[0] to route[1] else route[route.size - 1] to route[route.size - 2]
+        // Labels sit above a horizontal stretch: the one nearest the chosen end (tree routes start vertically).
+        val ordered = if (atStart) route else route.reversed()
+        val (a, b) = ordered.zipWithNext().firstOrNull { (p, q) -> p.y == q.y } ?: (ordered[0] to ordered[1])
         g2.font = JBFont.small()
         val metrics = g2.fontMetrics
         val width = metrics.stringWidth(text)

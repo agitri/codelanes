@@ -274,8 +274,9 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private fun relayout() {
         val current = model ?: return
         val pins = PinStore.getInstance(project).pins(file.path)
-        val vertical = dev.codelanes.settings.BlocksSettings.instance.state.verticalLayout
-        val layout = LayoutEngine.layout(current, { views.getValue(it.id).naturalSize(canvas.zoom) }, pins, vertical)
+        val mode = dev.codelanes.settings.BlocksSettings.instance.mode
+        canvas.tree = mode == dev.codelanes.layout.LayoutMode.TREE
+        val layout = LayoutEngine.layout(current, { views.getValue(it.id).naturalSize(canvas.zoom) }, pins, mode)
         canvas.place(layout.rects)
     }
 

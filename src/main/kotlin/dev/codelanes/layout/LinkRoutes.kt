@@ -11,6 +11,7 @@ object LinkRoutes {
         loop: Int = ArrowGeometry.LOOP,
         slotStep: Int = 12,
         targetY: Map<Link, Int> = emptyMap(),
+        tree: Boolean = false,
     ): Map<Link, List<Point>> {
         val incoming = links.filter { it.kind != LinkKind.OVERRIDES }.groupBy { it.to }
         // Different kinds of lines leaving the same block get their own exit height, so they never merge.
@@ -20,18 +21,24 @@ object LinkRoutes {
         val loops = links.filter { link ->
             val a = rects[link.from]
             val b = rects[link.to]
-            link.kind != LinkKind.OVERRIDES && a != null && b != null && b.x < a.right && b.right > a.x
-        }.sortedBy { kotlin.math.abs(rects.getValue(it.to).centerY - rects.getValue(it.from).centerY) }
+            link.kind != LinkKind.OVERRIDES && a != null && b != null &&
+                if (tree) b.y < a.bottom && b.bottom > a.y else b.x < a.right && b.right > a.x
+        }.sortedBy {
+            val a = rects.getValue(it.from)
+            val b = rects.getValue(it.to)
+            if (tree) kotlin.math.abs(b.centerX - a.centerX) else kotlin.math.abs(b.centerY - a.centerY)
+        }
         val loopOf = loops.withIndex().associate { (i, link) -> link to loop + i * slotStep }
         val routes = linkedMapOf<Link, List<Point>>()
         for (link in links) {
             val source = rects[link.from] ?: continue
             val kinds = exitKinds[link.from].orEmpty()
             // Same left/right edges, but a zero-height rect at this kind's exit height: routes start there.
-            val from = if (kinds.size > 1 && link.kind in kinds) {
-                Rect(source.x, source.y + source.height * (kinds.indexOf(link.kind) + 1) / (kinds.size + 1), source.width, 0)
-            } else {
-                source
+            val from = when {
+                kinds.size <= 1 || link.kind !in kinds -> source
+                // Tree: a zero-width sliver at this kind's exit point on the bottom edge.
+                tree -> Rect(source.x + source.width * (kinds.indexOf(link.kind) + 1) / (kinds.size + 1), source.y, 0, source.height)
+                else -> Rect(source.x, source.y + source.height * (kinds.indexOf(link.kind) + 1) / (kinds.size + 1), source.width, 0)
             }
             val to = rects[link.to] ?: continue
             val obstacles = rects.filterKeys { it != link.from && it != link.to }.values.toList()
@@ -43,7 +50,10 @@ object LinkRoutes {
             } else {
                 val siblings = incoming.getValue(link.to).sortedBy { rects[it.from]?.y ?: 0 }
                 val sameLane = to.x < from.right && to.right > from.x
-                val simple = if (siblings.size > 1 && sameLane) {
+                val simple = if (tree) {
+                    if (siblings.size > 1) ArrowGeometry.routeDownIntoSlot(from, to, siblings.indexOf(link), siblings.size, slotStep)
+                    else ArrowGeometry.routeDown(from, to, loopOf[link] ?: loop)
+                } else if (siblings.size > 1 && sameLane) {
                     ArrowGeometry.loopIntoSlot(from, to, siblings.indexOf(link), siblings.size, loopOf[link] ?: loop, slotStep)
                 } else if (siblings.size > 1) {
                     ArrowGeometry.routeIntoSlot(from, to, siblings.indexOf(link), siblings.size, slotStep)

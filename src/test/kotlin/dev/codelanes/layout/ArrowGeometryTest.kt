@@ -43,4 +43,20 @@ class ArrowGeometryTest {
         assertEquals(listOf(Point(100, 20), Point(488, 20), Point(488, 40), Point(500, 40)), first)
         assertEquals(listOf(Point(100, 220), Point(476, 220), Point(476, 80), Point(500, 80)), second)
     }
+
+    @Test
+    fun downwardLinesLeaveTheBottomAndEnterTheTop() {
+        assertEquals(
+            listOf(Point(50, 40), Point(50, 70), Point(250, 70), Point(250, 100)),
+            ArrowGeometry.routeDown(Rect(0, 0, 100, 40), Rect(200, 100, 100, 40)),
+        )
+    }
+
+    @Test
+    fun upwardLinesLeaveTheTopAndEnterTheBottom() {
+        assertEquals(
+            listOf(Point(250, 100), Point(250, 70), Point(50, 70), Point(50, 40)),
+            ArrowGeometry.routeDown(Rect(200, 100, 100, 40), Rect(0, 0, 100, 40)),
+        )
+    }
 }

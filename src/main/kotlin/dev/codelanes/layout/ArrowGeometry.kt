@@ -32,6 +32,30 @@ object ArrowGeometry {
         return listOf(Point(from.right, from.centerY), Point(outX, from.centerY), Point(outX, entryY), Point(to.right, entryY))
     }
 
+    /** Tree layout: out of the bottom of [from], into the top of [to] (or the other way round when [to] is above). */
+    fun routeDown(from: Rect, to: Rect, loop: Int = LOOP): List<Point> = when {
+        to.y >= from.bottom -> verticalElbow(Point(from.centerX, from.bottom), Point(to.centerX, to.y))
+        to.bottom <= from.y -> verticalElbow(Point(from.centerX, from.y), Point(to.centerX, to.bottom))
+        else -> {
+            // Same row: loop out underneath and come back up into the bottom of the target.
+            val outY = maxOf(from.bottom, to.bottom) + loop
+            listOf(Point(from.centerX, from.bottom), Point(from.centerX, outY), Point(to.centerX, outY), Point(to.centerX, to.bottom))
+        }
+    }
+
+    /** One of several lines entering [to] from above: its own entry point on the top edge and its own crossing height. */
+    fun routeDownIntoSlot(from: Rect, to: Rect, slot: Int, slots: Int, step: Int): List<Point> {
+        if (to.y < from.bottom) return routeDown(from, to)
+        val entryX = to.x + to.width * (slot + 1) / (slots + 1)
+        val crossY = maxOf(from.bottom, to.y - step * (slot + 1))
+        return listOf(Point(from.centerX, from.bottom), Point(from.centerX, crossY), Point(entryX, crossY), Point(entryX, to.y))
+    }
+
+    private fun verticalElbow(start: Point, end: Point): List<Point> {
+        val midY = (start.y + end.y) / 2
+        return listOf(start, Point(start.x, midY), Point(end.x, midY), end)
+    }
+
     private fun elbow(start: Point, end: Point): List<Point> {
         val midX = (start.x + end.x) / 2
         return listOf(start, Point(midX, start.y), Point(midX, end.y), end)
