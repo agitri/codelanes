@@ -15,6 +15,8 @@ class PhpBlockBuilderImplementersTest : PhpBuilderTestCase() {
 
         assertEquals(listOf("implementer:\\App\\Invoice", "implementer:\\App\\Order"), model.ofKind(BlockKind.IMPLEMENTER).map { it.id })
         assertEquals("class Order", model.block("implementer:\\App\\Order").title)
+        // only what it implements from Renderable, not total()
+        assertEquals(listOf("render()"), model.block("implementer:\\App\\Order").summary)
         assertTrue(model.ofKind(BlockKind.IMPLEMENTER).all { it.collapsed })
 
         assertEquals(

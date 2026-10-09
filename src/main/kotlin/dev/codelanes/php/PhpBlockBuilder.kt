@@ -167,7 +167,9 @@ object PhpBlockBuilder {
         val blocks = mutableListOf<Block>()
         val links = mutableListOf<Link>()
         for (implementer in candidates.take(MAX_IMPLEMENTERS)) {
-            val block = externalBlock(BlockKind.IMPLEMENTER, implementer)
+            // Under the class name: only what it implements or overrides from the opened type.
+            val implemented = methods.mapNotNull { implementer.findOwnMethodByName(it.name) }.map(::methodTitle)
+            val block = externalBlock(BlockKind.IMPLEMENTER, implementer).copy(summary = implemented)
             blocks += block
             links += Link(LinkKind.IMPLEMENTED_BY, classId, block.id)
             for (method in methods) {
