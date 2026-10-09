@@ -15,6 +15,14 @@ object LinkRoutes {
         val incoming = links.filter { it.kind != LinkKind.OVERRIDES }.groupBy { it.to }
         // Different kinds of lines leaving the same block get their own exit height, so they never merge.
         val exitKinds = links.filter { it.kind != LinkKind.OVERRIDES }.groupBy { it.from }.mapValues { (_, out) -> out.map { it.kind }.distinct().sorted() }
+        // Loops between blocks in the same lane each get their own distance: short spans inside, long ones outside,
+        // so they nest instead of merging on one vertical.
+        val loops = links.filter { link ->
+            val a = rects[link.from]
+            val b = rects[link.to]
+            link.kind != LinkKind.OVERRIDES && a != null && b != null && b.x < a.right && b.right > a.x
+        }.sortedBy { kotlin.math.abs(rects.getValue(it.to).centerY - rects.getValue(it.from).centerY) }
+        val loopOf = loops.withIndex().associate { (i, link) -> link to loop + i * slotStep }
         val routes = linkedMapOf<Link, List<Point>>()
         for (link in links) {
             val source = rects[link.from] ?: continue
@@ -36,11 +44,11 @@ object LinkRoutes {
                 val siblings = incoming.getValue(link.to).sortedBy { rects[it.from]?.y ?: 0 }
                 val sameLane = to.x < from.right && to.right > from.x
                 val simple = if (siblings.size > 1 && sameLane) {
-                    ArrowGeometry.loopIntoSlot(from, to, siblings.indexOf(link), siblings.size, loop, slotStep)
+                    ArrowGeometry.loopIntoSlot(from, to, siblings.indexOf(link), siblings.size, loopOf[link] ?: loop, slotStep)
                 } else if (siblings.size > 1) {
                     ArrowGeometry.routeIntoSlot(from, to, siblings.indexOf(link), siblings.size, slotStep)
                 } else {
-                    ArrowGeometry.route(from, to, loop)
+                    ArrowGeometry.route(from, to, loopOf[link] ?: loop)
                 }
                 if ((obstacles + ownInsides).none { crosses(simple, it) }) simple else reroute(simple, walls)
             }

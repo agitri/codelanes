@@ -149,7 +149,9 @@ to the project, in `.codelanes/working-sets.json`, so a set can be shared (e.g. 
 **View → Follow a Request…** finds every controller action with a `#[Route]` attribute (Symfony style, with a
 class-level prefix) and lists them as `VERBS /path → Controller::action`, filterable by typing. Picking one opens the
 controller as a canvas and follows its calls automatically 3 levels deep (`+ calls` on every new callee), then
-focuses the action. A call to an interface or abstract method also shows its project implementations (at most 5,
+focuses the action. The whole followed chain sits in **one lane** right of the methods, in depth-first call order
+(each call followed by what it calls), read top to bottom and never wrapped, so following a request means scrolling
+down. Lines between blocks in that lane loop out on the right, nested by length so they never merge. A call to an interface or abstract method also shows its project implementations (at most 5,
 linked "implemented by"), and the chain continues through them.
 
 ### Following calls across files

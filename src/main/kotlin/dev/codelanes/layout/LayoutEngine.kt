@@ -78,6 +78,9 @@ object LayoutEngine {
         model.ofKind(BlockKind.CLASS).firstOrNull()?.let { cls ->
             model.ofKind(BlockKind.HEADER).forEach { rank[it.id] = rank.getValue(cls.id) }
         }
+        // A followed chain is one lane (read top to bottom), not a new lane per call level.
+        val callees = model.ofKind(BlockKind.CALLEE)
+        callees.minOfOrNull { rank.getValue(it.id) }?.let { lane -> callees.forEach { rank[it.id] = lane } }
         return rank
     }
 
@@ -92,6 +95,7 @@ object LayoutEngine {
         for (r in maxRank - 1 downTo 0) reorder(columns[r]) { b -> edges.filter { it.from == b.id }.map { position(it.to) } }
 
         columns.forEach { column -> keepCallersAndCalleesTogether(column, model) }
+        columns.forEach { column -> orderChain(column, model, columns) }
         model.ofKind(BlockKind.CLASS).firstOrNull()?.let { cls ->
             val column = columns[rank.getValue(cls.id)]
             val headers = column.filter { it.kind == BlockKind.HEADER }
@@ -116,6 +120,28 @@ object LayoutEngine {
         val sorted = ordered.map(byId::getValue)
         column.clear()
         column.addAll(sorted)
+    }
+
+    /** The followed-calls lane in depth-first call order: each call is followed by what it calls, top to bottom. */
+    private fun orderChain(column: MutableList<Block>, model: BlockModel, columns: List<List<Block>>) {
+        val chain = column.filter { it.kind == BlockKind.CALLEE }
+        if (chain.isEmpty()) return
+        val inChain = chain.map { it.id }.toSet()
+        val steps = model.links.filter {
+            (it.kind == LinkKind.CALLS_INTO || it.kind == LinkKind.IMPLEMENTED_BY) && it.to in inChain
+        }
+        val position = columns.flatMap { it.withIndex().map { (i, b) -> b.id to i } }.toMap()
+        val roots = steps.filter { it.from !in inChain }.sortedBy { position[it.from] ?: Int.MAX_VALUE }.map { it.to }
+        val ordered = LinkedHashSet<String>()
+        fun visit(id: String) {
+            if (!ordered.add(id)) return
+            steps.filter { it.from == id }.forEach { visit(it.to) }
+        }
+        (roots + chain.map { it.id }).forEach(::visit)
+        val byId = chain.associateBy { it.id }
+        val others = column.filter { it.kind != BlockKind.CALLEE }
+        column.clear()
+        column.addAll(others + ordered.map(byId::getValue))
     }
 
     private fun reorder(column: MutableList<Block>, neighbours: (Block) -> List<Int>) {
@@ -157,7 +183,9 @@ object LayoutEngine {
 
         var x = if (lanes.isEmpty()) 0 else leftWidth + H_GAP
         for (column in columns.drop(classRank)) {
-            for (stack in wrap(column, sizeOf)) x = placeStack(stack, x, 0, rects, sizeOf).first
+            // The followed chain never wraps: following a request means scrolling down.
+            val stacks = if (column.any { it.kind == BlockKind.CALLEE }) listOf(column) else wrap(column, sizeOf)
+            for (stack in stacks) x = placeStack(stack, x, 0, rects, sizeOf).first
         }
         return rects
     }

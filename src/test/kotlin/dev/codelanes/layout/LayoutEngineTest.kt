@@ -251,4 +251,38 @@ class LayoutEngineTest {
         val r = LayoutEngine.layout(model, sizeOf).rects
         assertTrue(r.getValue("method:render").right <= r.getValue("callee:Repo::find").x)
     }
+
+    @Test
+    fun aFollowedChainReadsTopToBottomInOneLane() {
+        val callee = BlockKind.CALLEE
+        val into = dev.codelanes.model.LinkKind.CALLS_INTO
+        val implementedBy = dev.codelanes.model.LinkKind.IMPLEMENTED_BY
+        // create → place → (save → DoctrineSave → toRow), send ; deep chain of 30 more to check it never wraps
+        val deep = (1..30).map { block("callee:deep$it", callee) }
+        val model = BlockModel(
+            listOf(
+                block("class:C", CLASS),
+                block("method:create", METHOD),
+                block("callee:place", callee),
+                block("callee:send", callee),
+                block("callee:save", callee),
+                block("callee:doctrineSave", callee),
+                block("callee:toRow", callee),
+            ) + deep,
+            listOf(
+                Link(OWNS, "class:C", "method:create"),
+                Link(into, "method:create", "callee:place"),
+                Link(into, "callee:place", "callee:save"),
+                Link(into, "callee:place", "callee:send"),
+                Link(implementedBy, "callee:save", "callee:doctrineSave"),
+                Link(into, "callee:doctrineSave", "callee:toRow"),
+                Link(into, "callee:toRow", "callee:deep1"),
+            ) + (1 until 30).map { Link(into, "callee:deep$it", "callee:deep${it + 1}") },
+        )
+        val r = LayoutEngine.layout(model, sizeOf).rects
+        val chain = listOf("callee:place", "callee:save", "callee:doctrineSave", "callee:toRow") + deep.map { it.id } + "callee:send"
+        assertEquals("one lane", 1, chain.map { r.getValue(it).x }.distinct().size)
+        assertTrue(r.getValue("method:create").right <= r.getValue("callee:place").x)
+        assertEquals("depth-first call order, top to bottom", chain, chain.sortedBy { r.getValue(it).y })
+    }
 }

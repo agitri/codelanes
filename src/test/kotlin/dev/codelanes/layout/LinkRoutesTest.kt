@@ -4,6 +4,7 @@ import dev.codelanes.model.Link
 import dev.codelanes.model.LinkKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LinkRoutesTest {
@@ -88,5 +89,20 @@ class LinkRoutesTest {
         val route = LinkRoutes.compute(listOf(link), rects).getValue(link)
         assertFalse("route $route runs through render", crosses(route, inside(rects.getValue("render"))))
         assertFalse("route $route runs through the class", crosses(route, inside(rects.getValue("class"))))
+    }
+
+    @Test
+    fun loopsInOneLaneNestInsteadOfMerging() {
+        val rects = mapOf(
+            "place" to Rect(0, 0, 300, 60),
+            "save" to Rect(0, 100, 300, 60),
+            "send" to Rect(0, 400, 300, 60),
+        )
+        val short = Link(LinkKind.CALLS_INTO, "place", "save")
+        val long = Link(LinkKind.CALLS_INTO, "place", "send")
+        val routes = LinkRoutes.compute(listOf(long, short), rects)
+        val shortX = routes.getValue(short)[1].x
+        val longX = routes.getValue(long)[1].x
+        assertTrue("short loop $shortX should sit inside the long one $longX", shortX < longX)
     }
 }
