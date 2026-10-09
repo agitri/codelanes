@@ -20,6 +20,13 @@
    shared in `.codelanes/review.json`, reset to `~` when the code changes.
 3. **Saved working sets** (built on `feat/working-sets`, needs an IDE check): View → CodeLanes Working Sets.
 
+4. **Follow a request from its entry point** (in progress): pick a route (e.g. `POST /orders`), CodeLanes opens
+   its controller action and follows the calls a few levels deep automatically: the whole chain on one canvas.
+5. **Record the real road a request took**: read an Xdebug trace of one real request and show exactly the methods
+   that ran, in order (also events and handlers that static analysis can't see).
+6. **AI picks the relevant chain** (optional, on top of 4/5): describe a flow in words; AI chooses blocks *only
+   from the real call graph*, never invents or explains code.
+
 ## Later
 
 - **Fresh screenshots** for the README (current ones are from early builds).
