@@ -2,9 +2,7 @@ package dev.codelanes.ide
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.DumbAwareToggleAction
-import com.intellij.openapi.project.ProjectManager
 import dev.codelanes.layout.LayoutMode
 import dev.codelanes.settings.BlocksSettings
 
@@ -15,10 +13,7 @@ abstract class LayoutModeAction(private val mode: LayoutMode) : DumbAwareToggleA
     override fun isSelected(e: AnActionEvent): Boolean = BlocksSettings.instance.mode == mode
 
     override fun setSelected(e: AnActionEvent, state: Boolean) {
-        BlocksSettings.instance.state.layoutMode = (if (state) mode else LayoutMode.LANES).name
-        for (project in ProjectManager.getInstance().openProjects) {
-            FileEditorManager.getInstance(project).allEditors.filterIsInstance<BlocksFileEditor>().forEach { it.session.refreshLayout() }
-        }
+        BlocksSettings.instance.setMode(if (state) mode else LayoutMode.LANES)
     }
 }
 

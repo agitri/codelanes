@@ -84,6 +84,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     init {
         canvas.targetLineY = ::targetLineY
+        val settings = dev.codelanes.settings.BlocksSettings.instance
+        canvas.setLayoutMode(settings.mode)
+        settings.addModeListener(this) {
+            canvas.setLayoutMode(settings.mode)
+            refreshLayout()
+        }
         watch(document)
         // Review marks changed on disk (git pull, a teammate, another canvas): refresh the badges.
         project.messageBus.connect(this).subscribe(com.intellij.openapi.vfs.VirtualFileManager.VFS_CHANGES, object : com.intellij.openapi.vfs.newvfs.BulkFileListener {
@@ -361,6 +367,16 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     /** Forgets every dragged position in this file and goes back to the automatic lanes. */
     override fun tidyUp() = resetLayout()
+
+    override fun layoutModeChosen(mode: dev.codelanes.layout.LayoutMode) =
+        dev.codelanes.settings.BlocksSettings.instance.setMode(mode)
+
+    /** Runs a CodeLanes IDE action (Follow a Request…, working sets) from the canvas toolbar. */
+    override fun runAction(id: String) {
+        val manager = com.intellij.openapi.actionSystem.ActionManager.getInstance()
+        val action = manager.getAction(id) ?: return
+        manager.tryToExecute(action, null, canvas, "CodeLanesCanvas", true)
+    }
 
     /**
      * Called when focus enters a block (id) or leaves all blocks (null). A rebuild that was held back because it

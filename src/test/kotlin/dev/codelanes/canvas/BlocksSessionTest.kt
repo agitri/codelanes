@@ -482,11 +482,10 @@ class BlocksSessionTest : BasePlatformTestCase() {
         val session = open()
         val settings = dev.codelanes.settings.BlocksSettings.instance.state
         try {
-            settings.layoutMode = "COLUMN"
-            session.refreshLayout()
+            dev.codelanes.settings.BlocksSettings.instance.setMode(dev.codelanes.layout.LayoutMode.COLUMN)
             assertEquals(1, session.blockIds().map { session.viewBounds(it)!!.x }.distinct().size)
         } finally {
-            settings.layoutMode = "LANES"
+            dev.codelanes.settings.BlocksSettings.instance.setMode(dev.codelanes.layout.LayoutMode.LANES)
         }
     }
 
@@ -501,5 +500,17 @@ class BlocksSessionTest : BasePlatformTestCase() {
         session.followChain("method:show", depth = 3)
         assertTrue(session.blockIds().contains("callee:\\App\\Reader::read"))
         assertFalse("the previous request's chain should be gone", session.blockIds().contains("callee:\\App\\Writer::write"))
+    }
+
+    fun testChoosingTheTreeOnTheCanvasSwitchesTheLayout() {
+        val session = open()
+        val settings = dev.codelanes.settings.BlocksSettings.instance
+        try {
+            session.layoutModeChosen(dev.codelanes.layout.LayoutMode.TREE)
+            assertEquals(dev.codelanes.layout.LayoutMode.TREE, settings.mode)
+            assertTrue(session.canvas.tree)
+        } finally {
+            settings.setMode(dev.codelanes.layout.LayoutMode.LANES)
+        }
     }
 }

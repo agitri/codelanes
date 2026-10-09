@@ -161,13 +161,38 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         assertEquals(plain, view.insets)
     }
 
-    fun testTidyUpSitsInTheBottomLeftCorner() {
+    fun testTheToolbarSitsInTheBottomLeftCorner() {
         val canvas = BlocksCanvas(NoListener)
         canvas.setSize(1000, 800)
         canvas.doLayout()
-        val button = canvas.tidyButton.bounds
-        assertEquals(12, button.x)
-        assertEquals(800 - 8, button.y + button.height)
+        val bar = canvas.toolbar.bounds
+        assertEquals(12, bar.x)
+        assertEquals(800 - 8, bar.y + bar.height)
+    }
+
+    fun testTheToolbarOffersLayoutFollowWorkingSetsAndTidyUp() {
+        val canvas = BlocksCanvas(NoListener)
+        assertEquals(listOf("Lanes", "Column", "Tree", "Follow a Request…", "Working sets ▾", "Tidy up"), canvas.toolbarTexts())
+    }
+
+    fun testChoosingALayoutOnTheCanvasTellsTheListener() {
+        val chosen = mutableListOf<dev.codelanes.layout.LayoutMode>()
+        val actions = mutableListOf<String>()
+        val canvas = BlocksCanvas(object : BlocksCanvas.Listener {
+            override fun blockMoved(id: String, position: Point) {}
+            override fun collapseToggled(id: String) {}
+            override fun zoomChanged() {}
+            override fun tidyUp() {}
+            override fun layoutModeChosen(mode: dev.codelanes.layout.LayoutMode) { chosen += mode }
+            override fun runAction(id: String) { actions += id }
+        })
+        canvas.modeButton(dev.codelanes.layout.LayoutMode.TREE).doClick()
+        canvas.followButton.doClick()
+        assertEquals(listOf(dev.codelanes.layout.LayoutMode.TREE), chosen)
+        assertEquals(listOf("CodeLanes.FollowRequest"), actions)
+        canvas.setLayoutMode(dev.codelanes.layout.LayoutMode.COLUMN)
+        assertTrue(canvas.modeButton(dev.codelanes.layout.LayoutMode.COLUMN).isSelected)
+        assertFalse(canvas.modeButton(dev.codelanes.layout.LayoutMode.TREE).isSelected)
     }
 
     private fun callsAroundTotal(): Pair<BlocksCanvas, List<Link>> {

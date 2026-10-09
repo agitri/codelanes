@@ -82,7 +82,9 @@ Then in PhpStorm: **Settings → Plugins → ⚙ → Install Plugin from Disk…
 - `+ method` (class title) adds a method; `+ parents` (parent/interface/trait title) reveals the next level.
 - Up on a block's first line / Down on its last line moves into the neighbouring block.
 - Shift+F6 inside a block opens the rename dialog.
-- **Tidy up** (top right) or **View → Reset Blocks Layout** forgets dragged positions.
+- The toolbar in the bottom-left corner of the canvas switches the layout (**Lanes | Column | Tree**) and has
+  **Follow a Request…**, **Working sets ▾** and **Tidy up** (forgets dragged positions). The same actions are in
+  the View menu.
 - **View → Open PHP Files as Blocks by Default** turns the canvas on or off as the default.
 - Files with several classes, top-level functions or loose code open as text, with a banner saying why.
 

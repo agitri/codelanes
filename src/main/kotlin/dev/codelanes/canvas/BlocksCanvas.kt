@@ -33,6 +33,8 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         fun collapseToggled(id: String)
         fun zoomChanged()
         fun tidyUp()
+        fun layoutModeChosen(mode: dev.codelanes.layout.LayoutMode) {}
+        fun runAction(id: String) {}
     }
 
     var zoom: Double = 1.0
@@ -50,6 +52,60 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             views.forEach { (id, view) -> view.setHighlight(value[id]) }
             repaint()
         }
+
+    /** Bottom-left toolbar: layout switch, Follow a Request…, Working sets ▾, Tidy up. */
+    internal val toolbar = JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply { isOpaque = false }
+    private val modeButtons = linkedMapOf(
+        dev.codelanes.layout.LayoutMode.LANES to javax.swing.JToggleButton("Lanes"),
+        dev.codelanes.layout.LayoutMode.COLUMN to javax.swing.JToggleButton("Column"),
+        dev.codelanes.layout.LayoutMode.TREE to javax.swing.JToggleButton("Tree"),
+    )
+    internal val followButton = javax.swing.JButton("Follow a Request…")
+    private val setsButton = javax.swing.JButton("Working sets ▾")
+
+    internal fun toolbarTexts(): List<String> =
+        toolbar.components.flatMap { c -> if (c is JPanel) c.components.toList() else listOf(c) }
+            .mapNotNull { (it as? javax.swing.AbstractButton)?.text }
+
+    internal fun modeButton(mode: dev.codelanes.layout.LayoutMode): javax.swing.JToggleButton = modeButtons.getValue(mode)
+
+    /** Shows which layout is active. */
+    fun setLayoutMode(mode: dev.codelanes.layout.LayoutMode) {
+        modeButtons[mode]?.isSelected = true
+    }
+
+    private fun buildToolbar() {
+        val group = javax.swing.ButtonGroup()
+        val switch = JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0)).apply { isOpaque = false }
+        for ((mode, button) in modeButtons) {
+            group.add(button)
+            button.toolTipText = when (mode) {
+                dev.codelanes.layout.LayoutMode.LANES -> "Lanes left to right: what the class builds on, the class, its methods"
+                dev.codelanes.layout.LayoutMode.COLUMN -> "Every block in one column, top to bottom"
+                dev.codelanes.layout.LayoutMode.TREE -> "Each level a row; lines from the bottom of a block into the top of the next"
+            }
+            button.addActionListener { listener.layoutModeChosen(mode) }
+            switch.add(button)
+        }
+        modeButtons.getValue(dev.codelanes.layout.LayoutMode.LANES).isSelected = true
+        followButton.toolTipText = "Pick a route and see the whole chain of code it runs"
+        followButton.addActionListener { listener.runAction("CodeLanes.FollowRequest") }
+        setsButton.toolTipText = "Save or reopen the canvases you opened for a task or review"
+        setsButton.addActionListener {
+            val menu = javax.swing.JPopupMenu()
+            listOf(
+                "Save Working Set…" to "CodeLanes.SaveWorkingSet",
+                "Open Working Set…" to "CodeLanes.OpenWorkingSet",
+                "Delete Working Set…" to "CodeLanes.DeleteWorkingSet",
+            ).forEach { (text, id) -> menu.add(javax.swing.JMenuItem(text).apply { addActionListener { listener.runAction(id) } }) }
+            menu.show(setsButton, 0, -menu.preferredSize.height) // opens upwards
+        }
+        toolbar.add(switch)
+        toolbar.add(followButton)
+        toolbar.add(setsButton)
+        toolbar.add(tidyButton)
+        add(toolbar)
+    }
 
     /** Tree layout: lines go out of the bottom of a block into the top of the next. */
     var tree = false
@@ -95,7 +151,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         }
         tidyButton.toolTipText = "Put every block back in its lane (forgets dragged positions)"
         tidyButton.addActionListener { listener.tidyUp() }
-        add(tidyButton)
+        buildToolbar()
         addMouseListener(panner)
         addMouseMotionListener(panner)
         addMouseWheelListener(panner)
@@ -153,9 +209,9 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     }
 
     override fun doLayout() {
-        val size = tidyButton.preferredSize
+        val size = toolbar.preferredSize
         // Bottom-left, right above the editor's Blocks | Text tabs; the legend sits above it.
-        tidyButton.setBounds(12, height - size.height - 8, size.width, size.height)
+        toolbar.setBounds(12, height - size.height - 8, size.width, size.height)
     }
 
     private fun placeViews() {
@@ -330,7 +386,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         val lineHeight = metrics.height + 2
         val entries = LEGEND.filter { (kind, _) -> links.any { it.kind == kind } }
         val directionalRows = (if (links.any { it.kind == LinkKind.CALLS }) 2 else 0) + (if (links.any { it.kind == LinkKind.OVERRIDES }) 1 else 0)
-        val bottom = tidyButton.y - 10
+        val bottom = toolbar.y - 10
         var y = bottom - lineHeight * (entries.size + directionalRows - 1)
         g2.stroke = BasicStroke(2.5f)
         for ((kind, label) in entries) {
