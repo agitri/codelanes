@@ -14,11 +14,19 @@
 
 ## Next
 
-1. **Fresh screenshots** for the README (current ones are from early builds).
-2. **More languages**: Java/Kotlin, then TypeScript/JavaScript (a new `BlockBuilder` per language; layout and canvas stay).
-3. **JetBrains Marketplace** release (plugin icon, change notes, signing, `publishPlugin`).
-4. **VS Code** (later; the slice-editor technique needs a VS Code equivalent).
-5. Keyboard: Tab-based block switching (Tab is indentation today, so it needs a different shortcut).
+1. **Follow the flow across files** (in progress): `+ calls` on a method shows the methods it calls in other
+   classes as blocks, repeatable deeper.
+2. **Review notes on blocks**: mark a block "checked", "don't understand", or add a note; turns the canvas into a
+   review tool for AI-written code.
+3. **Saved working sets**: save the blocks you opened for a task or review and reopen them later.
+
+## Later
+
+- **Fresh screenshots** for the README (current ones are from early builds).
+- **More languages**: Java/Kotlin, then TypeScript/JavaScript (a new `BlockBuilder` per language; layout and canvas stay).
+- **JetBrains Marketplace** release (plugin icon, change notes, signing, `publishPlugin`).
+- **VS Code** (later; the slice-editor technique needs a VS Code equivalent).
+- Keyboard: Tab-based block switching (Tab is indentation today, so it needs a different shortcut).
 
 ## Known small issues (from code review, deferred)
 
