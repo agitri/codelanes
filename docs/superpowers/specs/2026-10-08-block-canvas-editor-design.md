@@ -101,6 +101,8 @@ A **Tidy up** button on the canvas (and View → Reset Blocks Layout) drops all 
   `calls` / `called by` label. Override lines are green shades labelled `overrides` / `overridden by`. Orange and
   yellow are reserved for usage-highlight borders and never used for lines. A legend in the corner lists the kinds
   present.
+- Lines to what a type builds on are drawn from the type to it (arrowhead at the parent, interface, trait or
+  dependency, label next to the arrowhead), so they read like the code: `Order —extends→ Model`.
 - Kinds: `implements`, `extends`, `uses`, `injects` (into the type), `owns` (type → method), `calls`
   (method → method), `overrides` (method → the parent/interface method it implements or overrides; lands on that
   method's line when the target block is expanded), `implemented by` (type → implementer).
@@ -134,6 +136,13 @@ Each mark remembers a fingerprint of the block's code; when the code changes aft
 `~` ("changed since review"). Marks and notes are stored, sorted, in `.codelanes/review.json` in the project, keyed
 by file (relative path) and block id, so they can be committed and reviewed together. A renamed method keeps its
 review.
+
+### Working sets
+
+**View → CodeLanes Working Sets**: **Save Working Set…** stores every open canvas under a name: its file and its
+state (followed calls, revealed parents, collapsed/expanded blocks, zoom). **Open Working Set…** reopens those
+files as canvases in that state; **Delete Working Set…** removes one. Stored, sorted by name and with paths relative
+to the project, in `.codelanes/working-sets.json`, so a set can be shared (e.g. prepared for a PR review).
 
 ### Following calls across files
 

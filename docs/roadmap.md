@@ -16,9 +16,9 @@
 
 1. **Follow the flow across files** (done): `+ calls` on a method shows the methods it calls in other
    classes as blocks, repeatable deeper.
-2. **Review notes on blocks** (built on `feat/review-notes`, needs an IDE check): ✓ / ? / ! marks and notes,
+2. **Review notes on blocks** (done): ✓ / ? / ! marks and notes,
    shared in `.codelanes/review.json`, reset to `~` when the code changes.
-3. **Saved working sets**: save the blocks you opened for a task or review and reopen them later.
+3. **Saved working sets** (built on `feat/working-sets`, needs an IDE check): View → CodeLanes Working Sets.
 
 ## Later
 

@@ -39,6 +39,9 @@ summaries, everything comes from the real code.
   **! Needs change**, or to add a note. Marks are saved in `.codelanes/review.json`, so you can commit them and
   review AI-written code together in a pull request. When the code changes after you marked it, the mark turns
   into a grey **~** ("changed since review").
+- **Working sets.** **View → CodeLanes Working Sets → Save Working Set…** saves every open canvas, including
+  followed calls, revealed parents, collapsed blocks and zoom, under a name (e.g. "checkout flow") in
+  `.codelanes/working-sets.json`. **Open Working Set…** brings it all back, also for a teammate.
 - **Dig deeper.** `+ parents` on a parent, interface or trait shows its own parents, as deep as you like.
 - **Edit the structure.** `+ method` on the class adds a method; right-click a method's title to delete it.
   Up/Down at the edge of a block moves into the next block.
