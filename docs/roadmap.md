@@ -14,10 +14,10 @@
 
 ## Next
 
-1. **Follow the flow across files** (built on `feat/cross-file-flow`, needs an IDE check): `+ calls` on a method shows the methods it calls in other
+1. **Follow the flow across files** (done): `+ calls` on a method shows the methods it calls in other
    classes as blocks, repeatable deeper.
-2. **Review notes on blocks**: mark a block "checked", "don't understand", or add a note; turns the canvas into a
-   review tool for AI-written code.
+2. **Review notes on blocks** (built on `feat/review-notes`, needs an IDE check): ✓ / ? / ! marks and notes,
+   shared in `.codelanes/review.json`, reset to `~` when the code changes.
 3. **Saved working sets**: save the blocks you opened for a task or review and reopen them later.
 
 ## Later

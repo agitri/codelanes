@@ -126,6 +126,15 @@ Opening an **interface**, **trait** or **abstract class** also shows who builds 
 - Lines: type → implementer (`implemented by`), implementer → its implementation (`has method`), and each
   implementation → the type's own method (`overrides`, focus-only, coloured per line).
 
+### Review marks and notes
+
+Right-click a block's title: **✓ Understood**, **? Don't understand**, **! Needs change**, **Clear review mark**,
+**Edit review note…**. The mark is a coloured badge left of the title; the note is shown in italics under it.
+Each mark remembers a fingerprint of the block's code; when the code changes afterwards the badge becomes a grey
+`~` ("changed since review"). Marks and notes are stored, sorted, in `.codelanes/review.json` in the project, keyed
+by file (relative path) and block id, so they can be committed and reviewed together. A renamed method keeps its
+review.
+
 ### Following calls across files
 
 Every method block (and every callee block) has a `+ calls` link. It shows the methods it calls in *other* project

@@ -39,6 +39,10 @@ import dev.codelanes.model.BlockKind
 import dev.codelanes.model.BlockModel
 import dev.codelanes.model.SourceRange
 import dev.codelanes.php.PhpBlockBuilder
+import dev.codelanes.review.Review
+import dev.codelanes.review.ReviewEntry
+import dev.codelanes.review.ReviewFile
+import dev.codelanes.review.ReviewMark
 import dev.codelanes.settings.PinStore
 import java.awt.event.FocusAdapter
 import java.awt.event.FocusEvent
@@ -72,6 +76,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private var focused: String? = null
     private var heldBack = false
     private val revealed = mutableSetOf<String>()
+    private val reviews = ReviewFile.getInstance(project)
     private val followedCalls = mutableSetOf<String>()
 
     init {
@@ -207,6 +212,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         tracked.remove(old)?.dispose()
         val pins = PinStore.getInstance(project)
         pins.pins(file.path)[old]?.let { pins.pin(file.path, new, it) }
+        reviews.move(file.path, old, new)
         if (focused == old) {
             focused = new
             canvas.focusedId = new
@@ -234,7 +240,11 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
                 tracked[block.id]?.current()?.let { (range, excluded) -> slice.show(range, excluded) }
             }
             view.update(block, slice == null, slice?.component ?: summaryOf(block), canvas.zoom)
-            actionsFor(block).let { (actions, menu) -> view.setActions(actions, menu) }
+            actionsFor(block).let { (actions, menu) ->
+                view.setActions(actions, if (block.kind == BlockKind.MORE) menu else menu + reviewMenu(block))
+            }
+            val review = reviews.get(block.filePath, block.id)
+            view.setReview(Review.status(review, codeHash(block)), review?.note.orEmpty())
         }
         canvas.setContent(LinkedHashMap(views), current.links)
         relayout()
@@ -529,6 +539,48 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         focusMovedTo(null)
         rebuildNow()
     }
+
+    /** Sets (or with null clears) the review mark of block [id]; remembers the code it was given for. */
+    fun markBlock(id: String, mark: ReviewMark?) = withModelAccess {
+        val block = model?.blocks?.firstOrNull { it.id == id } ?: return@withModelAccess
+        val note = reviews.get(block.filePath, id)?.note.orEmpty()
+        reviews.put(block.filePath, id, ReviewEntry(mark, note, codeHash(block)))
+        render()
+    }
+
+    /** Sets the review note of block [id] (blank removes it), keeping its mark. */
+    fun setNote(id: String, note: String) = withModelAccess {
+        val block = model?.blocks?.firstOrNull { it.id == id } ?: return@withModelAccess
+        val current = reviews.get(block.filePath, id)
+        reviews.put(block.filePath, id, ReviewEntry(current?.mark, note.trim(), current?.hash ?: codeHash(block)))
+        render()
+    }
+
+    private fun editNote(id: String) {
+        val block = model?.blocks?.firstOrNull { it.id == id } ?: return
+        val current = reviews.get(block.filePath, id)?.note.orEmpty()
+        val note = Messages.showMultilineInputDialog(project, "Note for ${block.title}", "Review Note", current, null, null) ?: return
+        setNote(id, note)
+    }
+
+    /** Fingerprint of the code a block shows right now (its range minus the parts other blocks show). */
+    private fun codeHash(block: Block): String {
+        val (range, excluded) = tracked[block.id]?.current() ?: return ""
+        val text = documentOf(block)?.charsSequence ?: return ""
+        val visible = StringBuilder()
+        for (offset in range.start until minOf(range.end, text.length)) {
+            if (excluded.none { it.contains(offset) }) visible.append(text[offset])
+        }
+        return Review.hash(visible)
+    }
+
+    private fun reviewMenu(block: Block): List<Pair<String, () -> Unit>> = listOf(
+        "✓ Understood" to { markBlock(block.id, ReviewMark.UNDERSTOOD) },
+        "? Don't understand" to { markBlock(block.id, ReviewMark.UNCLEAR) },
+        "! Needs change" to { markBlock(block.id, ReviewMark.NEEDS_CHANGE) },
+        "Clear review mark" to { markBlock(block.id, null) },
+        "Edit review note…" to { editNote(block.id) },
+    )
 
     fun view(id: String): BlockView? = views[id]
 

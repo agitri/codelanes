@@ -18,6 +18,11 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
     private val title = JBLabel()
     internal val titleBar = JPanel(BorderLayout())
     private var body: JComponent? = null
+    private val badge = JBLabel()
+    private val note = JBLabel().apply {
+        foreground = JBColor.GRAY
+        isVisible = false
+    }
     private val actionsPanel = JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 0)).apply { isOpaque = false }
     private var actions: List<Pair<String, () -> Unit>> = emptyList()
     private var menu: List<Pair<String, () -> Unit>> = emptyList()
@@ -26,7 +31,10 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
         setHighlight(null)
         titleBar.border = JBUI.Borders.empty(4, 8)
         titleBar.background = JBColor.namedColor("EditorTabs.background", JBColor.PanelBackground)
+        titleBar.add(badge, BorderLayout.WEST)
         titleBar.add(title, BorderLayout.CENTER)
+        titleBar.add(note, BorderLayout.SOUTH)
+        badge.border = JBUI.Borders.emptyRight(6)
         titleBar.add(actionsPanel, BorderLayout.EAST)
         add(titleBar, BorderLayout.NORTH)
 
@@ -83,6 +91,30 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
     /** True while the user drags this block; relayouts leave it where the mouse is. */
     var dragging = false
 
+
+    /** Review badge left of the title (✓ ? ! or ~ when the code changed since) and the note under it. */
+    fun setReview(status: dev.codelanes.review.ReviewStatus?, noteText: String) {
+        val (symbol, colour) = when (status) {
+            dev.codelanes.review.ReviewStatus.UNDERSTOOD -> "✓" to JBColor(java.awt.Color(0x2E7D32), java.awt.Color(0x81C784))
+            dev.codelanes.review.ReviewStatus.UNCLEAR -> "?" to JBColor(java.awt.Color(0xE65100), java.awt.Color(0xFFB74D))
+            dev.codelanes.review.ReviewStatus.NEEDS_CHANGE -> "!" to JBColor(java.awt.Color(0xC62828), java.awt.Color(0xEF9A9A))
+            dev.codelanes.review.ReviewStatus.CHANGED -> "~" to JBColor.GRAY
+            null -> "" to JBColor.foreground()
+        }
+        badge.text = symbol
+        badge.foreground = colour
+        badge.toolTipText = when (status) {
+            dev.codelanes.review.ReviewStatus.CHANGED -> "Changed since it was reviewed"
+            null -> null
+            else -> status.name.lowercase().replace('_', ' ')
+        }
+        note.text = noteText
+        note.isVisible = noteText.isNotBlank()
+    }
+
+    internal fun reviewBadge(): String = badge.text
+    internal fun noteText(): String = note.text
+
     internal fun actionTexts(): List<String> = actions.map { it.first }
     internal fun menuTexts(): List<String> = menu.map { it.first }
 
@@ -106,6 +138,8 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
     fun update(block: Block, collapsed: Boolean, body: JComponent, zoom: Double) {
         title.text = (if (collapsed) "▸ " else "▾ ") + block.title
         title.font = JBFont.label().asBold().deriveFont((JBFont.label().size2D * zoom).toFloat())
+        badge.font = title.font
+        note.font = JBFont.label().asItalic().deriveFont((JBFont.label().size2D * zoom).toFloat())
         if (this.body !== body) {
             this.body?.let(::remove)
             add(body, BorderLayout.CENTER)

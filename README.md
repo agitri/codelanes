@@ -35,6 +35,10 @@ summaries, everything comes from the real code.
   a symbol, the block that defines it gets an orange border and every block using it a yellow one.
 - **Follow the flow across files.** `+ calls` on a method puts the methods it calls in other classes on the
   canvas, as editable blocks; keep clicking `+ calls` to follow the flow deeper.
+- **Review as you read.** Right-click a block's title to mark it **✓ Understood**, **? Don't understand** or
+  **! Needs change**, or to add a note. Marks are saved in `.codelanes/review.json`, so you can commit them and
+  review AI-written code together in a pull request. When the code changes after you marked it, the mark turns
+  into a grey **~** ("changed since review").
 - **Dig deeper.** `+ parents` on a parent, interface or trait shows its own parents, as deep as you like.
 - **Edit the structure.** `+ method` on the class adds a method; right-click a method's title to delete it.
   Up/Down at the edge of a block moves into the next block.

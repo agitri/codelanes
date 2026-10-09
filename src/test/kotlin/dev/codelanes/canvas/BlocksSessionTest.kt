@@ -326,7 +326,7 @@ class BlocksSessionTest : BasePlatformTestCase() {
     fun testClassOffersPlusMethodAndMethodsOfferDelete() {
         val session = open()
         assertEquals(listOf("+ method"), session.view("class:\\App\\Foo")!!.actionTexts())
-        assertEquals(listOf("Delete method"), session.view("method:bar")!!.menuTexts())
+        assertEquals("Delete method", session.view("method:bar")!!.menuTexts().first())
     }
 
     fun testMovingFocusDownEntersTheNextBlockAtItsStart() {
@@ -402,5 +402,27 @@ class BlocksSessionTest : BasePlatformTestCase() {
         assertTrue(session.view("method:footest")!!.actionTexts().contains("− calls"))
         session.toggleCalls("method:footest")
         assertFalse(session.blockIds().contains("callee:\\App\\Repo::find"))
+    }
+
+    fun testReviewMarkShowsOnTheBlockAndBecomesChangedWhenTheCodeChanges() {
+        val session = open()
+        session.markBlock("method:footest", dev.codelanes.review.ReviewMark.UNDERSTOOD)
+        assertEquals("✓", session.view("method:footest")!!.reviewBadge())
+        edit("return ${'$'}s;", "return ${'$'}s . '!';")
+        session.rebuildNow()
+        assertEquals("~", session.view("method:footest")!!.reviewBadge())
+    }
+
+    fun testReviewNoteShowsUnderTheTitle() {
+        val session = open()
+        session.setNote("method:bar", "why does this call footest?")
+        assertEquals("why does this call footest?", session.view("method:bar")!!.noteText())
+    }
+
+    fun testEveryBlockOffersTheReviewMenu() {
+        val session = open()
+        val menu = session.view("method:bar")!!.menuTexts()
+        assertTrue(menu.containsAll(listOf("✓ Understood", "? Don't understand", "! Needs change", "Clear review mark", "Edit review note…")))
+        assertTrue(session.view("class:\\App\\Foo")!!.menuTexts().contains("✓ Understood"))
     }
 }
