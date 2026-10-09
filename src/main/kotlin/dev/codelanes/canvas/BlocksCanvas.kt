@@ -4,6 +4,7 @@ import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBFont
 import dev.codelanes.layout.ArrowGeometry
+import dev.codelanes.layout.LabelPlacement
 import dev.codelanes.layout.LinkRoutes
 import dev.codelanes.layout.Point
 import dev.codelanes.layout.Rect
@@ -175,12 +176,16 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         val g2 = g.create() as Graphics2D
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            for ((link, route) in routes(visibleLinks())) {
+            val allRoutes = routes(visibleLinks())
+            for ((link, route) in allRoutes) {
                 g2.color = colorFor(link)
                 g2.stroke = strokeFor(link.kind)
                 g2.drawPolyline(route.map { it.x }.toIntArray(), route.map { it.y }.toIntArray(), route.size)
                 arrowHead(g2, route[route.size - 2], route.last())
-                labelFor(link)?.let { paintLineLabel(g2, it, route, atStart = link.from == focusedId) }
+                labelFor(link)?.let { text ->
+                    val others = allRoutes.filterKeys { it != link }.values.flatMap { it.zipWithNext() }
+                    paintLineLabel(g2, text, route, atStart = link.from == focusedId, others)
+                }
             }
             paintLegend(g2)
             notice?.let { paintNotice(g2, it) }
@@ -252,12 +257,24 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     internal fun strokeFor(kind: LinkKind): BasicStroke =
         BasicStroke((if (kind == LinkKind.OWNS) 1.2 * zoom else 1.8 * zoom).toFloat(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
 
-    /** Writes [text] just above the line segment next to the focused block, in the line's colour. */
-    private fun paintLineLabel(g2: Graphics2D, text: String, route: List<Point>, atStart: Boolean) {
+    /**
+     * Writes [text] just above the line segment next to the focused block, in the line's colour, sliding along the
+     * segment until no [others] line runs through it. Without a free stretch it gets a small background patch.
+     */
+    private fun paintLineLabel(g2: Graphics2D, text: String, route: List<Point>, atStart: Boolean, others: List<Pair<Point, Point>>) {
         val (a, b) = if (atStart) route[0] to route[1] else route[route.size - 1] to route[route.size - 2]
         g2.font = JBFont.small()
-        val x = if (b.x >= a.x) a.x + 6 else a.x - 6 - g2.fontMetrics.stringWidth(text)
-        g2.drawString(text, x, a.y - 4)
+        val metrics = g2.fontMetrics
+        val width = metrics.stringWidth(text)
+        val free = LabelPlacement.place(a, b, width, metrics.ascent, others)
+        val at = free ?: Point(if (b.x >= a.x) a.x + 6 else a.x - 6 - width, a.y - 4)
+        if (free == null) {
+            val lineColour = g2.color
+            g2.color = background
+            g2.fillRect(at.x - 2, at.y - metrics.ascent, width + 4, metrics.ascent + 2)
+            g2.color = lineColour
+        }
+        g2.drawString(text, at.x, at.y)
     }
 
     /** A calm banner at the top centre (not red text): the canvas is waiting for valid code, nothing is wrong. */
