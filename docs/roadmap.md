@@ -21,11 +21,11 @@
   whole chain on one canvas; through interfaces into their implementations.
 - **Layouts**: Lanes / Column / Tree, switchable from the canvas toolbar.
 - **Search on the canvas**: Add method… drops any project method on the canvas.
+- **Note blocks**: `+ Note`, linked to blocks, shared in `.codelanes/notes.json`.
 
 ## Next
 
-1. **Free-standing note blocks** (built on `feat/note-blocks`, needs an IDE check): `+ Note` on the canvas.
-2. **Routes from YAML/XML** (Symfony), not only `#[Route]` attributes.
+1. **Routes from YAML/XML** (Symfony), not only `#[Route]` attributes.
 
 ## Later
 
