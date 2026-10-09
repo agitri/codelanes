@@ -136,6 +136,7 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         val first = Link(LinkKind.CALLS, "render", "total")
         val second = Link(LinkKind.CALLS, "total", "subtotal")
         canvas.setContent(listOf("render", "total", "subtotal").associateWith { BlockView(it, canvas) }, listOf(first, second))
+        canvas.focusedId = "total" // call lines only show (and get their direction) for the focused method
         assertFalse(canvas.colorFor(first) == canvas.colorFor(second))
     }
 
@@ -167,5 +168,48 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         val button = canvas.tidyButton.bounds
         assertEquals(12, button.x)
         assertEquals(800 - 8, button.y + button.height)
+    }
+
+    private fun callsAroundTotal(): Pair<BlocksCanvas, List<Link>> {
+        val canvas = BlocksCanvas(NoListener)
+        val links = listOf(
+            Link(LinkKind.CALLS, "total", "subtotal"),
+            Link(LinkKind.CALLS, "render", "total"),
+            Link(LinkKind.CALLS, "validate", "total"),
+        )
+        canvas.setContent(listOf("total", "subtotal", "render", "validate").associateWith { BlockView(it, canvas) }, links)
+        canvas.focusedId = "total"
+        return canvas to links
+    }
+
+    fun testCallingAndCalledByUseDifferentColourFamilies() {
+        val (canvas, links) = callsAroundTotal()
+        val out = canvas.colorFor(links[0])
+        val inFromRender = canvas.colorFor(links[1])
+        val inFromValidate = canvas.colorFor(links[2])
+        assertTrue(BlocksCanvas.CALLS_OUT.contains(out))
+        assertTrue(BlocksCanvas.CALLS_IN.contains(inFromRender))
+        assertTrue(BlocksCanvas.CALLS_IN.contains(inFromValidate))
+        assertFalse(inFromRender == inFromValidate)
+    }
+
+    fun testNoLineUsesAHighlightColour() {
+        val highlight = setOf(BlockView.DEFINITION_COLOR, BlockView.USAGE_COLOR)
+        val lineColours = BlocksCanvas.CALLS_OUT + BlocksCanvas.CALLS_IN + BlocksCanvas.OVERRIDE_PALETTE +
+            LinkKind.entries.map { BlocksCanvas(NoListener).colorFor(Link(it, "a", "b")) }
+        fun distance(a: java.awt.Color, b: java.awt.Color): Double {
+            val dr = (a.red - b.red).toDouble(); val dg = (a.green - b.green).toDouble(); val db = (a.blue - b.blue).toDouble()
+            return kotlin.math.sqrt(dr * dr + dg * dg + db * db)
+        }
+        for (line in lineColours) for (h in highlight) {
+            assertTrue("$line looks like highlight colour $h", distance(line, h) > 100)
+        }
+    }
+
+    fun testCallLinesAreLabelledFromTheFocusedMethodsPointOfView() {
+        val (canvas, links) = callsAroundTotal()
+        assertEquals("calls", canvas.labelFor(links[0]))
+        assertEquals("called by", canvas.labelFor(links[1]))
+        assertNull(canvas.labelFor(Link(LinkKind.OWNS, "a", "b")))
     }
 }

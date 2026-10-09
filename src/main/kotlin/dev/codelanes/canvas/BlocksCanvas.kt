@@ -180,6 +180,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
                 g2.stroke = strokeFor(link.kind)
                 g2.drawPolyline(route.map { it.x }.toIntArray(), route.map { it.y }.toIntArray(), route.size)
                 arrowHead(g2, route[route.size - 2], route.last())
+                labelFor(link)?.let { paintLineLabel(g2, it, route, atStart = link.from == focusedId) }
             }
             paintLegend(g2)
             notice?.let { paintNotice(g2, it) }
@@ -218,13 +219,31 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     }
 
     /**
-     * Call and override lines each get their own colour (stable per line), so e.g. "total calls subtotal" and
-     * "validate calls total" never look alike. Other kinds use their kind colour.
+     * Call lines: blue shades for "the focused method calls …", purple shades for "… calls the focused method",
+     * one shade per line. Override lines: green shades, one per line. Other kinds use their kind colour.
      */
-    internal fun colorFor(link: Link): java.awt.Color {
-        if (link.kind !in FOCUS_ONLY) return colorFor(link.kind)
-        val perLine = links.filter { it.kind in FOCUS_ONLY }.sortedWith(compareBy({ it.kind }, { it.from }, { it.to }))
-        return OVERRIDE_PALETTE[perLine.indexOf(link).coerceAtLeast(0) % OVERRIDE_PALETTE.size]
+    internal fun colorFor(link: Link): java.awt.Color = when (link.kind) {
+        LinkKind.CALLS -> {
+            val outgoing = link.from == focusedId || link.to != focusedId
+            val siblings = links.filter { it.kind == LinkKind.CALLS && if (outgoing) it.from == link.from else it.to == link.to }
+                .sortedWith(compareBy({ it.from }, { it.to }))
+            val palette = if (outgoing) CALLS_OUT else CALLS_IN
+            palette[siblings.indexOf(link).coerceAtLeast(0) % palette.size]
+        }
+        LinkKind.OVERRIDES -> {
+            val overrides = links.filter { it.kind == LinkKind.OVERRIDES }.sortedWith(compareBy({ it.from }, { it.to }))
+            OVERRIDE_PALETTE[overrides.indexOf(link).coerceAtLeast(0) % OVERRIDE_PALETTE.size]
+        }
+        else -> colorFor(link.kind)
+    }
+
+    /** Small label on a call/override line, read from the focused method's point of view. */
+    internal fun labelFor(link: Link): String? = when {
+        link.kind == LinkKind.CALLS && link.from == focusedId -> "calls"
+        link.kind == LinkKind.CALLS && link.to == focusedId -> "called by"
+        link.kind == LinkKind.OVERRIDES && link.from == focusedId -> "overrides"
+        link.kind == LinkKind.OVERRIDES && link.to == focusedId -> "overridden by"
+        else -> null
     }
 
     private fun colorFor(kind: LinkKind): java.awt.Color = KIND_COLORS.getValue(kind)
@@ -232,6 +251,14 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     /** All lines are solid: colour carries the meaning (people read colours far better than dash patterns). */
     internal fun strokeFor(kind: LinkKind): BasicStroke =
         BasicStroke((if (kind == LinkKind.OWNS) 1.2 * zoom else 1.8 * zoom).toFloat(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+
+    /** Writes [text] just above the line segment next to the focused block, in the line's colour. */
+    private fun paintLineLabel(g2: Graphics2D, text: String, route: List<Point>, atStart: Boolean) {
+        val (a, b) = if (atStart) route[0] to route[1] else route[route.size - 1] to route[route.size - 2]
+        g2.font = JBFont.small()
+        val x = if (b.x >= a.x) a.x + 6 else a.x - 6 - g2.fontMetrics.stringWidth(text)
+        g2.drawString(text, x, a.y - 4)
+    }
 
     /** A calm banner at the top centre (not red text): the canvas is waiting for valid code, nothing is wrong. */
     private fun paintNotice(g2: Graphics2D, text: String) {
@@ -257,9 +284,9 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         val metrics = g2.fontMetrics
         val lineHeight = metrics.height + 2
         val entries = LEGEND.filter { (kind, _) -> links.any { it.kind == kind } }
-        val perLine = links.any { it.kind in FOCUS_ONLY }
+        val directionalRows = (if (links.any { it.kind == LinkKind.CALLS }) 2 else 0) + (if (links.any { it.kind == LinkKind.OVERRIDES }) 1 else 0)
         val bottom = tidyButton.y - 10
-        var y = bottom - lineHeight * (entries.size - if (perLine) 0 else 1)
+        var y = bottom - lineHeight * (entries.size + directionalRows - 1)
         g2.stroke = BasicStroke(2.5f)
         for ((kind, label) in entries) {
             g2.color = colorFor(kind)
@@ -268,13 +295,17 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             g2.drawString(label, 40, y)
             y += lineHeight
         }
-        if (perLine) {
-            OVERRIDE_PALETTE.take(3).forEachIndexed { i, colour ->
-                g2.color = colour
-                g2.drawLine(12 + i * 7, y - metrics.ascent / 2, 17 + i * 7, y - metrics.ascent / 2)
-            }
+        val directional = listOf(
+            Triple(LinkKind.CALLS, CALLS_OUT.first(), "calls →"),
+            Triple(LinkKind.CALLS, CALLS_IN.first(), "← called by"),
+            Triple(LinkKind.OVERRIDES, OVERRIDE_PALETTE.first(), "overrides / implements method"),
+        ).filter { (kind, _, _) -> links.any { it.kind == kind } }
+        for ((_, colour, label) in directional) {
+            g2.color = colour
+            g2.drawLine(12, y - metrics.ascent / 2, 32, y - metrics.ascent / 2)
             g2.color = JBColor.foreground()
-            g2.drawString("calls / overrides (one colour per line, shown for the block you're in)", 40, y)
+            g2.drawString(label, 40, y)
+            y += lineHeight
         }
     }
 
@@ -286,25 +317,38 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         /** Calls and overrides only show for the focused block; otherwise the canvas drowns in lines. */
         private val FOCUS_ONLY = setOf(LinkKind.CALLS, LinkKind.OVERRIDES)
 
+        /** "This method calls …": blue/cyan shades, one per line. */
+        internal val CALLS_OUT = listOf(
+            JBColor(java.awt.Color(0x0277BD), java.awt.Color(0x4FC3F7)),
+            JBColor(java.awt.Color(0x00838F), java.awt.Color(0x4DD0E1)),
+            JBColor(java.awt.Color(0x283593), java.awt.Color(0x9FA8DA)),
+            JBColor(java.awt.Color(0x006064), java.awt.Color(0x80DEEA)),
+        )
+
+        /** "This method is called by …": purple/magenta shades, one per line. */
+        internal val CALLS_IN = listOf(
+            JBColor(java.awt.Color(0xAD1457), java.awt.Color(0xF06292)),
+            JBColor(java.awt.Color(0x6A1B9A), java.awt.Color(0xBA68C8)),
+            JBColor(java.awt.Color(0xC2185B), java.awt.Color(0xF8BBD0)),
+            JBColor(java.awt.Color(0x4A148C), java.awt.Color(0xD1C4E9)),
+        )
+
+        /** Override lines: green shades (they belong with "implements"). Never orange/yellow: those mark highlights. */
+        internal val OVERRIDE_PALETTE = listOf(
+            JBColor(java.awt.Color(0x2E7D32), java.awt.Color(0xA5D6A7)),
+            JBColor(java.awt.Color(0x1B5E20), java.awt.Color(0x66BB6A)),
+            JBColor(java.awt.Color(0x558B2F), java.awt.Color(0x9CCC65)),
+        )
+
         private val KIND_COLORS = mapOf(
             LinkKind.EXTENDS to JBColor(java.awt.Color(0x1565C0), java.awt.Color(0x64B5F6)),
             LinkKind.IMPLEMENTS to JBColor(java.awt.Color(0x2E7D32), java.awt.Color(0x81C784)),
-            LinkKind.USES to JBColor(java.awt.Color(0xB28704), java.awt.Color(0xFFD54F)),
-            LinkKind.INJECTS to JBColor(java.awt.Color(0x6A1B9A), java.awt.Color(0xCE93D8)),
+            LinkKind.USES to JBColor(java.awt.Color(0x6D4C41), java.awt.Color(0xBCAAA4)),
+            LinkKind.INJECTS to JBColor(java.awt.Color(0x455A64), java.awt.Color(0x90A4AE)),
             LinkKind.OWNS to JBColor(java.awt.Color(0x757575), java.awt.Color(0x9E9E9E)),
-            LinkKind.CALLS to JBColor(java.awt.Color(0xC62828), java.awt.Color(0xEF9A9A)),
-            LinkKind.OVERRIDES to JBColor(java.awt.Color(0xD81B60), java.awt.Color(0xF48FB1)),
+            LinkKind.CALLS to CALLS_OUT.first(),
+            LinkKind.OVERRIDES to OVERRIDE_PALETTE.first(),
             LinkKind.IMPLEMENTED_BY to JBColor(java.awt.Color(0x00695C), java.awt.Color(0x80CBC4)),
-        )
-
-        /** Override lines each get one of these; none of them is a kind colour above. */
-        private val OVERRIDE_PALETTE = listOf(
-            JBColor(java.awt.Color(0xD81B60), java.awt.Color(0xF48FB1)),
-            JBColor(java.awt.Color(0xEF6C00), java.awt.Color(0xFFB74D)),
-            JBColor(java.awt.Color(0x00838F), java.awt.Color(0x4DD0E1)),
-            JBColor(java.awt.Color(0x827717), java.awt.Color(0xDCE775)),
-            JBColor(java.awt.Color(0x283593), java.awt.Color(0x9FA8DA)),
-            JBColor(java.awt.Color(0x5D4037), java.awt.Color(0xBCAAA4)),
         )
 
         private val LEGEND = listOf(

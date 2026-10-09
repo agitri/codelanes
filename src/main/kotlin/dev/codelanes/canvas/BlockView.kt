@@ -128,8 +128,8 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
 
     companion object {
         const val DRAG_THRESHOLD = 4
-        private val DEFINITION_COLOR = JBColor(java.awt.Color(0xE65100), java.awt.Color(0xFFA726))
-        private val USAGE_COLOR = JBColor(java.awt.Color(0xF9A825), java.awt.Color(0xFFF176))
+        internal val DEFINITION_COLOR = JBColor(java.awt.Color(0xE65100), java.awt.Color(0xFFA726))
+        internal val USAGE_COLOR = JBColor(java.awt.Color(0xF9A825), java.awt.Color(0xFFF176))
         const val MIN_WIDTH = 160
         const val MAX_WIDTH = 900
         const val MAX_HEIGHT = 600
