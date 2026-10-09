@@ -12,20 +12,24 @@
 | 6 | Rename in a block | Shift+F6 (fn+Shift+F6 on a Mac) on a method name opens the rename dialog. |
 | 7 | Small fixes | Drag isn't snapped back; toggle works with the caret in an interface block; calm notice banner; corrupt pins ignored; other-file summaries refresh. |
 
+## Done recently
+
+- **Follow the flow across files**: `+ calls`.
+- **Review notes on blocks**: ✓ / ? / ! marks and notes in `.codelanes/review.json`.
+- **Saved working sets**: `.codelanes/working-sets.json`.
+- **Follow a request from its entry point** (on `feat/entry-point`, needs an IDE check): pick a `#[Route]`, the
+  whole chain on one canvas; through interfaces into their implementations.
+- **Layouts**: Lanes / Column / Tree, switchable from the canvas toolbar.
+
 ## Next
 
-1. **Follow the flow across files** (done): `+ calls` on a method shows the methods it calls in other
-   classes as blocks, repeatable deeper.
-2. **Review notes on blocks** (done): ✓ / ? / ! marks and notes,
-   shared in `.codelanes/review.json`, reset to `~` when the code changes.
-3. **Saved working sets** (built on `feat/working-sets`, needs an IDE check): View → CodeLanes Working Sets.
-
-4. **Follow a request from its entry point** (built on `feat/entry-point`, needs an IDE check): pick a route (e.g. `POST /orders`), CodeLanes opens
-   its controller action and follows the calls a few levels deep automatically: the whole chain on one canvas.
-5. **Record the real road a request took**: read an Xdebug trace of one real request and show exactly the methods
+1. **Record the real road a request took**: read an Xdebug trace of one real request and show exactly the methods
    that ran, in order (also events and handlers that static analysis can't see).
-6. **AI picks the relevant chain** (optional, on top of 4/5): describe a flow in words; AI chooses blocks *only
-   from the real call graph*, never invents or explains code.
+2. **Search on the canvas**: find any method or class in the project and drop it on the current canvas.
+3. **Free-standing note blocks**: review summaries next to the code ("this flow is fine except …").
+4. **AI picks the relevant chain** (optional, on top of 1 / Follow a Request): describe a flow in words; AI chooses
+   blocks *only from the real call graph*, never invents or explains code.
+5. **Routes from YAML/XML** (Symfony), not only `#[Route]` attributes.
 
 ## Later
 
