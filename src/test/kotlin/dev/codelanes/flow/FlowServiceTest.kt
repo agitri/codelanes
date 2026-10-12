@@ -78,4 +78,10 @@ class FlowServiceTest : BasePlatformTestCase() {
         val error = FlowInput.check("x", "", "App\\A::b", emptyList(), listOf("App\\A::b -> App\\C::d")).error!!
         assertTrue(error, error.contains("App\\A::b -> App\\C::d") && error.contains("--kind-->"))
     }
+
+    fun testAFolderThatCannotBeWrittenIsReportedNotThrown() {
+        pick = { WriteAction.computeAndWait<VirtualFile, RuntimeException> { project.guessProjectDir()!!.createChildData(this, "not-a-folder.txt") } }
+        val reply = FlowService.getInstance(project).show(flow("GET /io"))
+        assertTrue(reply, reply.contains("Not saved:"))
+    }
 }

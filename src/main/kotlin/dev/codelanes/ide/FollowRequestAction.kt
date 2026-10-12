@@ -79,7 +79,13 @@ class FollowRequestAction : AnAction() {
     }
 
     private fun open(project: Project, saved: SavedFlow) {
-        FlowService.getInstance(project).open(saved)?.let { Messages.showInfoMessage(project, it, TITLE) }
+        val resolved = ProgressManager.getInstance().runProcessWithProgressSynchronously<dev.codelanes.flow.ResolvedFlow, RuntimeException>(
+            { ReadAction.nonBlocking<dev.codelanes.flow.ResolvedFlow> { dev.codelanes.flow.FlowResolver.resolve(project, saved.flow) }.inSmartMode(project).executeSynchronously() },
+            "Checking the flow…",
+            true,
+            project,
+        )
+        FlowService.getInstance(project).open(saved, resolved)?.let { Messages.showInfoMessage(project, it, TITLE) }
     }
 
     /** A flow a teammate saved somewhere else: open it, and remember its folder for next time. */

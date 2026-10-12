@@ -2,6 +2,7 @@ package dev.codelanes.flow
 
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.components.BaseState
 import com.intellij.openapi.components.Service
@@ -41,6 +42,8 @@ class FlowFiles(private val project: Project) : SimplePersistentStateComponent<F
     /** Every readable flow in `.codelanes/flows/` and the remembered folders, by name. */
     fun list(): List<SavedFlow> =
         folders().mapNotNull(::findFile).filter { it.isDirectory }
+            // Flows written outside the IDE (an AI in a terminal, git pull) must be seen too.
+            .onEach { if (!ApplicationManager.getApplication().isReadAccessAllowed) it.refresh(false, false) }
             .flatMap { dir -> dir.children.filter { it.name.endsWith(SUFFIX) } }
             .mapNotNull { file -> (read(file.path) as? FlowRead.Ok)?.let { SavedFlow(it.flow, file.path) } }
             .distinctBy { it.path }
@@ -50,7 +53,7 @@ class FlowFiles(private val project: Project) : SimplePersistentStateComponent<F
 
     fun read(path: String): FlowRead {
         val file = findFile(path) ?: return FlowRead.Broken
-        val text = String(file.contentsToByteArray())
+        val text = runCatching { String(file.contentsToByteArray()) }.getOrNull() ?: return FlowRead.Broken
         val version = runCatching { JsonParser.parseString(text).asJsonObject.get("version")?.asInt }.getOrNull()
             ?: return FlowRead.Broken
         if (version != VERSION) return FlowRead.UnknownVersion(version)
@@ -65,9 +68,20 @@ class FlowFiles(private val project: Project) : SimplePersistentStateComponent<F
         )
     }
 
-    /** Saves [flow] as a new file in [folder] and remembers the folder. Returns the path, or null if it couldn't. */
+    /**
+     * Saves [flow] as a new file in [folder] and remembers the folder. Returns the path, or null if it couldn't.
+     * Another flow whose name gives the same file name keeps its file; this one gets `-2`, `-3`, …
+     * Throws [java.io.IOException] when the folder can't be written.
+     */
     fun write(folder: VirtualFile, flow: Flow): String? {
-        val name = slug(flow.name) + SUFFIX
+        val base = slug(flow.name)
+        val name = generateSequence(1) { it + 1 }.map { n -> (if (n == 1) base else "$base-$n") + SUFFIX }.first { candidate ->
+            val existing = folder.findChild(candidate) ?: return@first true
+            when (val read = read(existing.path)) {
+                is FlowRead.Ok -> read.flow.name == flow.name // the same flow: replace it; another one: try the next name
+                else -> true // unreadable: stop here and refuse below, it may be this very flow in a merge conflict
+            }
+        }
         val existing = folder.findChild(name)
         if (existing != null && read(existing.path) !is FlowRead.Ok) return null
         val path = save(folder, name, flow) ?: return null

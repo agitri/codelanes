@@ -112,4 +112,13 @@ class PhpBlockBuilderFollowCallsTest : PhpBuilderTestCase() {
         assertEquals("and 2 more calls", more.title)
         assertTrue(model.links.contains(Link(LinkKind.CALLS_INTO, "method:go", more.id)))
     }
+
+    fun testAClassAddedAsAWholeIsOneBlock() {
+        services()
+        val file = myFixture.configureByText("Order.php", order)
+        val model = (PhpBlockBuilder.build(file, added = setOf("\\App\\UserRepository::class")) as BuildResult.Supported).model
+        val block = model.block("callee:\\App\\UserRepository::class")
+        assertEquals(BlockKind.CALLEE, block.kind)
+        assertEquals("class UserRepository", block.title)
+    }
 }

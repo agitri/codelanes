@@ -22,8 +22,14 @@ class FlowResolverTest : BasePlatformTestCase() {
             {
                 public function place(): string { event(new OrderPlaced()); return 'ok'; }
                 public function cancel(): void {}
+                public function ship(): void { event(new \App\Events\OrderShipped()); event(new \App\Events\OrderPaid(1)); }
             }
         """)
+        add("Events/OrderShipped.php", "App\\Events", "class OrderShipped\n{\n}")
+        add("Events/BaseEvent.php", "App\\Events", "class BaseEvent\n{\n    public function __construct(public int ${d}id) {}\n}")
+        add("Events/OrderPaid.php", "App\\Events", "class OrderPaid extends BaseEvent\n{\n}")
+        add("Listeners/NotifyShipped.php", "App\\Listeners", "use App\\Events\\OrderShipped;\nclass NotifyShipped\n{\n    public function handle(OrderShipped ${d}e): void {}\n}")
+        add("Listeners/NotifyPaid.php", "App\\Listeners", "use App\\Events\\OrderPaid;\nclass NotifyPaid\n{\n    public function handle(OrderPaid ${d}e): void {}\n}")
         add("Events/OrderPlaced.php", "App\\Events", "class OrderPlaced\n{\n    public function __construct() {}\n}")
         add("Listeners/SendOrderMail.php", "App\\Listeners", """
             use App\Events\OrderPlaced;
@@ -119,5 +125,22 @@ class FlowResolverTest : BasePlatformTestCase() {
 
     fun testAnEntryThatDoesNotExistSaysSo() {
         assertEquals("App\\Nope::x (no such class)", resolve(entry = "App\\Nope::x").entryProblem)
+    }
+
+    private val ship = "App\\Services\\OrderService::ship"
+
+    fun testAnEventWithoutAConstructorIsAClassBlockAndItsHopsAreProven() {
+        val flow = resolve(hop(ship, "App\\Events\\OrderShipped::class", "dispatches"), hop("App\\Events\\OrderShipped::class", "App\\Listeners\\NotifyShipped::handle", "listens"))
+        assertEquals(flow.unknown.toString(), 2, flow.hops.size)
+        assertEquals("callee:\\App\\Events\\OrderShipped::class", flow.hops[0].toId)
+        assertTrue(flow.hops.all { it.proven })
+        assertTrue("\\App\\Events\\OrderShipped::class" in flow.added)
+        assertEquals("callee:\\App\\Events\\OrderShipped::class", resolve(hop(ship, "App\\Events\\OrderShipped::__construct", "dispatches")).hops.single().toId)
+    }
+
+    fun testAnInheritedConstructorStandsForTheClassThatWasNamed() {
+        val flow = resolve(hop(ship, "App\\Events\\OrderPaid::__construct", "dispatches"), hop("App\\Events\\OrderPaid::__construct", "App\\Listeners\\NotifyPaid::handle", "listens"))
+        assertEquals("callee:\\App\\Events\\OrderPaid::class", flow.hops[0].toId)
+        assertTrue(flow.hops.toString(), flow.hops.all { it.proven })
     }
 }

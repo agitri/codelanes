@@ -65,24 +65,30 @@ class FlowService(private val project: Project) {
         canvas != null
     }
 
-    fun show(flow: Flow): String {
-        if (DumbService.isDumb(project)) return "Nothing shown: PhpStorm is still indexing. Try again when it has finished."
-        val resolved = resolve(flow)
+    /** [resolved] can come from a background read action (the MCP tool does that); resolving here blocks the EDT. */
+    fun show(flow: Flow, resolved: ResolvedFlow? = null): String {
+        if (resolved == null && DumbService.isDumb(project)) return "Nothing shown: PhpStorm is still indexing. Try again when it has finished."
+        val resolved = resolved ?: resolve(flow)
         resolved.entryProblem?.let { return "Nothing shown: the entry $it." }
         if (!showOnCanvas(resolved.entryFile!!, resolved, flow.entry.label)) {
             return "Nothing shown: ${resolved.entryFile.name} can't be opened as blocks."
         }
         val proven = resolved.hops.count { it.proven }
         val reply = StringBuilder("Shown \"${flow.name}\": ${resolved.hops.size} hops, $proven proven, ${resolved.hops.size - proven} claimed.")
-        reply.append(' ').append(save(flow))
+        val saved = try {
+            save(flow)
+        } catch (e: java.io.IOException) {
+            "Not saved: ${e.message ?: "the file couldn't be written"}."
+        }
+        reply.append(' ').append(saved)
         if (resolved.unknown.isNotEmpty()) reply.append(" Unknown, not drawn: ${resolved.unknown.joinToString("; ")}.")
         return reply.toString()
     }
 
     /** Opens a saved flow (Follow a Request); an error text if it can't be shown. */
-    fun open(saved: SavedFlow): String? {
-        if (DumbService.isDumb(project)) return "Wait until indexing has finished, then try again."
-        val resolved = resolve(saved.flow)
+    fun open(saved: SavedFlow, resolved: ResolvedFlow? = null): String? {
+        if (resolved == null && DumbService.isDumb(project)) return "Wait until indexing has finished, then try again."
+        val resolved = resolved ?: resolve(saved.flow)
         resolved.entryProblem?.let { return "Couldn't show the flow: the entry $it." }
         return if (showOnCanvas(resolved.entryFile!!, resolved, saved.flow.entry.label)) null
         else "${resolved.entryFile.name} can't be shown as blocks."

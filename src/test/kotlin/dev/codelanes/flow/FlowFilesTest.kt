@@ -57,4 +57,14 @@ class FlowFilesTest : BasePlatformTestCase() {
         assertEquals("post-orders-id", FlowFiles.slug("POST /orders/{id}"))
         assertEquals("flow", FlowFiles.slug("///"))
     }
+
+    fun testAnotherFlowWithTheSameFileNameGetsItsOwnFile() {
+        val files = FlowFiles.getInstance(project)
+        val dir = folder("clash")
+        val first = files.write(dir, flow.copy(name = "POST /orders"))!!
+        val second = files.write(dir, flow.copy(name = "post-orders"))!!
+        assertFalse(first == second)
+        assertTrue(second, second.endsWith("post-orders-2.flow.json"))
+        assertEquals("POST /orders", (files.read(first) as FlowRead.Ok).flow.name)
+    }
 }

@@ -41,6 +41,9 @@ Hop kinds (closed list, also the label on the line):
 
 All new code lives in `dev.codelanes.flow`, except the MCP part.
 
+- **References** are `Fqn::method`, or `Fqn::class` for a class as a whole (e.g. an event without a constructor).
+  `Fqn::__construct` of a class that doesn't declare its own constructor also means the class. A class-level
+  reference gets a block of its own, covering the class.
 - **`Flow`** (model): `Flow(name, entry, hops, version)`. `entry` is a label (e.g. `POST /orders`) plus the
   method it lands in. `Hop(from, to, kind)` holds method references as `Fully\Qualified\Class::method`.
 - **`FlowResolver`**: no UI, unit-testable, runs in a read action. It turns a `Flow` into a `BlockModel`:

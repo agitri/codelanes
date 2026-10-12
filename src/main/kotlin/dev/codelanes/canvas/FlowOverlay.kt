@@ -10,7 +10,7 @@ import dev.codelanes.model.SourceRange
 
 /**
  * A flow laid over every fresh build of the canvas: the entry ("POST /orders") as a small block of its own, the hops
- * as labelled FLOW lines, and the references that no longer exist in one grey block.
+ * as labelled FLOW lines, and the references that don't exist (an AI's typo, or code removed since) in one grey block.
  */
 data class FlowOverlay(val title: String, val entryId: String, val hops: List<ResolvedHop>, val gone: List<String>) {
     fun applyTo(model: BlockModel, filePath: String): BlockModel {
@@ -24,7 +24,7 @@ data class FlowOverlay(val title: String, val entryId: String, val hops: List<Re
             links += Link(LinkKind.FLOW, hop.fromId, hop.toId, label = hop.kind, claimed = !hop.proven)
         }
         if (gone.isNotEmpty()) {
-            blocks += Block(GONE_ID, BlockKind.MORE, "no longer in the code: ${gone.joinToString(", ")}", filePath, SourceRange(0, 0), collapsed = true)
+            blocks += Block(GONE_ID, BlockKind.MORE, "not found in the code: ${gone.joinToString(", ")}", filePath, SourceRange(0, 0), collapsed = true)
             links += Link(LinkKind.FLOW, ENTRY_ID, GONE_ID, claimed = true)
         }
         // A hop says more than the plain call line between the same two blocks: show only the hop.

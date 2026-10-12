@@ -664,11 +664,15 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     )
 
     /** This canvas's state, for a working set. */
-    fun snapshot(): CanvasState =
-        CanvasState(file.path, followedCalls.sorted(), revealed.sorted(), collapsed.toSortedMap(), canvas.zoom, added.sorted())
+    /** A flow isn't part of a working set (flows have files of their own): its chain and blocks are left out. */
+    fun snapshot(): CanvasState {
+        val followed = if (flow != null) emptyList() else followedCalls.sorted()
+        return CanvasState(file.path, followed, revealed.sorted(), collapsed.toSortedMap(), canvas.zoom, (added - flowAdded).sorted())
+    }
 
     /** Opens this canvas up the way [state] describes (followed calls, revealed parents, collapsed blocks, zoom). */
     fun restore(state: CanvasState) = withModelAccess {
+        clearFlow()
         followedCalls.clear()
         followedCalls += state.followedCalls
         revealed.clear()

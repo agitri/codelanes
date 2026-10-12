@@ -544,12 +544,22 @@ class BlocksSessionTest : BasePlatformTestCase() {
         assertFalse(session.blockIds().contains("callee:\\App\\Mailer::send"))
     }
 
+    fun testOpeningAWorkingSetClearsTheFlowAndAFlowIsNotSavedInOne() {
+        val session = flowSession()
+        val before = session.snapshot()
+        session.showFlow(resolvedFlow(dev.codelanes.flow.FlowHop("App\\Writer::write", "App\\Mailer::send", "listens")), "POST /x")
+        assertFalse(session.snapshot().added.contains("\\App\\Mailer::send"))
+        session.restore(before)
+        assertFalse(session.model!!.links.any { it.kind == LinkKind.FLOW })
+        assertFalse(session.blockIds().contains("callee:\\App\\Mailer::send"))
+    }
+
     fun testReferencesThatAreGoneShowInOneGreyBlock() {
         val session = flowSession()
         session.showFlow(resolvedFlow(dev.codelanes.flow.FlowHop("App\\Writer::write", "App\\Nope::x", "listens")), "POST /x")
         val gone = session.model!!.block("flow:gone")
         assertEquals(dev.codelanes.model.BlockKind.MORE, gone.kind)
-        assertTrue(gone.title, gone.title.contains("App\\Nope::x"))
+        assertTrue(gone.title, gone.title.startsWith("not found in the code: ") && gone.title.contains("App\\Nope::x"))
     }
 
     fun testChoosingTheTreeOnTheCanvasSwitchesTheLayout() {

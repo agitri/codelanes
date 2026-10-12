@@ -34,12 +34,13 @@ data class ResolvedFlow(
 object FlowResolver {
     fun resolve(project: Project, flow: Flow): ResolvedFlow {
         val unknown = mutableListOf<String>()
-        fun lookUp(reference: String): Method? = when (val found = find(project, reference)) {
-            is Found.Yes -> found.method
+        fun lookUp(reference: String): Target? = when (val found = find(project, reference)) {
+            is Found.Yes -> found.target
             is Found.No -> null.also { unknown += found.why }
         }
         val entry = when (val found = find(project, flow.entry.method)) {
-            is Found.Yes -> found.method
+            is Found.Yes -> found.target.method
+                ?: return ResolvedFlow(null, null, "${flow.entry.method.trim().trimStart('\\')} (not a method)", emptyList(), emptySet(), emptyList())
             is Found.No -> return ResolvedFlow(null, null, found.why, emptyList(), emptySet(), emptyList())
         }
         val entryFile = entry.containingFile
@@ -48,7 +49,14 @@ object FlowResolver {
         }
         val openClass = entry.containingClass!!
         val added = linkedSetOf<String>()
-        fun idOf(method: Method): String {
+        fun idOf(target: Target): String {
+            val method = target.method
+            if (method == null) {
+                if (target.named.fqn == openClass.fqn) return "class:${openClass.fqn}"
+                val key = "${target.named.fqn}::class"
+                added += key
+                return "callee:$key"
+            }
             val owner = method.containingClass!!
             if (owner.fqn == openClass.fqn) {
                 return if (method.name.equals("__construct", ignoreCase = true)) "class:${owner.fqn}" else "method:${method.name}"
@@ -63,15 +71,21 @@ object FlowResolver {
             if (from == null || to == null) return@mapNotNull null
             ResolvedHop(idOf(from), idOf(to), hop.kind, proves(hop.kind, from, to))
         }
-        return ResolvedFlow(entryFile.virtualFile, idOf(entry), null, hops.distinct(), added, unknown.distinct())
+        return ResolvedFlow(entryFile.virtualFile, idOf(Target(openClass, entry)), null, hops.distinct(), added, unknown.distinct())
     }
 
+    /**
+     * What a reference points at: [method] in the class that declares it, or null for the class [named] as a whole
+     * (`Event::class`, or `Event::__construct` when the event has no constructor of its own).
+     */
+    private data class Target(val named: PhpClass, val method: Method?)
+
     private sealed interface Found {
-        data class Yes(val method: Method) : Found
+        data class Yes(val target: Target) : Found
         data class No(val why: String) : Found
     }
 
-    /** `App\Foo::bar` or `\App\Foo::bar` → the method, normalised to the class that declares it. */
+    /** `App\Foo::bar` or `\App\Foo::bar` → the method, normalised to the class that declares it; `App\Foo::class` → the class. */
     private fun find(project: Project, reference: String): Found {
         val trimmed = reference.trim()
         if ("::" !in trimmed) return Found.No("$trimmed (not a Class::method reference)")
@@ -80,29 +94,36 @@ object FlowResolver {
         val shown = trimmed.trimStart('\\')
         val index = PhpIndex.getInstance(project)
         val owners = index.getClassesByFQN(fqn) + index.getInterfacesByFQN(fqn) + index.getTraitsByFQN(fqn)
-        if (owners.isEmpty()) return Found.No("$shown (no such class)")
+        val named = owners.firstOrNull() ?: return Found.No("$shown (no such class)")
+        if (name == "class") return Found.Yes(Target(named, null))
+        if (name.equals("__construct", ignoreCase = true)) {
+            // An inherited or missing constructor stands for the class that was named, not its parent.
+            return Found.Yes(Target(named, named.ownConstructor))
+        }
         val method = owners.firstNotNullOfOrNull { it.findMethodByName(name) } ?: return Found.No("$shown (no such method)")
-        return Found.Yes(method)
+        return Found.Yes(Target(named, method))
     }
 
-    private fun proves(kind: String, from: Method, to: Method): Boolean = when (kind) {
-        "calls", "dispatches", "middleware" -> callsOrCreates(from, to)
-        "binds" -> to.name.equals(from.name, ignoreCase = true) && isSubtype(to.containingClass, from.containingClass)
-        "listens" -> to.parameters.firstOrNull()?.declaredType?.types?.contains(from.containingClass?.fqn) == true
+    private fun proves(kind: String, from: Target, to: Target): Boolean = when (kind) {
+        "calls", "dispatches", "middleware" -> from.method?.let { callsOrCreates(it, to) } == true
+        "binds" -> from.method != null && to.method != null && to.method.name.equals(from.method.name, ignoreCase = true) &&
+            isSubtype(to.method.containingClass, from.method.containingClass)
+        "listens" -> to.method?.parameters?.firstOrNull()?.declaredType?.types?.contains(from.named.fqn) == true
         else -> false // "routes": the route is the AI's (and the person's) word, nothing in a method proves it
     }
 
     /** [from] calls [to], or creates an instance of [to]'s class (`event(new OrderPlaced())`). */
-    private fun callsOrCreates(from: Method, to: Method): Boolean {
-        val calls = PsiTreeUtil.findChildrenOfType(from, MethodReference::class.java)
-            .any { call -> call.multiResolve(false).any { it.element == to } }
+    private fun callsOrCreates(from: Method, to: Target): Boolean {
+        val calls = to.method != null && PsiTreeUtil.findChildrenOfType(from, MethodReference::class.java)
+            .any { call -> call.multiResolve(false).any { it.element == to.method } }
         if (calls) return true
-        val target = to.containingClass?.fqn ?: return false
+        if (to.method != null && !to.method.name.equals("__construct", ignoreCase = true)) return false
+        val target = to.named.fqn
         return PsiTreeUtil.findChildrenOfType(from, NewExpression::class.java).any { created ->
             when (val resolved = created.classReference?.resolve()) {
                 is PhpClass -> resolved.fqn == target
-                is Method -> resolved.containingClass?.fqn == target
-                else -> false
+                is Method -> created.classReference?.fqn == target || resolved.containingClass?.fqn == target
+                else -> created.classReference?.fqn == target
             }
         }
     }
