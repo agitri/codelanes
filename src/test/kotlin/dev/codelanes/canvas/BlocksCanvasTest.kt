@@ -128,7 +128,24 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         val kinds = LinkKind.entries.filter { it != LinkKind.OVERRIDES }
         val colours = kinds.map { canvas.colorFor(Link(it, "a", "b")) }
         assertEquals(kinds.size, colours.toSet().size)
-        LinkKind.entries.filter { it != LinkKind.NOTE }.forEach { assertNull("$it is dashed", canvas.strokeFor(it).dashArray) }
+        LinkKind.entries.filter { it != LinkKind.NOTE }.forEach { assertNull("$it is dashed", canvas.strokeFor(Link(it, "a", "b")).dashArray) }
+    }
+
+    fun testAFlowHopIsLabelledWithItsKindAndDottedWhenOnlyClaimed() {
+        val canvas = BlocksCanvas(NoListener)
+        val proven = Link(LinkKind.FLOW, "a", "b", label = "dispatches")
+        val claimed = proven.copy(claimed = true)
+        assertEquals("dispatches", canvas.labelFor(proven))
+        assertNull(canvas.strokeFor(proven).dashArray)
+        val dots = canvas.strokeFor(claimed).dashArray
+        assertNotNull(dots)
+        assertFalse(dots!!.contentEquals(canvas.strokeFor(Link(LinkKind.NOTE, "a", "b")).dashArray))
+    }
+
+    fun testAFlowCallUsesTheCallColour() {
+        val canvas = BlocksCanvas(NoListener)
+        assertEquals(canvas.colorFor(Link(LinkKind.CALLS_INTO, "x", "y")), canvas.colorFor(Link(LinkKind.FLOW, "a", "b", label = "calls")))
+        assertFalse(canvas.colorFor(Link(LinkKind.FLOW, "a", "b", label = "listens")) == canvas.colorFor(Link(LinkKind.CALLS_INTO, "x", "y")))
     }
 
     fun testEachCallLineGetsItsOwnColour() {

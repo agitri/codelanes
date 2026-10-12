@@ -171,6 +171,13 @@ object PhpBlockBuilder {
         val firstRoot = queue.firstOrNull()?.first
         // Methods dropped on the canvas from search ("\Fqn::method"): blocks of their own, followable like any callee.
         for (key in added) {
+            // "\Fqn::class": a class as a whole, e.g. an event a flow dispatches that has no constructor of its own.
+            if (key.endsWith("::class")) {
+                val target = classByFqn(phpClass, key.removeSuffix("::class")) ?: continue
+                val id = "callee:$key"
+                blocks.getOrPut(id) { externalBlock(BlockKind.CALLEE, target).copy(id = id, collapsed = false) }
+                continue
+            }
             val method = methodByKey(phpClass, key) ?: continue
             val id = "callee:$key"
             blocks.getOrPut(id) { calleeBlock(id, method) }
@@ -258,6 +265,11 @@ object PhpBlockBuilder {
         filePath = method.containingFile.virtualFile.path,
         range = rangeWithDoc(method),
     )
+
+    private fun classByFqn(context: PhpClass, fqn: String): PhpClass? {
+        val index = PhpIndex.getInstance(context.project)
+        return (index.getClassesByFQN(fqn) + index.getInterfacesByFQN(fqn) + index.getTraitsByFQN(fqn)).firstOrNull()
+    }
 
     /** "\Fqn::method" → that method (class, interface or trait), or null if it no longer exists. */
     private fun methodByKey(context: PhpClass, key: String): Method? {

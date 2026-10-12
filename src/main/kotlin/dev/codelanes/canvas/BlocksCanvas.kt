@@ -254,7 +254,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             for ((link, route) in allRoutes) {
                 val drawn = drawnRoute(link, route)
                 g2.color = colorFor(link)
-                g2.stroke = strokeFor(link.kind)
+                g2.stroke = strokeFor(link)
                 val hops = LineJumps.jumps(drawn, allRoutes.filterKeys { it != link }.values.toList(), hopRadius)
                 g2.draw(pathWithHops(drawn, hops, hopRadius))
                 arrowHead(g2, drawn[drawn.size - 2], drawn.last())
@@ -342,6 +342,8 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             val overrides = links.filter { it.kind == LinkKind.OVERRIDES }.sortedWith(compareBy({ it.from }, { it.to }))
             OVERRIDE_PALETTE[overrides.indexOf(link).coerceAtLeast(0) % OVERRIDE_PALETTE.size]
         }
+        // A flow's plain call looks like the followed calls around it; the framework hops get the flow colour.
+        LinkKind.FLOW -> if (link.label == "calls") colorFor(LinkKind.CALLS_INTO) else colorFor(LinkKind.FLOW)
         else -> colorFor(link.kind)
     }
 
@@ -357,6 +359,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         link.kind == LinkKind.IMPLEMENTED_BY -> "implemented by"
         link.kind == LinkKind.CALLS_INTO -> "calls"
         link.kind == LinkKind.NOTE -> "note"
+        link.kind == LinkKind.FLOW -> link.label
         link.kind == LinkKind.CALLS && link.from == focusedId -> "calls"
         link.kind == LinkKind.CALLS && link.to == focusedId -> "called by"
         link.kind == LinkKind.OVERRIDES && link.from == focusedId -> "overrides"
@@ -366,11 +369,18 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
 
     private fun colorFor(kind: LinkKind): java.awt.Color = KIND_COLORS.getValue(kind)
 
-    /** All lines are solid: colour carries the meaning (people read colours far better than dash patterns). */
-    internal fun strokeFor(kind: LinkKind): BasicStroke {
+    /**
+     * Code relations are solid: colour carries the meaning (people read colours far better than dash patterns).
+     * Two exceptions: note links are dashed (not a code relation), and a flow hop only the AI claims is dotted.
+     */
+    internal fun strokeFor(link: Link): BasicStroke {
+        val kind = link.kind
         val width = (if (kind == LinkKind.OWNS) 1.2 * zoom else 1.8 * zoom).toFloat()
-        // Note links aren't code relations: the one dashed line, so they never look like one.
-        val dash = if (kind == LinkKind.NOTE) floatArrayOf(6f, 5f) else null
+        val dash = when {
+            kind == LinkKind.NOTE -> floatArrayOf(6f, 5f)
+            kind == LinkKind.FLOW && link.claimed -> floatArrayOf(1f, 4f)
+            else -> null
+        }
         return BasicStroke(width, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10f, dash, 0f)
     }
 
@@ -499,6 +509,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             // Its own cyan, not one of the per-line "calls" shades.
             LinkKind.CALLS_INTO to JBColor(java.awt.Color(0x00838F), java.awt.Color(0x4DD0E1)),
             LinkKind.NOTE to JBColor(java.awt.Color(0x8D8D8D), java.awt.Color(0x8F8F8F)),
+            LinkKind.FLOW to JBColor(java.awt.Color(0x8E2424), java.awt.Color(0xEF9A9A)), // dark red, clear of the orange highlight
         )
 
         private val LEGEND = listOf(
@@ -510,6 +521,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             LinkKind.IMPLEMENTED_BY to "implemented / used by",
             LinkKind.CALLS_INTO to "calls into another class",
             LinkKind.NOTE to "note (dashed)",
+            LinkKind.FLOW to "flow hop (dotted: only the AI says so)",
         )
         const val MIN_ZOOM = 0.2
         const val MAX_ZOOM = 2.0

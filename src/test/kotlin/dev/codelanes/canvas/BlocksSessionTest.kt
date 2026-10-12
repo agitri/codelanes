@@ -4,6 +4,8 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.codelanes.layout.Point
+import dev.codelanes.model.Link
+import dev.codelanes.model.LinkKind
 import dev.codelanes.settings.PinStore
 
 class BlocksSessionTest : BasePlatformTestCase() {
@@ -500,6 +502,64 @@ class BlocksSessionTest : BasePlatformTestCase() {
         session.followChain("method:show", depth = 3)
         assertTrue(session.blockIds().contains("callee:\\App\\Reader::read"))
         assertFalse("the previous request's chain should be gone", session.blockIds().contains("callee:\\App\\Writer::write"))
+    }
+
+    private fun flowSession(): BlocksSession {
+        myFixture.addFileToProject("Writer.php", "<?php\nnamespace App;\n\nclass Writer\n{\n    public function write(): void\n    {\n    }\n}\n")
+        myFixture.addFileToProject("Mailer.php", "<?php\nnamespace App;\n\nclass Mailer\n{\n    public function send(): void\n    {\n    }\n}\n")
+        val controller = "<?php\nnamespace App;\n\nclass Controller\n{\n    public function create(): void\n    {\n        (new Writer())->write();\n    }\n\n    public function show(): void\n    {\n    }\n}\n"
+        val psi = myFixture.configureByText("Controller.php", controller)
+        return BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+    }
+
+    private fun resolvedFlow(vararg hops: dev.codelanes.flow.FlowHop) = dev.codelanes.flow.FlowResolver.resolve(
+        project,
+        dev.codelanes.flow.Flow("POST /x", dev.codelanes.flow.FlowEntry("POST /x", "App\\Controller::create"), hops.toList()),
+    )
+
+    fun testAFlowShowsTheEntryAndItsHopsOnTheCanvas() {
+        val session = flowSession()
+        session.showFlow(resolvedFlow(
+            dev.codelanes.flow.FlowHop("App\\Controller::create", "App\\Writer::write", "calls"),
+            dev.codelanes.flow.FlowHop("App\\Writer::write", "App\\Mailer::send", "listens"),
+        ), "POST /x")
+        val model = session.model!!
+        val flow = model.links.filter { it.kind == LinkKind.FLOW }
+        assertEquals("POST /x", model.block("flow:entry").title)
+        assertTrue(flow.toString(), Link(LinkKind.FLOW, "flow:entry", "method:create", label = "routes", claimed = true) in flow)
+        assertTrue(flow.toString(), Link(LinkKind.FLOW, "method:create", "callee:\\App\\Writer::write", label = "calls") in flow)
+        assertTrue(flow.toString(), Link(LinkKind.FLOW, "callee:\\App\\Writer::write", "callee:\\App\\Mailer::send", label = "listens", claimed = true) in flow)
+        assertFalse("the hop replaces the plain call line", model.links.any { it.kind == LinkKind.CALLS_INTO && it.from == "method:create" && it.to == "callee:\\App\\Writer::write" })
+    }
+
+    fun testAFlowSurvivesARebuildAndAnotherRequestReplacesIt() {
+        val session = flowSession()
+        session.showFlow(resolvedFlow(dev.codelanes.flow.FlowHop("App\\Writer::write", "App\\Mailer::send", "listens")), "POST /x")
+        edit("public function show(): void", "public function shown(): void")
+        session.rebuildNow()
+        assertTrue(session.model!!.links.any { it.kind == LinkKind.FLOW && it.label == "listens" })
+        session.followChain("method:create", depth = 3)
+        assertFalse(session.model!!.links.any { it.kind == LinkKind.FLOW })
+        assertFalse(session.blockIds().contains("flow:entry"))
+        assertFalse(session.blockIds().contains("callee:\\App\\Mailer::send"))
+    }
+
+    fun testOpeningAWorkingSetClearsTheFlowAndAFlowIsNotSavedInOne() {
+        val session = flowSession()
+        val before = session.snapshot()
+        session.showFlow(resolvedFlow(dev.codelanes.flow.FlowHop("App\\Writer::write", "App\\Mailer::send", "listens")), "POST /x")
+        assertFalse(session.snapshot().added.contains("\\App\\Mailer::send"))
+        session.restore(before)
+        assertFalse(session.model!!.links.any { it.kind == LinkKind.FLOW })
+        assertFalse(session.blockIds().contains("callee:\\App\\Mailer::send"))
+    }
+
+    fun testReferencesThatAreGoneShowInOneGreyBlock() {
+        val session = flowSession()
+        session.showFlow(resolvedFlow(dev.codelanes.flow.FlowHop("App\\Writer::write", "App\\Nope::x", "listens")), "POST /x")
+        val gone = session.model!!.block("flow:gone")
+        assertEquals(dev.codelanes.model.BlockKind.MORE, gone.kind)
+        assertTrue(gone.title, gone.title.startsWith("not found in the code: ") && gone.title.contains("App\\Nope::x"))
     }
 
     fun testChoosingTheTreeOnTheCanvasSwitchesTheLayout() {

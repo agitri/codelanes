@@ -2,7 +2,7 @@ package dev.codelanes.model
 
 enum class BlockKind { HEADER, INTERFACE, PARENT, TRAIT, DEPENDENCY, CLASS, METHOD, IMPLEMENTER, IMPLEMENTATION, MORE, CALLEE, NOTE }
 
-enum class LinkKind { IMPLEMENTS, EXTENDS, USES, INJECTS, OWNS, CALLS, OVERRIDES, IMPLEMENTED_BY, CALLS_INTO, NOTE }
+enum class LinkKind { IMPLEMENTS, EXTENDS, USES, INJECTS, OWNS, CALLS, OVERRIDES, IMPLEMENTED_BY, CALLS_INTO, NOTE, FLOW }
 
 /** Half-open character range `[start, end)` in a file. */
 data class SourceRange(val start: Int, val end: Int) {
@@ -35,8 +35,19 @@ data class Block(
     }
 }
 
-/** [targetRange]: where in the target block's file this link lands (e.g. the overridden method), if it lands on one spot. */
-data class Link(val kind: LinkKind, val from: String, val to: String, val targetRange: SourceRange? = null)
+/**
+ * [targetRange]: where in the target block's file this link lands (e.g. the overridden method), if it lands on one spot.
+ * [label] and [claimed] are for [LinkKind.FLOW] hops: the hop kind ("dispatches"), and whether only the AI says so
+ * (no call in the code proves it).
+ */
+data class Link(
+    val kind: LinkKind,
+    val from: String,
+    val to: String,
+    val targetRange: SourceRange? = null,
+    val label: String? = null,
+    val claimed: Boolean = false,
+)
 
 data class BlockModel(val blocks: List<Block>, val links: List<Link>) {
     private val byId: Map<String, Block> = blocks.associateBy { it.id }

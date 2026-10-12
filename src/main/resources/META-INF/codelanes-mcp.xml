@@ -1,0 +1,6 @@
+<!-- Loaded only when PhpStorm's MCP server is present (2025.2 and newer). -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <mcpServer.mcpToolset implementation="dev.codelanes.mcp.FlowTools"/>
+    </extensions>
+</idea-plugin>

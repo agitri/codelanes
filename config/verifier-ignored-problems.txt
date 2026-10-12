@@ -1,0 +1,2 @@
+dev.codelanes::.*Package 'com\.intellij\.mcpserver' is not found.*
+dev.codelanes::.*com\.intellij\.mcpserver\.McpToolset\.isEnabled\(\).*

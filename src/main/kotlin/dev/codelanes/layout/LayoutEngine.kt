@@ -38,7 +38,7 @@ object LayoutEngine {
     const val TREE_V_GAP = 96
 
     private val LANE_KINDS = listOf(BlockKind.PARENT, BlockKind.INTERFACE, BlockKind.TRAIT, BlockKind.DEPENDENCY)
-    private val STRUCTURAL = setOf(LinkKind.EXTENDS, LinkKind.IMPLEMENTS, LinkKind.USES, LinkKind.INJECTS, LinkKind.OWNS, LinkKind.IMPLEMENTED_BY, LinkKind.CALLS_INTO)
+    private val STRUCTURAL = setOf(LinkKind.EXTENDS, LinkKind.IMPLEMENTS, LinkKind.USES, LinkKind.INJECTS, LinkKind.OWNS, LinkKind.IMPLEMENTED_BY, LinkKind.CALLS_INTO, LinkKind.FLOW)
 
     fun layout(model: BlockModel, sizeOf: (Block) -> Size, pins: Map<String, Point> = emptyMap(), mode: LayoutMode = LayoutMode.LANES): Layout {
         val rank = ranks(model, flattenChain = mode != LayoutMode.TREE)
@@ -62,7 +62,7 @@ object LayoutEngine {
         val kindOf = model.blocks.associate { it.id to it.kind }
         // A method added from search has no caller: treat it as hanging off the class like the followed chain
         // (one lane after the methods), not as a source on the far left.
-        val chainSteps = setOf(LinkKind.CALLS_INTO, LinkKind.IMPLEMENTED_BY)
+        val chainSteps = setOf(LinkKind.CALLS_INTO, LinkKind.IMPLEMENTED_BY, LinkKind.FLOW)
         val orphanEdges = model.ofKind(BlockKind.CLASS).firstOrNull()?.let { cls ->
             model.ofKind(BlockKind.CALLEE)
                 .filter { callee -> model.links.none { it.to == callee.id && it.kind in chainSteps } }
@@ -152,7 +152,7 @@ object LayoutEngine {
         if (chain.isEmpty()) return
         val inChain = chain.map { it.id }.toSet()
         val steps = model.links.filter {
-            (it.kind == LinkKind.CALLS_INTO || it.kind == LinkKind.IMPLEMENTED_BY) && it.to in inChain
+            (it.kind == LinkKind.CALLS_INTO || it.kind == LinkKind.IMPLEMENTED_BY || it.kind == LinkKind.FLOW) && it.to in inChain
         }
         val position = columns.flatMap { it.withIndex().map { (i, b) -> b.id to i } }.toMap()
         val roots = steps.filter { it.from !in inChain }.sortedBy { position[it.from] ?: Int.MAX_VALUE }.map { it.to }

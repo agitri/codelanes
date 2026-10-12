@@ -12,12 +12,19 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.ui.SimpleListCellRenderer
+import com.intellij.openapi.fileChooser.FileChooser
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
+import dev.codelanes.flow.FlowFiles
+import dev.codelanes.flow.FlowRead
+import dev.codelanes.flow.FlowService
+import dev.codelanes.flow.SavedFlow
 import dev.codelanes.php.EntryPoint
 import dev.codelanes.php.RouteFinder
 
 /**
  * "Follow a Request…": pick a route (e.g. POST /api/orders), open its controller action as a canvas and follow
- * the calls a few levels deep, so the whole chain the request takes is on one canvas.
+ * the calls a few levels deep, so the whole chain the request takes is on one canvas. Flows an AI described
+ * (`*.flow.json`, see [FlowService]) are listed too, and any flow file can be opened.
  */
 class FollowRequestAction : AnAction() {
     override fun getActionUpdateThread() = ActionUpdateThread.BGT
@@ -38,17 +45,62 @@ class FollowRequestAction : AnAction() {
             true,
             project,
         )
-        if (routes.isEmpty()) {
-            Messages.showInfoMessage(project, "No #[Route] attributes found in this project.", TITLE)
-            return
-        }
-        JBPopupFactory.getInstance().createPopupChooserBuilder(routes)
-            .setTitle(TITLE)
+        val flows = FlowFiles.getInstance(project).list()
+        val choices = flows.map { Choice.SavedFlowChoice(it) } + routes.map { Choice.Route(it) } + Choice.OpenFlowFile
+        JBPopupFactory.getInstance().createPopupChooserBuilder(choices)
+            .setTitle(if (flows.isEmpty() && routes.isEmpty()) "$TITLE (no #[Route] attributes or saved flows found)" else TITLE)
             .setRenderer(SimpleListCellRenderer.create("") { it.label })
             .setNamerForFiltering { it.label }
-            .setItemChosenCallback { follow(project, it) }
+            .setItemChosenCallback { choice ->
+                when (choice) {
+                    is Choice.Route -> follow(project, choice.entry)
+                    is Choice.SavedFlowChoice -> open(project, choice.saved)
+                    Choice.OpenFlowFile -> openFlowFile(project)
+                }
+            }
             .createPopup()
             .showCenteredInCurrentWindow(project)
+    }
+
+    private sealed interface Choice {
+        val label: String
+
+        data class Route(val entry: EntryPoint) : Choice {
+            override val label get() = entry.label
+        }
+
+        data class SavedFlowChoice(val saved: SavedFlow) : Choice {
+            override val label get() = "${saved.flow.name}  (flow)"
+        }
+
+        data object OpenFlowFile : Choice {
+            override val label = "Open flow file…"
+        }
+    }
+
+    private fun open(project: Project, saved: SavedFlow) {
+        val resolved = ProgressManager.getInstance().runProcessWithProgressSynchronously<dev.codelanes.flow.ResolvedFlow, RuntimeException>(
+            { ReadAction.nonBlocking<dev.codelanes.flow.ResolvedFlow> { dev.codelanes.flow.FlowResolver.resolve(project, saved.flow) }.inSmartMode(project).executeSynchronously() },
+            "Checking the flow…",
+            true,
+            project,
+        )
+        FlowService.getInstance(project).open(saved, resolved)?.let { Messages.showInfoMessage(project, it, TITLE) }
+    }
+
+    /** A flow a teammate saved somewhere else: open it, and remember its folder for next time. */
+    private fun openFlowFile(project: Project) {
+        val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json").withTitle("Open Flow File")
+        val file = FileChooser.chooseFile(descriptor, project, null) ?: return
+        val files = FlowFiles.getInstance(project)
+        when (val read = files.read(file.path)) {
+            is FlowRead.Ok -> {
+                files.remember(file.parent.path)
+                open(project, SavedFlow(read.flow, file.path))
+            }
+            FlowRead.Broken -> Messages.showInfoMessage(project, "${file.name} isn't a readable flow file.", TITLE)
+            is FlowRead.UnknownVersion -> Messages.showInfoMessage(project, "${file.name} was saved by a newer CodeLanes (format ${read.version}). Update the plugin to open it.", TITLE)
+        }
     }
 
     private fun follow(project: Project, entry: EntryPoint) {

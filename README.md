@@ -93,6 +93,27 @@ Then in PhpStorm: **Settings → Plugins → ⚙ → Install Plugin from Disk…
 - **View → Open PHP Files as Blocks by Default** turns the canvas on or off as the default.
 - Files with several classes, top-level functions or loose code open as text, with a banner saying why.
 
+## Flows from your AI assistant
+
+Follow a Request finds Symfony routes by itself. For frameworks where the request takes paths the code doesn't spell
+out (Laravel's `routes/web.php`, middleware, events and listeners, container bindings), let your AI assistant
+describe the flow. CodeLanes checks every step against the real code and draws only what exists.
+
+1. PhpStorm 2025.2 or newer: enable **Settings → Tools → MCP Server** and connect your assistant (JetBrains AI
+   Assistant/Junie, GitHub Copilot's agent mode, Claude Code, or any MCP client).
+2. Ask it, for example: *"Show the flow of POST /invoices in CodeLanes."*
+3. The assistant reads the code and calls the `codelanes_show_flow` tool. The canvas opens on the controller action
+   with the flow on it:
+   - **Solid lines** are proven by the code: the call is there, or the listener takes the event as its parameter.
+   - **Dotted red lines** are only the AI's claim: both ends exist, but nothing in the code links them directly.
+   - CodeLanes follows the ordinary calls from every step itself.
+   - References that don't exist are never drawn. The assistant is told which ones, so it can fix them.
+4. The first time, CodeLanes asks where to save the flow. Use `.codelanes/flows/` to share it with your team through
+   git, or a git-ignored folder to keep it to yourself. The flow then shows up in **Follow a Request…**, no AI needed,
+   and is checked against the code again every time it opens.
+
+The AI never writes or explains code here; it only points at methods that exist.
+
 ## Status
 
 Early, but usable for reading and editing PHP classes. Next up: languages other than PHP (Java/Kotlin and

@@ -253,6 +253,22 @@ class LayoutEngineTest {
     }
 
     @Test
+    fun aFlowHopContinuesTheChainLane() {
+        val callee = BlockKind.CALLEE
+        val model = BlockModel(
+            listOf(block("class:C", CLASS), block("method:store", METHOD), block("callee:place", callee), block("callee:listener", callee)),
+            listOf(
+                Link(OWNS, "class:C", "method:store"),
+                Link(dev.codelanes.model.LinkKind.CALLS_INTO, "method:store", "callee:place"),
+                Link(dev.codelanes.model.LinkKind.FLOW, "callee:place", "callee:listener", label = "dispatches"),
+            ),
+        )
+        val r = LayoutEngine.layout(model, sizeOf).rects
+        assertEquals(r.getValue("callee:place").x, r.getValue("callee:listener").x)
+        assertTrue(r.getValue("callee:listener").y > r.getValue("callee:place").y)
+    }
+
+    @Test
     fun aFollowedChainReadsTopToBottomInOneLane() {
         val callee = BlockKind.CALLEE
         val into = dev.codelanes.model.LinkKind.CALLS_INTO

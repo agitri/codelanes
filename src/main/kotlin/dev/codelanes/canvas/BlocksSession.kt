@@ -86,6 +86,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     private val reviews = ReviewFile.getInstance(project)
     private val followedCalls = mutableSetOf<String>()
     private val added = mutableSetOf<String>()
+    private var flow: FlowOverlay? = null
+    private val flowAdded = mutableSetOf<String>()
 
     init {
         canvas.targetLineY = ::targetLineY
@@ -141,7 +143,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val reveal = revealed.toSet()
         val follow = followedCalls.toSet()
         val extra = added.toSet()
-        ReadAction.nonBlocking<CanvasUpdate?> { computeUpdate(previous, reveal, follow, extra) }
+        val overlay = flow
+        ReadAction.nonBlocking<CanvasUpdate?> { computeUpdate(previous, reveal, follow, extra, overlay) }
             .withDocumentsCommitted(project)
             .inSmartMode(project)
             .expireWith(this)
@@ -167,12 +170,19 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             scheduleRebuild()
             return
         }
-        ApplicationManager.getApplication().runReadAction<CanvasUpdate?> { computeUpdate(model, revealed.toSet(), followedCalls.toSet(), added.toSet()) }?.let(::applyUpdate)
+        ApplicationManager.getApplication().runReadAction<CanvasUpdate?> { computeUpdate(model, revealed.toSet(), followedCalls.toSet(), added.toSet(), flow) }?.let(::applyUpdate)
     }
 
-    private fun computeUpdate(previous: BlockModel?, reveal: Set<String>, follow: Set<String>, extra: Set<String>): CanvasUpdate? {
+    private fun computeUpdate(previous: BlockModel?, reveal: Set<String>, follow: Set<String>, extra: Set<String>, overlay: FlowOverlay?): CanvasUpdate? {
         val psi = PsiManager.getInstance(project).findFile(file) ?: return null
-        return RebuildPolicy.next(previous, PhpBlockBuilder.build(psi, reveal, follow, extra), PsiTreeUtil.hasErrorElements(psi))
+        val built = PhpBlockBuilder.build(psi, reveal, follow, extra).let { result ->
+            if (overlay != null && result is dev.codelanes.model.BuildResult.Supported) {
+                dev.codelanes.model.BuildResult.Supported(overlay.applyTo(result.model, file.path))
+            } else {
+                result
+            }
+        }
+        return RebuildPolicy.next(previous, built, PsiTreeUtil.hasErrorElements(psi))
     }
 
     private fun applyUpdate(update: CanvasUpdate) {
@@ -654,11 +664,15 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     )
 
     /** This canvas's state, for a working set. */
-    fun snapshot(): CanvasState =
-        CanvasState(file.path, followedCalls.sorted(), revealed.sorted(), collapsed.toSortedMap(), canvas.zoom, added.sorted())
+    /** A flow isn't part of a working set (flows have files of their own): its chain and blocks are left out. */
+    fun snapshot(): CanvasState {
+        val followed = if (flow != null) emptyList() else followedCalls.sorted()
+        return CanvasState(file.path, followed, revealed.sorted(), collapsed.toSortedMap(), canvas.zoom, (added - flowAdded).sorted())
+    }
 
     /** Opens this canvas up the way [state] describes (followed calls, revealed parents, collapsed blocks, zoom). */
     fun restore(state: CanvasState) = withModelAccess {
+        clearFlow()
         followedCalls.clear()
         followedCalls += state.followedCalls
         revealed.clear()
@@ -678,10 +692,35 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
      * methods), then focuses [from]. Replaces whatever was followed before. Used for "Follow a Request…".
      */
     fun followChain(from: String, depth: Int) = withModelAccess {
+        clearFlow()
+        followFrom(setOf(from), depth, from, "request")
+    }
+
+    /**
+     * Shows a flow an AI described ([dev.codelanes.flow.FlowResolver]): its entry and hops as labelled lines, and the
+     * ordinary calls from every hop target followed like a request. Replaces whatever was followed before.
+     */
+    fun showFlow(resolved: dev.codelanes.flow.ResolvedFlow, title: String) = withModelAccess {
+        val entryId = resolved.entryId ?: return@withModelAccess
+        clearFlow()
+        flow = FlowOverlay(title, entryId, resolved.hops, resolved.unknown)
+        flowAdded += resolved.added - added
+        added += resolved.added
+        val seeds = setOf(entryId) + resolved.hops.map { it.toId }.filter { it.startsWith("method:") || it.startsWith("callee:") }
+        followFrom(seeds, dev.codelanes.ide.FollowRequestAction.DEPTH, entryId, "flow")
+    }
+
+    private fun clearFlow() {
+        flow = null
+        added -= flowAdded
+        flowAdded.clear()
+    }
+
+    private fun followFrom(seeds: Set<String>, depth: Int, focus: String, what: String) {
         // A new request replaces the previous chain on this canvas.
         followedCalls.clear()
-        followedCalls += from
-        var frontier = setOf(from)
+        followedCalls += seeds
+        var frontier = seeds
         for (level in 1 until depth) {
             focusMovedTo(null)
             rebuildNow()
@@ -695,14 +734,14 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         }
         focusMovedTo(null)
         rebuildNow()
-        tracked[from]?.current()?.let { (range, _) -> reveal(range.start) }
+        tracked[focus]?.current()?.let { (range, _) -> reveal(range.start) }
         val reason = when {
             DumbService.isDumb(project) -> "wait until indexing has finished"
             canvas.notice == RebuildPolicy.SYNTAX_NOTICE -> "fix the syntax errors in this file first"
             canvas.notice?.startsWith("Blocks paused: ") == true -> canvas.notice!!.removePrefix("Blocks paused: ")
             else -> null
         }
-        if (reason != null) canvas.notice = "Couldn't follow the request: $reason"
+        if (reason != null) canvas.notice = "Couldn't follow the $what: $reason"
     }
 
     /** Re-places the blocks, e.g. after the vertical-layout switch changed. */
