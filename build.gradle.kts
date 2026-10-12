@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -33,6 +34,52 @@ intellijPlatform {
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "251"
+            untilBuild = provider { null } // no upper bound: new PhpStorm versions shouldn't lock the plugin out
+        }
+        changeNotes = provider { file("CHANGELOG.md").readText().substringAfter("## 0.1.0").substringBefore("\n## ").let(::markdownToHtml) }
+    }
+
+    // Signing and publishing read secrets from the environment only, never from files in this repository.
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+    }
+
+    // `./gradlew verifyPlugin` checks API compatibility with the oldest and newest supported PhpStorm.
+    pluginVerification {
+        ides {
+            create(IntelliJPlatformType.PhpStorm, "2025.1")
+            create(IntelliJPlatformType.PhpStorm, "2026.1")
         }
     }
+}
+
+/** Minimal Markdown → HTML for the Marketplace change notes (bullets and paragraphs). */
+fun markdownToHtml(markdown: String): String {
+    val html = StringBuilder()
+    var inList = false
+    // Indented lines continue the bullet or paragraph above them.
+    val lines = markdown.trim().lines().fold(mutableListOf<String>()) { acc, raw ->
+        if (raw.startsWith(" ") && acc.isNotEmpty() && acc.last().isNotBlank()) acc[acc.size - 1] = acc.last() + " " + raw.trim() else acc += raw
+        acc
+    }
+    for (raw in lines) {
+        val line = raw.trim()
+        val text = line.removePrefix("- ").replace(Regex("\\*\\*(.+?)\\*\\*"), "<b>$1</b>").replace(Regex("`(.+?)`"), "<code>$1</code>")
+        when {
+            line.startsWith("- ") -> {
+                if (!inList) html.append("<ul>")
+                inList = true
+                html.append("<li>").append(text).append("</li>")
+            }
+            line.isBlank() -> if (inList) { html.append("</ul>"); inList = false }
+            else -> html.append("<p>").append(text).append("</p>")
+        }
+    }
+    if (inList) html.append("</ul>")
+    return html.toString()
 }

@@ -33,8 +33,8 @@ summaries, everything comes from the real code.
   implement, use or extend it, plus the methods they implement.
 - **Follow the code.** Cmd/Ctrl+click jumps to the right block instead of leaving the canvas. With the caret on
   a symbol, the block that defines it gets an orange border and every block using it a yellow one.
-- **Follow a request.** **View → Follow a Request…** lists the routes in your project (`#[Route]` attributes,
-  e.g. `POST /api/orders → OrderController::create`). Pick one and the whole chain it runs (controller, services,
+- **Follow a request.** **View → Follow a Request…** lists the routes in your project (`#[Route]` attributes and
+  `config/routes` YAML/XML files, e.g. `POST /api/orders → OrderController::create`). Pick one and the whole chain it runs (controller, services,
   repositories, through interfaces into their implementations) lands on one canvas.
 - **Search and add.** **Add method…** (canvas toolbar) finds any method in your project and drops it on the
   canvas as an editable block, ready to follow with `+ calls`; right-click → **Remove from canvas** takes it off.
@@ -64,7 +64,7 @@ summaries, everything comes from the real code.
 
 ## Install
 
-CodeLanes isn't on the JetBrains Marketplace yet, so for now you build it from source.
+CodeLanes is on its way to the JetBrains Marketplace (**Settings → Plugins → Marketplace**, search "CodeLanes"). Until it's listed, build it from source.
 
 Requirements: **PhpStorm 2025.1 or newer** and a **JDK 21+** to build (Gradle downloads the right toolchain).
 

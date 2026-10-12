@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+  <!-- three lanes: what the class builds on, the class, its methods -->
+  <rect x="2" y="6" width="9" height="7" rx="2" fill="#1565C0"/>
+  <rect x="2" y="17" width="9" height="7" rx="2" fill="#2E7D32"/>
+  <rect x="15" y="10" width="11" height="20" rx="2.5" fill="#455A64"/>
+  <rect x="30" y="6" width="8" height="6" rx="2" fill="#00838F"/>
+  <rect x="30" y="16" width="8" height="6" rx="2" fill="#00838F"/>
+  <rect x="30" y="26" width="8" height="6" rx="2" fill="#00838F"/>
+  <path d="M11 9.5 H13.5 V15 H15 M11 20.5 H15 M26 20 H28 V9 H30 M28 20 V19 H30 M28 20 V29 H30" fill="none" stroke="#757575" stroke-width="1.2"/>
+</svg>

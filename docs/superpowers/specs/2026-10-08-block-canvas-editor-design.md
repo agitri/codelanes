@@ -155,7 +155,8 @@ to the project, in `.codelanes/working-sets.json`, so a set can be shared (e.g. 
 ### Following a request from its entry point
 
 **View → Follow a Request…** finds every controller action with a `#[Route]` attribute (Symfony style, with a
-class-level prefix) and lists them as `VERBS /path → Controller::action`, filterable by typing. Picking one opens the
+class-level prefix, invokable controllers) or a route in `config/routes.yaml` / `config/routes/` YAML or XML files
+(imports' prefixes are not applied) and lists them as `VERBS /path → Controller::action`, filterable by typing. Picking one opens the
 controller as a canvas and follows its calls automatically 3 levels deep (`+ calls` on every new callee), then
 focuses the action. The whole followed chain sits in **one lane** right of the methods, in depth-first call order
 (each call followed by what it calls), read top to bottom and never wrapped, so following a request means scrolling

@@ -9,7 +9,9 @@ import com.intellij.openapi.editor.actionSystem.EditorActionHandler
 abstract class SliceDeletionGuard(private val original: EditorActionHandler, private val backward: Boolean) : EditorActionHandler() {
     override fun doExecute(editor: Editor, caret: Caret?, dataContext: DataContext?) {
         val slice = editor.getUserData(SliceEditor.KEY)
-        if (slice != null && !slice.allowsDeletion(caret ?: editor.caretModel.currentCaret, backward)) return
+        // Without a specific caret the action runs at every caret: all of them must be safe.
+        val carets = if (caret != null) listOf(caret) else editor.caretModel.allCarets
+        if (slice != null && carets.any { !slice.allowsDeletion(it, backward) }) return
         original.execute(editor, caret, dataContext)
     }
 

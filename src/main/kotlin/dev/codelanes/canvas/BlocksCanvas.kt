@@ -5,6 +5,7 @@ import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBFont
 import dev.codelanes.layout.ArrowGeometry
 import dev.codelanes.layout.LabelPlacement
+import dev.codelanes.layout.LineJumps
 import dev.codelanes.layout.LinkRoutes
 import dev.codelanes.layout.Point
 import dev.codelanes.layout.Rect
@@ -15,6 +16,7 @@ import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.Rectangle
 import java.awt.RenderingHints
+import java.awt.geom.Path2D
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.event.MouseWheelEvent
@@ -55,7 +57,7 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         }
 
     /** Bottom-left toolbar: layout switch, Follow a Request…, Working sets ▾, Tidy up. */
-    internal val toolbar = JPanel(java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)).apply { isOpaque = false }
+    internal val toolbar = JPanel(com.intellij.util.ui.WrapLayout(java.awt.FlowLayout.LEFT, 6, 4)).apply { isOpaque = false }
     private val modeButtons = linkedMapOf(
         dev.codelanes.layout.LayoutMode.LANES to javax.swing.JToggleButton("Lanes"),
         dev.codelanes.layout.LayoutMode.COLUMN to javax.swing.JToggleButton("Column"),
@@ -218,9 +220,12 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     }
 
     override fun doLayout() {
-        val size = toolbar.preferredSize
         // Bottom-left, right above the editor's Blocks | Text tabs; the legend sits above it.
-        toolbar.setBounds(12, height - size.height - 8, size.width, size.height)
+        // On a narrow canvas the toolbar wraps onto more rows instead of being cut off.
+        val width = minOf(toolbar.preferredSize.width, maxOf(120, this.width - 24))
+        toolbar.setSize(width, 0)
+        val rowsHeight = toolbar.preferredSize.height
+        toolbar.setBounds(12, height - rowsHeight - 8, width, rowsHeight)
     }
 
     private fun placeViews() {
@@ -245,11 +250,13 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
             val allRoutes = routes(visibleLinks())
+            val hopRadius = (HOP_RADIUS * zoom).roundToInt().coerceAtLeast(2)
             for ((link, route) in allRoutes) {
                 val drawn = drawnRoute(link, route)
                 g2.color = colorFor(link)
                 g2.stroke = strokeFor(link.kind)
-                g2.drawPolyline(drawn.map { it.x }.toIntArray(), drawn.map { it.y }.toIntArray(), drawn.size)
+                val hops = LineJumps.jumps(drawn, allRoutes.filterKeys { it != link }.values.toList(), hopRadius)
+                g2.draw(pathWithHops(drawn, hops, hopRadius))
                 arrowHead(g2, drawn[drawn.size - 2], drawn.last())
                 labelFor(link)?.let { text ->
                     val others = allRoutes.filterKeys { it != link }.values.flatMap { it.zipWithNext() }
@@ -288,6 +295,27 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             cachedKey = key
         }
         return cachedRoutes.mapValues { (_, route) -> route.map { Point(it.x + pan.x, it.y + pan.y) } }
+    }
+
+    /** The line through [points], hopping over each crossing in [hops] with a small arc: ----╭╮----> */
+    private fun pathWithHops(points: List<Point>, hops: List<Point>, radius: Int): Path2D {
+        val path = Path2D.Double()
+        path.moveTo(points[0].x.toDouble(), points[0].y.toDouble())
+        var next = 0
+        for ((a, b) in points.zipWithNext()) {
+            val dir = Integer.signum(b.x - a.x)
+            while (a.y == b.y && dir != 0 && next < hops.size && hops[next].y == a.y &&
+                (hops[next].x - a.x) * dir > 0 && (b.x - hops[next].x) * dir > 0
+            ) {
+                val x = hops[next].x.toDouble()
+                val y = a.y.toDouble()
+                path.lineTo(x - dir * radius, y)
+                path.quadTo(x, y - 2.0 * radius, x + dir * radius, y)
+                next++
+            }
+            path.lineTo(b.x.toDouble(), b.y.toDouble())
+        }
+        return path
     }
 
     private fun arrowHead(g2: Graphics2D, from: Point, to: Point) {
@@ -353,8 +381,8 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     private fun paintLineLabel(g2: Graphics2D, text: String, route: List<Point>, atStart: Boolean, others: List<Pair<Point, Point>>) {
         // Labels sit above a horizontal stretch: the one nearest the chosen end (tree routes start vertically).
         val ordered = if (atStart) route else route.reversed()
+        g2.font = JBFont.small().deriveFont((JBFont.small().size2D * zoom).toFloat())
         val (a, b) = ordered.zipWithNext().firstOrNull { (p, q) -> p.y == q.y && p.x != q.x } ?: (ordered[0] to ordered[1])
-        g2.font = JBFont.small()
         val metrics = g2.fontMetrics
         val width = metrics.stringWidth(text)
         val free = LabelPlacement.place(a, b, width, metrics.ascent, others)
@@ -428,6 +456,9 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
 
     companion object {
         const val SLOT_STEP = 12
+
+        /** Half the width of the little arc a line makes where it hops over another line. */
+        const val HOP_RADIUS = 4
 
         /** Calls and overrides only show for the focused block; otherwise the canvas drowns in lines. */
         private val FOCUS_ONLY = setOf(LinkKind.CALLS, LinkKind.OVERRIDES)

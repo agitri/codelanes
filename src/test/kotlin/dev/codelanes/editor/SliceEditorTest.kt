@@ -175,4 +175,36 @@ class SliceEditorTest : BasePlatformTestCase() {
             lookup?.hideLookup(true)
         }
     }
+
+    fun testDownOnTheLastVisibleLineOfTheHeaderIsAnEdge() {
+        myFixture.configureByText("H.php", "<?php\nnamespace App;\n\nclass H\n{\n}\n")
+        val model = (PhpBlockBuilder.build(myFixture.file) as BuildResult.Supported).model
+        val slice = SliceEditor(project, myFixture.file.virtualFile, myFixture.editor.document)
+        Disposer.register(testRootDisposable, slice)
+        val header = model.block("header")
+        slice.show(header.range, header.excluded)
+        // the header's last visible line is the blank line right above "class H"
+        slice.editor.caretModel.moveToOffset(myFixture.editor.document.text.indexOf("class H") - 1)
+        assertTrue(slice.atEdge(up = false))
+        slice.editor.caretModel.moveToOffset(myFixture.editor.document.text.indexOf("namespace"))
+        assertFalse(slice.atEdge(up = false))
+    }
+
+    fun testEveryCaretIsCheckedBeforeDeleting() {
+        val (slice, model) = open()
+        val cls = model.block("class:\\Foo")
+        slice.show(cls.range, cls.excluded)
+        val hole = slice.editor.foldingModel.allFoldRegions.single { it.startOffset > cls.range.start && it.endOffset < cls.range.end }
+        val before = slice.editor.document.text
+        // one harmless caret, one at the end of the hole where Backspace would eat hidden text
+        slice.editor.caretModel.moveToOffset(slice.editor.document.text.indexOf("private string") + 3)
+        slice.editor.caretModel.addCaret(slice.editor.offsetToVisualPosition(hole.endOffset), false)
+        // like the IDE does with several carets: no specific caret, the action runs at all of them
+        WriteCommandAction.runWriteCommandAction(project) {
+            com.intellij.openapi.editor.actionSystem.EditorActionManager.getInstance()
+                .getActionHandler(com.intellij.openapi.actionSystem.IdeActions.ACTION_EDITOR_BACKSPACE)
+                .execute(slice.editor, null, com.intellij.openapi.actionSystem.DataContext.EMPTY_CONTEXT)
+        }
+        assertEquals(before, slice.editor.document.text)
+    }
 }

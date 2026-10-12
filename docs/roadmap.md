@@ -25,35 +25,27 @@
 
 ## Next
 
-1. **Routes from YAML/XML** (Symfony), not only `#[Route]` attributes.
+1. **Routes from YAML/XML** (built on `feat/route-files`, needs an IDE check): `config/routes` files in Follow a Request.
 
-## Later
+## Later (in order)
 
-- **Record the real road a request took** (long haul): read an Xdebug trace of one real request and show exactly
-  the methods that ran, in order (also events and handlers that static analysis can't see).
-- **AI picks the relevant chain** (optional): describe a flow in words; AI chooses blocks *only from the real
-  call graph*, never invents or explains code.
-
-- **Fresh screenshots** for the README (current ones are from early builds).
-- **More languages**: Java/Kotlin, then TypeScript/JavaScript (a new `BlockBuilder` per language; layout and canvas stay).
-- **JetBrains Marketplace** release (plugin icon, change notes, signing, `publishPlugin`).
-- **VS Code** (later; the slice-editor technique needs a VS Code equivalent).
-- Keyboard: Tab-based block switching (Tab is indentation today, so it needs a different shortcut).
+1. **Polish from the reviews** (done for 0.1.0; leftovers below).
+2. **JetBrains Marketplace release 0.1.0**: icon, description, change notes, signing and publishing config are ready and `verifyPlugin` passes on PhpStorm 2025.1 and 2026.1. Left: create the signing key and token, then `./gradlew publishPlugin`.
+3. **Fresh screenshots** for the README and the Marketplace page.
+4. **Java/Kotlin**: a new `BlockBuilder` per language; layout, canvas, reviews and notes stay. The biggest group of
+   JetBrains users.
+5. **TypeScript/JavaScript**.
+6. **Record the real road a request took** (long haul): read an Xdebug trace of one real request and show exactly
+   the methods that ran, in order (also events and handlers that static analysis can't see).
+7. **AI picks the relevant chain** (optional): describe a flow in words; AI chooses blocks *only from the real
+   call graph*, never invents or explains code.
+8. **VS Code**: needs its own equivalent of the slice editors.
+9. Keyboard: Tab-based block switching (Tab is indentation today, so it needs a different shortcut).
 
 ## Known small issues (from code review, deferred)
 
-- Synchronous rebuilds after `+ method` / `+ parents` / delete run the full build on the UI thread; may hitch
-  on very large projects or widely implemented interfaces.
-- Down never leaves an expanded header block (its range ends at the start of the class line).
-- With multiple carets, the Backspace/Delete guard only checks the primary caret.
-- "Rename" carry-over treats any one-removed/one-added method pair as a rename (also after a git checkout).
-- Highlights are scheduled for programmatic caret moves too and aren't cleared when focus leaves the canvas.
-- `+ method` uses a 4-space indent instead of the project's code style.
-- The same method can carry separate reviews as `method:`, `callee:` or `implementation:` block (one per place it
-  appears); a review should follow the method itself.
-- `+ calls` silently drops callees beyond 10 (no "and N more" block yet).
-- Line labels don't scale with zoom, so at low zoom most of them get a background patch.
-- Follow a Request still does a few synchronous rebuilds on the UI thread (bounded by the 80-block cap); one
-  background pass would be smoother.
-- When a chain can't be followed (syntax errors, indexing) there is only the generic notice, no specific message.
-- Tree layout: routing many lines (hundreds of blocks) makes zooming stutter; the toolbar clips on very narrow canvases.
+- Synchronous rebuilds after `+ method` / `+ parents` / delete / Follow a Request run on the UI thread; bounded
+  (80-block cap) but can hitch on very large projects or widely implemented interfaces.
+- Tree layout: routing many lines (hundreds of blocks) makes zooming stutter.
+- A class reviewed in its own canvas and as a parent/interface block elsewhere still has separate reviews
+  (methods already share one review wherever they appear).

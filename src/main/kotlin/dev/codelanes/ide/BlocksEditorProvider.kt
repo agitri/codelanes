@@ -1,6 +1,6 @@
 package dev.codelanes.ide
 
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorPolicy
 import com.intellij.openapi.fileEditor.FileEditorProvider
@@ -17,8 +17,8 @@ import dev.codelanes.settings.BlocksSettings
 class BlocksEditorProvider : FileEditorProvider, DumbAware {
     override fun accept(project: Project, file: VirtualFile): Boolean {
         if (!FileTypeRegistry.getInstance().isFileOfType(file, PhpFileType.INSTANCE)) return false
-        return ReadAction.compute<Boolean, RuntimeException> {
-            val psi = PsiManager.getInstance(project).findFile(file) ?: return@compute false
+        return ApplicationManager.getApplication().runReadAction<Boolean> {
+            val psi = PsiManager.getInstance(project).findFile(file) ?: return@runReadAction false
             PhpBlockBuilder.unsupportedReason(psi) == null
         }
     }

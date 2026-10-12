@@ -274,4 +274,11 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         assertTrue(view.noteLabelText().contains("&lt;img"))
         assertTrue(view.noteLabelText().contains("<br>second line"))
     }
+
+    fun testOnANarrowCanvasTheToolbarWrapsInsteadOfBeingCutOff() {
+        val wide = BlocksCanvas(NoListener).apply { setSize(2000, 800); doLayout() }
+        val narrow = BlocksCanvas(NoListener).apply { setSize(320, 800); doLayout() }
+        assertTrue(narrow.toolbar.width <= 320 - 24)
+        assertTrue(narrow.toolbar.height > wide.toolbar.height)
+    }
 }

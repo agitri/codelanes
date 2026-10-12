@@ -1,6 +1,6 @@
 package dev.codelanes.ide
 
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.fileTypes.FileTypeRegistry
@@ -20,7 +20,7 @@ class BlocksUnavailableNotification : EditorNotificationProvider, DumbAware {
     override fun collectNotificationData(project: Project, file: VirtualFile): Function<in FileEditor, out JComponent?>? {
         if (!BlocksSettings.instance.state.openAsBlocksByDefault) return null
         if (!FileTypeRegistry.getInstance().isFileOfType(file, PhpFileType.INSTANCE)) return null
-        val reason = ReadAction.compute<String?, RuntimeException> {
+        val reason = ApplicationManager.getApplication().runReadAction<String?> {
             PsiManager.getInstance(project).findFile(file)?.let(PhpBlockBuilder::unsupportedReason)
         } ?: return null
         return Function { editor ->

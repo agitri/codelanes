@@ -556,4 +556,70 @@ class BlocksSessionTest : BasePlatformTestCase() {
         assertTrue(second.blockIds().contains("note:$id"))
         first.deleteNote(id)
     }
+
+    private val repoSource = "<?php\nnamespace App;\n\nclass Repo\n{\n    public function find(): string\n    {\n        return 'x';\n    }\n}\n"
+
+    fun testAReviewFollowsTheMethodWhereverItAppears() {
+        val repo = myFixture.addFileToProject("Repo.php", repoSource)
+        val psi = myFixture.configureByText("Foo.php", source.replace("return ${'$'}s;", "return (new Repo())->find();"))
+        val canvas = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        canvas.toggleCalls("method:footest")
+        canvas.markBlock("callee:\\App\\Repo::find", dev.codelanes.review.ReviewMark.UNDERSTOOD)
+        val repoCanvas = BlocksSession(project, repo.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        assertEquals("✓", repoCanvas.view("method:find")!!.reviewBadge())
+        repoCanvas.markBlock("method:find", null)
+    }
+
+    fun testFollowingARequestThatCantBeFollowedSaysWhy() {
+        val psi = myFixture.configureByText("Broken.php", "<?php\nnamespace App;\n\nclass Broken\n{\n    public function go(): void\n    {\n    }\n}\n")
+        val session = BlocksSession(project, psi.virtualFile).also { Disposer.register(testRootDisposable, it) }
+        WriteCommandAction.runWriteCommandAction(project) {
+            val doc = myFixture.editor.document
+            doc.insertString(doc.text.lastIndexOf("}"), "    public function (\n")
+        }
+        session.followChain("method:go", depth = 3)
+        assertTrue(session.canvas.notice.orEmpty(), session.canvas.notice.orEmpty().startsWith("Couldn't follow the request"))
+    }
+
+    fun testLeavingTheBlocksClearsTheHighlights() {
+        val session = open()
+        val text = myFixture.editor.document.text
+        session.highlightUsagesAt("method:bar", text.indexOf("footest(${'$'}this"))
+        assertFalse(session.canvas.highlights.isEmpty())
+        session.focusMovedTo("method:bar")
+        session.focusMovedTo(null)
+        assertTrue(session.canvas.highlights.isEmpty())
+    }
+
+    fun testReplacingAMethodElsewhereIsNotARename() {
+        val session = open()
+        session.blockMoved("method:bar", Point(900, 900))
+        val barEditor = session.sliceEditor("method:bar")
+        // bar is removed and an unrelated method appears at the end of the class (e.g. after a git checkout)
+        WriteCommandAction.runWriteCommandAction(project) {
+            val doc = myFixture.editor.document
+            val start = doc.text.indexOf("    public function bar")
+            val end = doc.text.indexOf("    public function footest")
+            doc.deleteString(start, end)
+            doc.insertString(doc.text.lastIndexOf("}"), "\n    public function unrelated(): void {}\n")
+        }
+        session.rebuildNow()
+        assertNotSame(barEditor, session.sliceEditor("method:unrelated"))
+        assertFalse(PinStore.getInstance(project).pins(myFixture.file.virtualFile.path).containsKey("method:unrelated"))
+    }
+
+    fun testPlusMethodFollowsTheCodeStyleIndent() {
+        val settings = com.intellij.application.options.CodeStyle.getSettings(project)
+        val indent = settings.getIndentOptions(com.jetbrains.php.lang.PhpFileType.INSTANCE)
+        val (tab, size) = indent.USE_TAB_CHARACTER to indent.INDENT_SIZE
+        try {
+            indent.USE_TAB_CHARACTER = true
+            val session = open()
+            session.addMethod()
+            assertTrue(myFixture.editor.document.text.contains("\tpublic function newMethod(): void\n\t{\n\t}\n}"))
+        } finally {
+            indent.USE_TAB_CHARACTER = tab
+            indent.INDENT_SIZE = size
+        }
+    }
 }

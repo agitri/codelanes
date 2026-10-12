@@ -1,10 +1,25 @@
 <idea-plugin>
     <id>dev.codelanes</id>
     <name>CodeLanes</name>
-    <vendor>Rene Gerrits</vendor>
+    <vendor url="https://github.com/agitri/codelanes">Rene Gerrits</vendor>
     <description><![CDATA[
-        Shows code as editable blocks on a 2D canvas instead of a vertical
-        line-by-line editor, so humans really read and understand the code.
+        <p><b>Read code like a human.</b> CodeLanes replaces the vertical, line-by-line editor for PHP classes with a
+        canvas of real, editable code blocks laid out in lanes: what a class builds on on the left, the class in the
+        middle, its methods on the right, connected by colour-coded, labelled lines.</p>
+        <p>Made for really understanding code, especially code an AI wrote: no AI, no summaries, just the real code
+        with its structure on screen.</p>
+        <ul>
+          <li><b>The canvas is the editor</b>: every block is a real PhpStorm editor (completion, inspections,
+              refactorings, undo). The file on disk stays plain PHP.</li>
+          <li><b>Follow a Request</b>: pick a route (<code>#[Route]</code> or <code>config/routes</code> YAML/XML)
+              and see the whole chain of code it runs, through interfaces into their implementations.</li>
+          <li><b>+ calls</b>, <b>Add method…</b> and <b>+ parents</b>: follow the flow across files.</li>
+          <li><b>Review marks and notes</b> shared with your team in <code>.codelanes/</code>, and
+              <b>working sets</b> to save and reopen the canvases of a review.</li>
+          <li>Lanes, Column and Tree layouts; usage highlighting; Cmd+click stays on the canvas.</li>
+        </ul>
+        <p>Toggle between blocks and text with <b>Ctrl+Alt+Shift+B</b>. Source and issues:
+        <a href="https://github.com/agitri/codelanes">github.com/agitri/codelanes</a>.</p>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
