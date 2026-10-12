@@ -517,6 +517,13 @@ class BlocksSessionTest : BasePlatformTestCase() {
         dev.codelanes.flow.Flow("POST /x", dev.codelanes.flow.FlowEntry("POST /x", "App\\Controller::create"), hops.toList()),
     )
 
+    fun testTheFlowEntryHasNoFoldArrowAndAClassBlockNoCallsToggle() {
+        val session = flowSession()
+        session.showFlow(resolvedFlow(dev.codelanes.flow.FlowHop("App\\Controller::create", "App\\Mailer::class", "dispatches")), "POST /x")
+        assertEquals("POST /x", session.view("flow:entry")!!.titleText())
+        assertEquals(emptyList<String>(), session.view("callee:\\App\\Mailer::class")!!.actionTexts())
+    }
+
     fun testAFlowShowsTheEntryAndItsHopsOnTheCanvas() {
         val session = flowSession()
         session.showFlow(resolvedFlow(

@@ -6,6 +6,7 @@ import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
 import dev.codelanes.layout.Size
 import dev.codelanes.model.Block
+import dev.codelanes.model.BlockKind
 import java.awt.BorderLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -121,6 +122,7 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
     internal fun noteText(): String = rawNote
     internal fun noteLabelText(): String = note.text
 
+    internal fun titleText(): String = title.text
     internal fun actionTexts(): List<String> = actions.map { it.first }
     internal fun menuTexts(): List<String> = menu.map { it.first }
 
@@ -142,7 +144,12 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
     }
 
     fun update(block: Block, collapsed: Boolean, body: JComponent, zoom: Double) {
-        title.text = (if (collapsed) "▸ " else "▾ ") + block.title
+        // A MORE block never opens into code, so it has nothing to fold.
+        title.text = when {
+            block.kind == BlockKind.MORE -> block.title
+            collapsed -> "▸ " + block.title
+            else -> "▾ " + block.title
+        }
         title.font = JBFont.label().asBold().deriveFont((JBFont.label().size2D * zoom).toFloat())
         badge.font = title.font
         note.font = JBFont.label().asItalic().deriveFont((JBFont.label().size2D * zoom).toFloat())
