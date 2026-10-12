@@ -3,6 +3,7 @@ import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.4.21"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.4.21"
     id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
@@ -24,6 +25,7 @@ dependencies {
     intellijPlatform {
         phpstorm("2026.1")
         bundledPlugin("com.jetbrains.php")
+        bundledPlugin("com.intellij.mcpServer") // optional at runtime, see codelanes-mcp.xml
         testFramework(TestFrameworkType.Platform)
     }
     testImplementation("junit:junit:4.13.2")
