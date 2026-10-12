@@ -9,7 +9,7 @@ First public release: read and edit PHP classes as a canvas of real code blocks.
 - **Lanes**: what a class builds on (parents, interfaces, traits, injected dependencies) on the left, the class in
   the middle, its methods on the right; methods that call each other sit together. Column and Tree layouts too.
 - **Colour-coded, labelled lines** for extends, implements, uses, injected, calls / called by and overrides, routed
-  around blocks.
+  around blocks; where two lines cross, one hops over the other.
 - **Follow a Request**: pick a route (`#[Route]` attributes or `config/routes` YAML/XML) and see the whole chain of
   code it runs, through interfaces into their implementations.
 - **+ calls**, **Add method…** and **+ parents** to follow the flow across files and dig deeper.

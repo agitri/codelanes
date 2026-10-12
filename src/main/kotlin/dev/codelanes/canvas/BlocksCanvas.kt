@@ -5,6 +5,7 @@ import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBFont
 import dev.codelanes.layout.ArrowGeometry
 import dev.codelanes.layout.LabelPlacement
+import dev.codelanes.layout.LineJumps
 import dev.codelanes.layout.LinkRoutes
 import dev.codelanes.layout.Point
 import dev.codelanes.layout.Rect
@@ -15,6 +16,7 @@ import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.Rectangle
 import java.awt.RenderingHints
+import java.awt.geom.Path2D
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.event.MouseWheelEvent
@@ -248,11 +250,13 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
             val allRoutes = routes(visibleLinks())
+            val hopRadius = (HOP_RADIUS * zoom).roundToInt().coerceAtLeast(2)
             for ((link, route) in allRoutes) {
                 val drawn = drawnRoute(link, route)
                 g2.color = colorFor(link)
                 g2.stroke = strokeFor(link.kind)
-                g2.drawPolyline(drawn.map { it.x }.toIntArray(), drawn.map { it.y }.toIntArray(), drawn.size)
+                val hops = LineJumps.jumps(drawn, allRoutes.filterKeys { it != link }.values.toList(), hopRadius)
+                g2.draw(pathWithHops(drawn, hops, hopRadius))
                 arrowHead(g2, drawn[drawn.size - 2], drawn.last())
                 labelFor(link)?.let { text ->
                     val others = allRoutes.filterKeys { it != link }.values.flatMap { it.zipWithNext() }
@@ -291,6 +295,27 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
             cachedKey = key
         }
         return cachedRoutes.mapValues { (_, route) -> route.map { Point(it.x + pan.x, it.y + pan.y) } }
+    }
+
+    /** The line through [points], hopping over each crossing in [hops] with a small arc: ----╭╮----> */
+    private fun pathWithHops(points: List<Point>, hops: List<Point>, radius: Int): Path2D {
+        val path = Path2D.Double()
+        path.moveTo(points[0].x.toDouble(), points[0].y.toDouble())
+        var next = 0
+        for ((a, b) in points.zipWithNext()) {
+            val dir = Integer.signum(b.x - a.x)
+            while (a.y == b.y && dir != 0 && next < hops.size && hops[next].y == a.y &&
+                (hops[next].x - a.x) * dir > 0 && (b.x - hops[next].x) * dir > 0
+            ) {
+                val x = hops[next].x.toDouble()
+                val y = a.y.toDouble()
+                path.lineTo(x - dir * radius, y)
+                path.quadTo(x, y - 2.0 * radius, x + dir * radius, y)
+                next++
+            }
+            path.lineTo(b.x.toDouble(), b.y.toDouble())
+        }
+        return path
     }
 
     private fun arrowHead(g2: Graphics2D, from: Point, to: Point) {
@@ -431,6 +456,9 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
 
     companion object {
         const val SLOT_STEP = 12
+
+        /** Half the width of the little arc a line makes where it hops over another line. */
+        const val HOP_RADIUS = 4
 
         /** Calls and overrides only show for the focused block; otherwise the canvas drowns in lines. */
         private val FOCUS_ONLY = setOf(LinkKind.CALLS, LinkKind.OVERRIDES)
