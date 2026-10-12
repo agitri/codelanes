@@ -31,7 +31,7 @@ class AddMethodToCanvasAction : AnAction() {
         }
         val methods = ProgressManager.getInstance().runProcessWithProgressSynchronously<List<MethodRef>, RuntimeException>(
             { ReadAction.nonBlocking<List<MethodRef>> { MethodFinder.find(project) }.inSmartMode(project).executeSynchronously() },
-            "Finding methods…",
+            "Finding Methods…",
             true,
             project,
         )

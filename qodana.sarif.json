@@ -1,0 +1,2715 @@
+{
+ "$schema": "https://raw.githubusercontent.com/schemastore/schemastore/master/src/schemas/json/sarif-2.1.0-rtm.5.json",
+ "version": "2.1.0",
+ "runs": [
+  {
+   "tool": {
+    "driver": {
+     "name": "QDJVM",
+     "fullName": "Qodana for JVM",
+     "version": "261.25881",
+     "language": "en-US",
+     "contents": [
+      "localizedData",
+      "nonLocalizedData"
+     ],
+     "isComprehensive": false,
+     "rules": []
+    }
+   },
+   "results": [
+    {
+     "ruleId": "ConvertCallChainIntoSequence",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Call chain on a collection could be converted into 'Sequence' to improve performance",
+      "markdown": "Call chain on a collection could be converted into 'Sequence' to improve performance"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/flow/FlowFiles.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 44,
+         "startColumn": 19,
+         "charOffset": 1967,
+         "charLength": 10,
+         "snippet": {
+          "text": "mapNotNull"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 42,
+         "startColumn": 1,
+         "charOffset": 1824,
+         "charLength": 397,
+         "snippet": {
+          "text": "    /** Every readable flow in `.codelanes/flows/` and the remembered folders, by name. */\n    fun list(): List<SavedFlow> =\n        folders().mapNotNull(::findFile).filter { it.isDirectory }\n            // Flows written outside the IDE (an AI in a terminal, git pull) must be seen too.\n            .onEach { if (!ApplicationManager.getApplication().isReadAccessAllowed) it.refresh(false, false) }"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "2834bfdd63133087",
+      "equalIndicator/v1": "541d9ec04277042ab108d4ff7b4631fb082e103d42388ca3436c5da43ee24574"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "ConvertCallChainIntoSequence",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Call chain on a collection could be converted into 'Sequence' to improve performance",
+      "markdown": "Call chain on a collection could be converted into 'Sequence' to improve performance"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/php/PhpBlockBuilder.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 289,
+         "startColumn": 14,
+         "charOffset": 14183,
+         "charLength": 6,
+         "snippet": {
+          "text": "filter"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 287,
+         "startColumn": 1,
+         "charOffset": 14044,
+         "charLength": 383,
+         "snippet": {
+          "text": "    private fun implementationsOf(owner: PhpClass, method: Method): List<Pair<String, Method>> =\n        allSubclasses(owner)\n            .filter { !it.isInterface && inProject(it) }\n            .sortedBy { it.fqn }\n            .mapNotNull { implClass -> implClass.findOwnMethodByName(method.name)?.takeIf { !it.isAbstract }?.let { \"callee:${implClass.fqn}::${method.name}\" to it } }"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "c1d99a1bba9db920",
+      "equalIndicator/v1": "544d978cdde28e53efced691d21c8dd1c58a5f4434b1373a23a21c7d6bc775f1"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "ConvertTwoComparisonsToRangeCheck",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Two comparisons should be converted to a range check",
+      "markdown": "Two comparisons should be converted to a range check"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/model/BlockModel.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 10,
+         "startColumn": 17,
+         "charOffset": 429,
+         "charLength": 26,
+         "snippet": {
+          "text": "start >= 0 && start <= end"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 8,
+         "startColumn": 1,
+         "charOffset": 347,
+         "charLength": 151,
+         "snippet": {
+          "text": "data class SourceRange(val start: Int, val end: Int) {\n    init {\n        require(start >= 0 && start <= end) { \"Invalid range [$start, $end)\" }\n    }\n"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "fdae987500ecea0a",
+      "equalIndicator/v1": "72d9a88f9cc70b0f4c01870f84e06f32c6f455ce4a30e99c5768323903f90271"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "ConvertTwoComparisonsToRangeCheck",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Two comparisons should be converted to a range check",
+      "markdown": "Two comparisons should be converted to a range check"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/model/BlockModel.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 13,
+         "startColumn": 42,
+         "charOffset": 540,
+         "charLength": 31,
+         "snippet": {
+          "text": "offset >= start && offset < end"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 11,
+         "startColumn": 1,
+         "charOffset": 492,
+         "charLength": 82,
+         "snippet": {
+          "text": "    }\n\n    fun contains(offset: Int): Boolean = offset >= start && offset < end\n}\n"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "ccc7aa9e40ce66cf",
+      "equalIndicator/v1": "95a5a426f0ddc957f10b8d56dd42efa8679379ae422af906225220623863c0ba"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "DialogTitleCapitalization",
+     "kind": "fail",
+     "level": "warning",
+     "message": {
+      "text": "String 'Follow a Request (no #[Route] attributes or saved flows found)' is not properly capitalized. It should have title capitalization",
+      "markdown": "String 'Follow a Request (no #\\[Route\\] attributes or saved flows found)' is not properly capitalized. It should have title capitalization"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/ide/FollowRequestAction.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 51,
+         "startColumn": 64,
+         "charOffset": 2420,
+         "charLength": 54,
+         "snippet": {
+          "text": "\"$TITLE (no #[Route] attributes or saved flows found)\""
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 49,
+         "startColumn": 1,
+         "charOffset": 2166,
+         "charLength": 440,
+         "snippet": {
+          "text": "        val choices = flows.map { Choice.SavedFlowChoice(it) } + routes.map { Choice.Route(it) } + Choice.OpenFlowFile\n        JBPopupFactory.getInstance().createPopupChooserBuilder(choices)\n            .setTitle(if (flows.isEmpty() && routes.isEmpty()) \"$TITLE (no #[Route] attributes or saved flows found)\" else TITLE)\n            .setRenderer(SimpleListCellRenderer.create(\"\") { it.label })\n            .setNamerForFiltering { it.label }"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "d10d4356a6b32a8f",
+      "equalIndicator/v1": "054b9ab6ce434a829a3f279cf4825284ef1a59c46c94aec3cc8c1583b7c1861e"
+     },
+     "properties": {
+      "ideaSeverity": "WARNING",
+      "qodanaSeverity": "High",
+      "problemType": "REGULAR",
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "DuplicatedCode",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Duplicated code",
+      "markdown": "Duplicated code"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/layout/LayoutEngine.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 302,
+         "startColumn": 9,
+         "charOffset": 15237,
+         "charLength": 374,
+         "snippet": {
+          "text": "pinned.entries.sortedWith(compareBy({ it.value.y }, { it.value.x })).forEach { (id, start) ->\n            var rect = start\n            while (true) {\n                val hit = placed.firstOrNull { it.overlaps(rect, PIN_GAP) } ?: break\n                rect = rect.copy(y = hit.bottom + PIN_GAP)\n            }\n            result[id] = rect\n            placed += rect\n        }"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 302,
+         "startColumn": 1,
+         "charOffset": 15229,
+         "charLength": 382,
+         "snippet": {
+          "text": "        pinned.entries.sortedWith(compareBy({ it.value.y }, { it.value.x })).forEach { (id, start) ->\n            var rect = start\n            while (true) {\n                val hit = placed.firstOrNull { it.overlaps(rect, PIN_GAP) } ?: break\n                rect = rect.copy(y = hit.bottom + PIN_GAP)\n            }\n            result[id] = rect\n            placed += rect\n        }"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      },
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/layout/LayoutEngine.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 311,
+         "startColumn": 9,
+         "charOffset": 15620,
+         "charLength": 430,
+         "snippet": {
+          "text": "auto.entries\n            .sortedWith(compareBy({ it.value.x }, { it.value.y }))\n            .forEach { (id, start) ->\n                var rect = start\n                while (true) {\n                    val hit = placed.firstOrNull { it.overlaps(rect, PIN_GAP) } ?: break\n                    rect = rect.copy(y = hit.bottom + PIN_GAP)\n                }\n                result[id] = rect\n                placed += rect\n            }"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 311,
+         "startColumn": 1,
+         "charOffset": 15612,
+         "charLength": 438,
+         "snippet": {
+          "text": "        auto.entries\n            .sortedWith(compareBy({ it.value.x }, { it.value.y }))\n            .forEach { (id, start) ->\n                var rect = start\n                while (true) {\n                    val hit = placed.firstOrNull { it.overlaps(rect, PIN_GAP) } ?: break\n                    rect = rect.copy(y = hit.bottom + PIN_GAP)\n                }\n                result[id] = rect\n                placed += rect\n            }"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "518d0cb353ec7c65",
+      "equalIndicator/v1": "d27b73a43f3cec03825d34c31e6278f0ccf68883779a568baf658c84f9b8d2eb"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "DUPLICATES",
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "FunctionName",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Function name 'codelanes_list_flows' should not contain underscores",
+      "markdown": "Function name `codelanes_list_flows` should not contain underscores"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/mcp/FlowTools.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 63,
+         "startColumn": 17,
+         "charOffset": 3748,
+         "charLength": 20,
+         "snippet": {
+          "text": "codelanes_list_flows"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 61,
+         "startColumn": 1,
+         "charOffset": 3575,
+         "charLength": 363,
+         "snippet": {
+          "text": "    @McpTool(name = \"codelanes_list_flows\")\n    @McpDescription(\"Lists the request flows saved for CodeLanes in this project: name, entry method and file.\")\n    suspend fun codelanes_list_flows(): String {\n        val project = projectOf(currentCoroutineContext()) ?: return NO_PROJECT\n        val flows = withContext(UI) { FlowFiles.getInstance(project).list() }"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "9749497699f0a5d4",
+      "equalIndicator/v1": "4896fda3ee549aba951a9e17eb0dabe031e0f5fb4b73013f190ff2ee951b5c56"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "FunctionName",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Function name 'codelanes_show_flow' should not contain underscores",
+      "markdown": "Function name `codelanes_show_flow` should not contain underscores"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/mcp/FlowTools.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 43,
+         "startColumn": 17,
+         "charOffset": 2484,
+         "charLength": 19,
+         "snippet": {
+          "text": "codelanes_show_flow"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 41,
+         "startColumn": 1,
+         "charOffset": 2449,
+         "charLength": 163,
+         "snippet": {
+          "text": "        \"\"\",\n    )\n    suspend fun codelanes_show_flow(\n        @McpDescription(\"Name of the flow, usually the route, e.g. \\\"POST /orders\\\"\")\n        name: String,"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "856257836e2040aa",
+      "equalIndicator/v1": "e28538fc5c0da13482ad0dc1ae1af1e19538df7fcc6b77943dbeb3e5bdc53304"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 374,
+         "startColumn": 18,
+         "charOffset": 18308,
+         "charLength": 10,
+         "snippet": {
+          "text": "blockMoved"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 372,
+         "startColumn": 1,
+         "charOffset": 18197,
+         "charLength": 304,
+         "snippet": {
+          "text": "    private fun fontSize(): Int = (baseFontSize * canvas.zoom).roundToInt().coerceAtLeast(2)\n\n    override fun blockMoved(id: String, position: Point) = withModelAccess {\n        if (id.startsWith(NOTE_PREFIX)) {\n            notesFile.move(file.path, id.removePrefix(NOTE_PREFIX), position.x, position.y)"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "ca509e4176c91cd9",
+      "equalIndicator/v1": "0409dfcb423d641429b846890a0a36d141dc0ad02df62536b4999f31bc2dd399"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 423,
+         "startColumn": 9,
+         "charOffset": 20164,
+         "charLength": 11,
+         "snippet": {
+          "text": "resetLayout"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 421,
+         "startColumn": 1,
+         "charOffset": 20149,
+         "charLength": 122,
+         "snippet": {
+          "text": "    }\n\n    fun resetLayout() = withModelAccess {\n        PinStore.getInstance(project).clear(file.path)\n        relayout()"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "72df04767a532395",
+      "equalIndicator/v1": "0db7b5edbd787c8a0e448c0efeb9c7a3a0bd38262a5b22f749f1ff3a3b0ffabd"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 752,
+         "startColumn": 9,
+         "charOffset": 37653,
+         "charLength": 11,
+         "snippet": {
+          "text": "addToCanvas"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 750,
+         "startColumn": 1,
+         "charOffset": 37540,
+         "charLength": 333,
+         "snippet": {
+          "text": "\n    /** Drops method [method] of [classFqn] (found with search) on this canvas, centred and focused. */\n    fun addToCanvas(classFqn: String, method: String) = withModelAccess {\n        // A method of the open class already has its own block: just go there.\n        val own = model?.blocks?.firstOrNull { it.id == \"method:$method\" }"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "b0e9d7439083c12f",
+      "equalIndicator/v1": "2b6061fd50a09164124526101c44a6a024e1ef0397763e5f7016a8576df8a36d"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 675,
+         "startColumn": 9,
+         "charOffset": 34300,
+         "charLength": 7,
+         "snippet": {
+          "text": "restore"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 673,
+         "startColumn": 1,
+         "charOffset": 34173,
+         "charLength": 224,
+         "snippet": {
+          "text": "\n    /** Opens this canvas up the way [state] describes (followed calls, revealed parents, collapsed blocks, zoom). */\n    fun restore(state: CanvasState) = withModelAccess {\n        clearFlow()\n        followedCalls.clear()"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "478f2e35c729e46d",
+      "equalIndicator/v1": "2f068348b861313efee7b5c63ec9fc2daecf4e0ef2b17ee22745a521f6f71611"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 610,
+         "startColumn": 9,
+         "charOffset": 30899,
+         "charLength": 11,
+         "snippet": {
+          "text": "toggleCalls"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 608,
+         "startColumn": 1,
+         "charOffset": 30795,
+         "charLength": 233,
+         "snippet": {
+          "text": "\n    /** \"+ calls\" / \"\u2212 calls\": shows or hides the methods that [id] calls in other classes. */\n    fun toggleCalls(id: String) = withModelAccess {\n        if (!followedCalls.remove(id)) followedCalls += id\n        focusMovedTo(null)"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "410c63d5d609e681",
+      "equalIndicator/v1": "43c9ba578b58ae3d54d1508f998f98c9df2a61e49ea2c099f12eefc4971e76ae"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 389,
+         "startColumn": 18,
+         "charOffset": 18819,
+         "charLength": 11,
+         "snippet": {
+          "text": "zoomChanged"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 387,
+         "startColumn": 1,
+         "charOffset": 18795,
+         "charLength": 135,
+         "snippet": {
+          "text": "    }\n\n    override fun zoomChanged() = withModelAccess {\n        slices.values.forEach { it.setFontSize(fontSize()) }\n        render()"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "2b92a87d8bec42bc",
+      "equalIndicator/v1": "54a2ba40eae0caaa54e3b7b53c02bb26d2e5dd4c0e87d43b861bc913a5b62d3f"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 749,
+         "startColumn": 9,
+         "charOffset": 37491,
+         "charLength": 13,
+         "snippet": {
+          "text": "refreshLayout"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 747,
+         "startColumn": 1,
+         "charOffset": 37402,
+         "charLength": 242,
+         "snippet": {
+          "text": "\n    /** Re-places the blocks, e.g. after the vertical-layout switch changed. */\n    fun refreshLayout() = withModelAccess { relayout() }\n\n    /** Drops method [method] of [classFqn] (found with search) on this canvas, centred and focused. */"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "745d41a1733294aa",
+      "equalIndicator/v1": "568eedb872da403931321a92397548edb3319e389f3caa2b057c45402cbcdc1f"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 695,
+         "startColumn": 9,
+         "charOffset": 34969,
+         "charLength": 11,
+         "snippet": {
+          "text": "followChain"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 693,
+         "startColumn": 1,
+         "charOffset": 34846,
+         "charLength": 256,
+         "snippet": {
+          "text": "     * methods), then focuses [from]. Replaces whatever was followed before. Used for \"Follow a Request\u2026\".\n     */\n    fun followChain(from: String, depth: Int) = withModelAccess {\n        clearFlow()\n        followFrom(setOf(from), depth, from, \"request\")"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "24e4f8f88b041a05",
+      "equalIndicator/v1": "5fb929b1e62277dd76383882e3561bf102c81f13c947753b7bfb67b7a34ca2ad"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 775,
+         "startColumn": 9,
+         "charOffset": 38567,
+         "charLength": 16,
+         "snippet": {
+          "text": "removeFromCanvas"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 773,
+         "startColumn": 1,
+         "charOffset": 38484,
+         "charLength": 203,
+         "snippet": {
+          "text": "\n    /** Takes a block that was added from search off the canvas again. */\n    fun removeFromCanvas(id: String) = withModelAccess {\n        added -= id.removePrefix(\"callee:\")\n        followedCalls -= id"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "469fd97941adcaba",
+      "equalIndicator/v1": "63b5009046fbe984a262cbb4b556a872ac7adc2f6b3ddca107e7ea764751e7fd"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 446,
+         "startColumn": 9,
+         "charOffset": 21170,
+         "charLength": 6,
+         "snippet": {
+          "text": "reveal"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 444,
+         "startColumn": 1,
+         "charOffset": 21057,
+         "charLength": 299,
+         "snippet": {
+          "text": "     * centres it on the canvas, focuses it and puts the caret there. Used by go-to-declaration.\n     */\n    fun reveal(offset: Int) = withModelAccess {\n        val target = model?.block(blockAt(offset) ?: return@withModelAccess) ?: return@withModelAccess\n        if (collapsed[target.id] == true) {"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "8cfa305edb67024d",
+      "equalIndicator/v1": "6b49025f6d51d8d38539ce246f80687d8b3fe86b42771eb649c7a01984a0dc42"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 704,
+         "startColumn": 9,
+         "charOffset": 35361,
+         "charLength": 8,
+         "snippet": {
+          "text": "showFlow"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 702,
+         "startColumn": 1,
+         "charOffset": 35237,
+         "charLength": 295,
+         "snippet": {
+          "text": "     * ordinary calls from every hop target followed like a request. Replaces whatever was followed before.\n     */\n    fun showFlow(resolved: dev.codelanes.flow.ResolvedFlow, title: String) = withModelAccess {\n        val entryId = resolved.entryId ?: return@withModelAccess\n        clearFlow()"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "ec778b181e6cc7da",
+      "equalIndicator/v1": "84b3746422446cd604b0d8df1442157d9e9dae710d5d90f8987f5839a137d401"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 384,
+         "startColumn": 18,
+         "charOffset": 18680,
+         "charLength": 15,
+         "snippet": {
+          "text": "collapseToggled"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 382,
+         "startColumn": 1,
+         "charOffset": 18656,
+         "charLength": 138,
+         "snippet": {
+          "text": "    }\n\n    override fun collapseToggled(id: String) = withModelAccess {\n        collapsed[id] = !(collapsed[id] ?: false)\n        render()"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "004d4a7f4fed399b",
+      "equalIndicator/v1": "9f02015307c311820c18aef463fcfeaf5772674b1bdde693ae9b269981c3ad6c"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 601,
+         "startColumn": 9,
+         "charOffset": 30552,
+         "charLength": 12,
+         "snippet": {
+          "text": "toggleReveal"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 599,
+         "startColumn": 1,
+         "charOffset": 30435,
+         "charLength": 237,
+         "snippet": {
+          "text": "\n    /** \"+ parents\" / \"\u2212 parents\": shows or hides the parents, interfaces and traits of a related block. */\n    fun toggleReveal(id: String) = withModelAccess {\n        if (!revealed.remove(id)) revealed += id\n        focusMovedTo(null)"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "5bf975da06ec19a4",
+      "equalIndicator/v1": "c4570946b9e043f61eab28a2047958c08468d506dea7b53d3d93022234fd5425"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 395,
+         "startColumn": 18,
+         "charOffset": 19048,
+         "charLength": 6,
+         "snippet": {
+          "text": "tidyUp"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 393,
+         "startColumn": 1,
+         "charOffset": 18937,
+         "charLength": 211,
+         "snippet": {
+          "text": "\n    /** Forgets every dragged position in this file and goes back to the automatic lanes. */\n    override fun tidyUp() = resetLayout()\n\n    override fun layoutModeChosen(mode: dev.codelanes.layout.LayoutMode) ="
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "6ce98fe2ae883ebc",
+      "equalIndicator/v1": "dcc457201a9e86dd31c9152a4fe2c99ea61a3e592290297c0073195b7deec776"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 625,
+         "startColumn": 9,
+         "charOffset": 31614,
+         "charLength": 7,
+         "snippet": {
+          "text": "setNote"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 623,
+         "startColumn": 1,
+         "charOffset": 31521,
+         "charLength": 303,
+         "snippet": {
+          "text": "\n    /** Sets the review note of block [id] (blank removes it), keeping its mark. */\n    fun setNote(id: String, note: String) = withModelAccess {\n        val block = model?.blocks?.firstOrNull { it.id == id } ?: return@withModelAccess\n        val current = reviews.get(block.filePath, reviewKey(block))"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "1e6d6b44a056fdfb",
+      "equalIndicator/v1": "eab68c8b706d634ba261c3116028d90f8238c678fd38ba8a44af84f6ae49aa03"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 523,
+         "startColumn": 9,
+         "charOffset": 25467,
+         "charLength": 9,
+         "snippet": {
+          "text": "addMethod"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 521,
+         "startColumn": 1,
+         "charOffset": 25372,
+         "charLength": 270,
+         "snippet": {
+          "text": "     * shows it as its own block and selects the name so you can type over it.\n     */\n    fun addMethod() = withModelAccess {\n        val current = model ?: return@withModelAccess\n        val cls = current.ofKind(BlockKind.CLASS).firstOrNull() ?: return@withModelAccess"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "2ee06b71fcf440a1",
+      "equalIndicator/v1": "f8392087e3bd8fbfde9855007b8c8de8b12386715fc5bb2b63fef7e229363b4d"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "HasPlatformType",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable.",
+      "markdown": "Declaration has type inferred from a platform call, which can lead to unchecked nullability issues. Specify type explicitly as nullable or non-nullable."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 617,
+         "startColumn": 9,
+         "charOffset": 31171,
+         "charLength": 9,
+         "snippet": {
+          "text": "markBlock"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 615,
+         "startColumn": 1,
+         "charOffset": 31056,
+         "charLength": 345,
+         "snippet": {
+          "text": "\n    /** Sets (or with null clears) the review mark of block [id]; remembers the code it was given for. */\n    fun markBlock(id: String, mark: ReviewMark?) = withModelAccess {\n        val block = model?.blocks?.firstOrNull { it.id == id } ?: return@withModelAccess\n        val note = reviews.get(block.filePath, reviewKey(block))?.note.orEmpty()"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "5eb7daa2ccdd0311",
+      "equalIndicator/v1": "fdaa5d5b8a0143ffc925949559e6abe8b2acbc1c718542958792f7eb744a9e52"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "IntroduceWhenSubject",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Introduce 'link.kind' as subject of 'when'",
+      "markdown": "Introduce 'link.kind' as subject of 'when'"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksCanvas.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 263,
+         "startColumn": 35,
+         "charOffset": 11473,
+         "charLength": 4,
+         "snippet": {
+          "text": "when"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 261,
+         "startColumn": 1,
+         "charOffset": 11288,
+         "charLength": 358,
+         "snippet": {
+          "text": "                labelFor(link)?.let { text ->\n                    val others = allRoutes.filterKeys { it != link }.values.flatMap { it.zipWithNext() }\n                    val atStart = when {\n                        link.kind in POINTS_AT_RELATED -> false // next to the arrowhead: \"\u2026 extends \u2192 Model\"\n                        link.kind !in FOCUS_ONLY -> true"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "35b9ea2cc865b122",
+      "equalIndicator/v1": "6f2a93bf5e5b15bfb7ab6083dd567e190212877eec59bdd2d18b775b26d5d3b1"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "IntroduceWhenSubject",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Introduce 'link.kind' as subject of 'when'",
+      "markdown": "Introduce 'link.kind' as subject of 'when'"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksCanvas.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 354,
+         "startColumn": 50,
+         "charOffset": 15967,
+         "charLength": 4,
+         "snippet": {
+          "text": "when"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 352,
+         "startColumn": 1,
+         "charOffset": 15802,
+         "charLength": 279,
+         "snippet": {
+          "text": "     * override lines are read from the focused method's point of view. \"Has method\" lines stay unlabelled.\n     */\n    internal fun labelFor(link: Link): String? = when {\n        link.kind == LinkKind.EXTENDS -> \"extends\"\n        link.kind == LinkKind.IMPLEMENTS -> \"implements\""
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "7f5a4ccb758a1e39",
+      "equalIndicator/v1": "e87800a26922d99f19d96d1726fffaeb774260359f3dbf5127e536c1c5d346fc"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "IntroduceWhenSubject",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Introduce 'kind' as subject of 'when'",
+      "markdown": "Introduce 'kind' as subject of 'when'"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksCanvas.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 379,
+         "startColumn": 20,
+         "charOffset": 17253,
+         "charLength": 4,
+         "snippet": {
+          "text": "when"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 377,
+         "startColumn": 1,
+         "charOffset": 17119,
+         "charLength": 272,
+         "snippet": {
+          "text": "        val kind = link.kind\n        val width = (if (kind == LinkKind.OWNS) 1.2 * zoom else 1.8 * zoom).toFloat()\n        val dash = when {\n            kind == LinkKind.NOTE -> floatArrayOf(6f, 5f)\n            kind == LinkKind.FLOW && link.claimed -> floatArrayOf(1f, 4f)"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "00156961fc318617",
+      "equalIndicator/v1": "e932a3e059d4dbf495434a09d379e0c44a5e0dc01d8dac1b2061fb434ff8f59d"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "LocalVariableName",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Local variable name 'entry_method' should not contain underscores",
+      "markdown": "Local variable name `entry_method` should not contain underscores"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/mcp/FlowTools.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 47,
+         "startColumn": 9,
+         "charOffset": 2733,
+         "charLength": 12,
+         "snippet": {
+          "text": "entry_method"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 45,
+         "startColumn": 1,
+         "charOffset": 2591,
+         "charLength": 324,
+         "snippet": {
+          "text": "        name: String,\n        @McpDescription(\"Method the request lands in, e.g. \\\"App\\\\Http\\\\Controllers\\\\OrderController::store\\\"\")\n        entry_method: String,\n        @McpDescription(\"The hops in the order they run, each as \\\"From\\\\Class::method --kind--> To\\\\Class::method\\\"\")\n        hops: List<String> = emptyList(),"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "274116c678727d7e",
+      "equalIndicator/v1": "6e924035375960093f5ed815c8dd10f5330452dc05d176310543ff3ed058ff95"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "LocalVariableName",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Local variable name 'entry_label' should not contain underscores",
+      "markdown": "Local variable name `entry_label` should not contain underscores"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/mcp/FlowTools.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 51,
+         "startColumn": 9,
+         "charOffset": 3004,
+         "charLength": 11,
+         "snippet": {
+          "text": "entry_label"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 49,
+         "startColumn": 1,
+         "charOffset": 2874,
+         "charLength": 251,
+         "snippet": {
+          "text": "        hops: List<String> = emptyList(),\n        @McpDescription(\"Label shown on the entry block; defaults to the name\")\n        entry_label: String = \"\",\n    ): String {\n        val project = projectOf(currentCoroutineContext()) ?: return NO_PROJECT"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "d276622b48e93930",
+      "equalIndicator/v1": "842f4537ae9142b7fa5a8dd65536dccf35512a570bc3d960568feb2231a00d9c"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "MoveLambdaOutsideParentheses",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Lambda argument should be moved out of parentheses",
+      "markdown": "Lambda argument should be moved out of parentheses"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/notes/Notes.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 28,
+         "startColumn": 96,
+         "charOffset": 1122,
+         "charLength": 1,
+         "snippet": {
+          "text": "{"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 26,
+         "startColumn": 1,
+         "charOffset": 945,
+         "charLength": 198,
+         "snippet": {
+          "text": "\n    private val file = SharedJsonFile<TreeMap<String, MutableList<StoredNote>>>(\n        project, PATH, object : TypeToken<TreeMap<String, MutableList<StoredNote>>>() {}.type, { TreeMap() },\n    )\n"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "772db6cc6854b7f8",
+      "equalIndicator/v1": "a25850e808de4fe758ab9f658a9de918a1b3aeae106a75a1e4de613c660f92ba"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "MoveLambdaOutsideParentheses",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Lambda argument should be moved out of parentheses",
+      "markdown": "Lambda argument should be moved out of parentheses"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/workingset/WorkingSet.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 39,
+         "startColumn": 91,
+         "charOffset": 1501,
+         "charLength": 1,
+         "snippet": {
+          "text": "{"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 37,
+         "startColumn": 1,
+         "charOffset": 1334,
+         "charLength": 188,
+         "snippet": {
+          "text": "\n    private val file = SharedJsonFile<TreeMap<String, List<StoredCanvas>>>(\n        project, PATH, object : TypeToken<TreeMap<String, List<StoredCanvas>>>() {}.type, { TreeMap() },\n    )\n"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "684793648a1d32a3",
+      "equalIndicator/v1": "aee776ea3d5383d1798d9b11c5997b5a2fe7531f1a0b636c9fad84cf4fdeb42c"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "MoveLambdaOutsideParentheses",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Lambda argument should be moved out of parentheses",
+      "markdown": "Lambda argument should be moved out of parentheses"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/review/Review.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 42,
+         "startColumn": 96,
+         "charOffset": 2008,
+         "charLength": 1,
+         "snippet": {
+          "text": "{"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 40,
+         "startColumn": 1,
+         "charOffset": 1831,
+         "charLength": 198,
+         "snippet": {
+          "text": "\n    private val file = SharedJsonFile<TreeMap<String, TreeMap<String, Stored>>>(\n        project, PATH, object : TypeToken<TreeMap<String, TreeMap<String, Stored>>>() {}.type, { TreeMap() },\n    )\n"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "9c960b403522bccf",
+      "equalIndicator/v1": "d81158743fb47d7324233108264869d3231d8940078c8fad3d7d003656dfaad8"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "RemoveExplicitTypeArguments",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Explicit type arguments can be inferred",
+      "markdown": "Explicit type arguments can be inferred"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 578,
+         "startColumn": 34,
+         "charOffset": 28855,
+         "charLength": 26,
+         "snippet": {
+          "text": "<Pair<String, () -> Unit>>"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 576,
+         "startColumn": 1,
+         "charOffset": 28688,
+         "charLength": 480,
+         "snippet": {
+          "text": "\n    private fun actionsFor(block: Block): Pair<List<Pair<String, () -> Unit>>, List<Pair<String, () -> Unit>>> = when (block.kind) {\n        BlockKind.CLASS -> listOf<Pair<String, () -> Unit>>(\"+ method\" to { addMethod() }) to emptyList()\n        BlockKind.METHOD -> listOf(followAction(block.id)) to listOf<Pair<String, () -> Unit>>(\"Delete method\" to { deleteMethod(block.id) })\n        // A class-level block (an event named as `Fqn::class`) has no calls of its own to follow."
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "b815296bd525794b",
+      "equalIndicator/v1": "24ab18a48c69da3ec207b34ad203815af7fd8950f8dc0d027b51cd4a01fd57b1"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "RemoveExplicitTypeArguments",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Explicit type arguments can be inferred",
+      "markdown": "Explicit type arguments can be inferred"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 582,
+         "startColumn": 66,
+         "charOffset": 29349,
+         "charLength": 26,
+         "snippet": {
+          "text": "<Pair<String, () -> Unit>>"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 580,
+         "startColumn": 1,
+         "charOffset": 29070,
+         "charLength": 592,
+         "snippet": {
+          "text": "        // A class-level block (an event named as `Fqn::class`) has no calls of its own to follow.\n        BlockKind.CALLEE -> (if (block.id.endsWith(\"::class\")) emptyList() else listOf(followAction(block.id))) to\n            if (block.id.removePrefix(\"callee:\") in added) listOf<Pair<String, () -> Unit>>(\"Remove from canvas\" to { removeFromCanvas(block.id) }) else emptyList()\n        BlockKind.PARENT, BlockKind.INTERFACE, BlockKind.TRAIT ->\n            listOf<Pair<String, () -> Unit>>((if (block.id in revealed) \"\u2212 parents\" else \"+ parents\") to { toggleReveal(block.id) }) to emptyList()"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "aaad7b6fddcbd38d",
+      "equalIndicator/v1": "35237807e72e7b84236967d14910b3a6486424eba535805036ac8ecb69bae6b4"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "RemoveExplicitTypeArguments",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Explicit type arguments can be inferred",
+      "markdown": "Explicit type arguments can be inferred"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 584,
+         "startColumn": 19,
+         "charOffset": 29533,
+         "charLength": 26,
+         "snippet": {
+          "text": "<Pair<String, () -> Unit>>"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 582,
+         "startColumn": 1,
+         "charOffset": 29284,
+         "charLength": 453,
+         "snippet": {
+          "text": "            if (block.id.removePrefix(\"callee:\") in added) listOf<Pair<String, () -> Unit>>(\"Remove from canvas\" to { removeFromCanvas(block.id) }) else emptyList()\n        BlockKind.PARENT, BlockKind.INTERFACE, BlockKind.TRAIT ->\n            listOf<Pair<String, () -> Unit>>((if (block.id in revealed) \"\u2212 parents\" else \"+ parents\") to { toggleReveal(block.id) }) to emptyList()\n        else -> emptyList<Pair<String, () -> Unit>>() to emptyList()\n    }"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "25420b40769dd0ed",
+      "equalIndicator/v1": "3b1bb2edc75565dba5b5b36cdce7060ac71bb137658b89a21de0d0f015ad5cc2"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "RemoveExplicitTypeArguments",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Explicit type arguments can be inferred",
+      "markdown": "Explicit type arguments can be inferred"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 579,
+         "startColumn": 69,
+         "charOffset": 28996,
+         "charLength": 26,
+         "snippet": {
+          "text": "<Pair<String, () -> Unit>>"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 577,
+         "startColumn": 1,
+         "charOffset": 28689,
+         "charLength": 594,
+         "snippet": {
+          "text": "    private fun actionsFor(block: Block): Pair<List<Pair<String, () -> Unit>>, List<Pair<String, () -> Unit>>> = when (block.kind) {\n        BlockKind.CLASS -> listOf<Pair<String, () -> Unit>>(\"+ method\" to { addMethod() }) to emptyList()\n        BlockKind.METHOD -> listOf(followAction(block.id)) to listOf<Pair<String, () -> Unit>>(\"Delete method\" to { deleteMethod(block.id) })\n        // A class-level block (an event named as `Fqn::class`) has no calls of its own to follow.\n        BlockKind.CALLEE -> (if (block.id.endsWith(\"::class\")) emptyList() else listOf(followAction(block.id))) to"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "65447ca407d1aec9",
+      "equalIndicator/v1": "60acba5f6a6b87831ab500a38da11a00e8a0a71e26e3059a3e463d9d558ef398"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "SimplifiableCallChain",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Call chain on a collection type may be simplified",
+      "markdown": "Call chain on a collection type may be simplified"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 243,
+         "startColumn": 28,
+         "charOffset": 11414,
+         "charLength": 6,
+         "snippet": {
+          "text": "filter"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 241,
+         "startColumn": 1,
+         "charOffset": 11164,
+         "charLength": 524,
+         "snippet": {
+          "text": "        // Only method blocks count: blocks hanging off a method (e.g. its followed callees) may vanish with it.\n        val oldMethods = model?.blocks.orEmpty().filter { it.kind == BlockKind.METHOD }.map { it.id }.toSet()\n        val old = vanished.filter { it in oldMethods }.singleOrNull() ?: return\n        val new = appeared.filter { next.block(it).kind == BlockKind.METHOD }.singleOrNull() ?: return\n        // A rename keeps the method where it was; a different method elsewhere (e.g. after a git checkout) isn't one."
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "0655fde5862ccdf3",
+      "equalIndicator/v1": "6de7428afb65cffe65074526fc31cbed915365c16c06b7eb90025ab948c05fd6"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "SimplifiableCallChain",
+     "kind": "fail",
+     "level": "note",
+     "message": {
+      "text": "Call chain on a collection type may be simplified",
+      "markdown": "Call chain on a collection type may be simplified"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 244,
+         "startColumn": 28,
+         "charOffset": 11494,
+         "charLength": 6,
+         "snippet": {
+          "text": "filter"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 242,
+         "startColumn": 1,
+         "charOffset": 11277,
+         "charLength": 482,
+         "snippet": {
+          "text": "        val oldMethods = model?.blocks.orEmpty().filter { it.kind == BlockKind.METHOD }.map { it.id }.toSet()\n        val old = vanished.filter { it in oldMethods }.singleOrNull() ?: return\n        val new = appeared.filter { next.block(it).kind == BlockKind.METHOD }.singleOrNull() ?: return\n        // A rename keeps the method where it was; a different method elsewhere (e.g. after a git checkout) isn't one.\n        val oldStart = tracked[old]?.current()?.first?.start ?: return"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "d8c597d682701783",
+      "equalIndicator/v1": "e0eea9e0e76d07a2b68c3b0c8f8862a5e801ab62efbdaff5456a989b1d1b8148"
+     },
+     "properties": {
+      "ideaSeverity": "WEAK WARNING",
+      "qodanaSeverity": "Moderate",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "UnstableApiUsage",
+     "kind": "fail",
+     "level": "warning",
+     "message": {
+      "text": "'Alarm(kotlinx.coroutines.CoroutineScope, com.intellij.util.Alarm.ThreadToUse)' is marked unstable with @ApiStatus.Internal",
+      "markdown": "'Alarm(kotlinx.coroutines.CoroutineScope, com.intellij.util.Alarm.ThreadToUse)' is marked unstable with @ApiStatus.Internal"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 76,
+         "startColumn": 34,
+         "charOffset": 3395,
+         "charLength": 5,
+         "snippet": {
+          "text": "Alarm"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 74,
+         "startColumn": 1,
+         "charOffset": 3234,
+         "charLength": 330,
+         "snippet": {
+          "text": "    private val watchedDocuments = mutableSetOf<Document>()\n    private val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)\n    private val highlightAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)\n    private val baseFontSize = EditorColorsManager.getInstance().globalScheme.editorFontSize\n    private var disposed = false"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "97aa5e3fc8902dd0",
+      "equalIndicator/v1": "6dd82a92acc1c2298d1821f625b14a7ce34d7b6a24c488d5b90954927feda535"
+     },
+     "properties": {
+      "ideaSeverity": "WARNING",
+      "qodanaSeverity": "High",
+      "problemType": "REGULAR",
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "UnstableApiUsage",
+     "kind": "fail",
+     "level": "warning",
+     "message": {
+      "text": "'runWriteIntentReadAction(com.intellij.openapi.util.@org.jetbrains.annotations.NotNull ThrowableComputable)' is marked unstable with @ApiStatus.Experimental",
+      "markdown": "'runWriteIntentReadAction(com.intellij.openapi.util.@org.jetbrains.annotations.NotNull ThrowableComputable)' is marked unstable with @ApiStatus.Experimental"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 221,
+         "startColumn": 91,
+         "charOffset": 10180,
+         "charLength": 24,
+         "snippet": {
+          "text": "runWriteIntentReadAction"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 219,
+         "startColumn": 1,
+         "charOffset": 9990,
+         "charLength": 352,
+         "snippet": {
+          "text": "\n    /** UI events arrive on the EDT without a read lock; documents, editors and folds need one. */\n    private fun withModelAccess(action: () -> Unit) = ApplicationManager.getApplication().runWriteIntentReadAction<Unit, RuntimeException> { action() }\n\n    /** Takes over a freshly built model: decides which blocks exist and re-tracks their ranges. */"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "e0f7a3c95e2bed16",
+      "equalIndicator/v1": "787f662261511cec32488ff7da265f562852866f69df10ccfe313c3f2d9e1d03"
+     },
+     "properties": {
+      "ideaSeverity": "WARNING",
+      "qodanaSeverity": "High",
+      "problemType": "REGULAR",
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "UnstableApiUsage",
+     "kind": "fail",
+     "level": "warning",
+     "message": {
+      "text": "'Alarm(kotlinx.coroutines.CoroutineScope, com.intellij.util.Alarm.ThreadToUse)' is marked unstable with @ApiStatus.Internal",
+      "markdown": "'Alarm(kotlinx.coroutines.CoroutineScope, com.intellij.util.Alarm.ThreadToUse)' is marked unstable with @ApiStatus.Internal"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 75,
+         "startColumn": 25,
+         "charOffset": 3318,
+         "charLength": 5,
+         "snippet": {
+          "text": "Alarm"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 73,
+         "startColumn": 1,
+         "charOffset": 3151,
+         "charLength": 380,
+         "snippet": {
+          "text": "    private val summaries = mutableMapOf<String, Pair<List<String>, JComponent>>()\n    private val watchedDocuments = mutableSetOf<Document>()\n    private val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)\n    private val highlightAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)\n    private val baseFontSize = EditorColorsManager.getInstance().globalScheme.editorFontSize"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "7583a2999af3059c",
+      "equalIndicator/v1": "7d2cbabe14ee65563e37eeeb086ef277ee95b55a88b3544ee4fdcd16fdd2becb"
+     },
+     "properties": {
+      "ideaSeverity": "WARNING",
+      "qodanaSeverity": "High",
+      "problemType": "REGULAR",
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "UnstableApiUsage",
+     "kind": "fail",
+     "level": "warning",
+     "message": {
+      "text": "'Alarm(kotlinx.coroutines.CoroutineScope, com.intellij.util.Alarm.ThreadToUse)' is marked unstable with @ApiStatus.Internal",
+      "markdown": "'Alarm(kotlinx.coroutines.CoroutineScope, com.intellij.util.Alarm.ThreadToUse)' is marked unstable with @ApiStatus.Internal"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/canvas/BlocksSession.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 85,
+         "startColumn": 29,
+         "charOffset": 3908,
+         "charLength": 5,
+         "snippet": {
+          "text": "Alarm"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 83,
+         "startColumn": 1,
+         "charOffset": 3731,
+         "charLength": 333,
+         "snippet": {
+          "text": "    private val notesFile = NotesFile.getInstance(project)\n    private val noteAreas = mutableMapOf<String, com.intellij.ui.components.JBTextArea>()\n    private val noteAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)\n    private val reviews = ReviewFile.getInstance(project)\n    private val followedCalls = mutableSetOf<String>()"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "540a74aa17020493",
+      "equalIndicator/v1": "8d20a9635fd6199e201adffa8512542beb59d1282afe5bdb0825022aa6cca531"
+     },
+     "properties": {
+      "ideaSeverity": "WARNING",
+      "qodanaSeverity": "High",
+      "problemType": "REGULAR",
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "UnusedSymbol",
+     "kind": "fail",
+     "level": "warning",
+     "message": {
+      "text": "Function \"codelanes_list_flows\" is never used",
+      "markdown": "Function \"codelanes_list_flows\" is never used"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/mcp/FlowTools.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 63,
+         "startColumn": 17,
+         "charOffset": 3748,
+         "charLength": 20,
+         "snippet": {
+          "text": "codelanes_list_flows"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 61,
+         "startColumn": 1,
+         "charOffset": 3575,
+         "charLength": 363,
+         "snippet": {
+          "text": "    @McpTool(name = \"codelanes_list_flows\")\n    @McpDescription(\"Lists the request flows saved for CodeLanes in this project: name, entry method and file.\")\n    suspend fun codelanes_list_flows(): String {\n        val project = projectOf(currentCoroutineContext()) ?: return NO_PROJECT\n        val flows = withContext(UI) { FlowFiles.getInstance(project).list() }"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "1ec9ed002f9943fc",
+      "equalIndicator/v1": "68374e100b924a44edcaa16f1d4874c5c049cb604a6c1ba705440b0c6fb1add9"
+     },
+     "properties": {
+      "ideaSeverity": "WARNING",
+      "qodanaSeverity": "High",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "UnusedSymbol",
+     "kind": "fail",
+     "level": "warning",
+     "message": {
+      "text": "Function \"codelanes_show_flow\" is never used",
+      "markdown": "Function \"codelanes_show_flow\" is never used"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/mcp/FlowTools.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 43,
+         "startColumn": 17,
+         "charOffset": 2484,
+         "charLength": 19,
+         "snippet": {
+          "text": "codelanes_show_flow"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 41,
+         "startColumn": 1,
+         "charOffset": 2449,
+         "charLength": 163,
+         "snippet": {
+          "text": "        \"\"\",\n    )\n    suspend fun codelanes_show_flow(\n        @McpDescription(\"Name of the flow, usually the route, e.g. \\\"POST /orders\\\"\")\n        name: String,"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "6ff9702cb3caf425",
+      "equalIndicator/v1": "81afc8c89c3d19ed38a7e9957329c6601eb0070960cc8c15bd5f2e7efeae0c6c"
+     },
+     "properties": {
+      "ideaSeverity": "WARNING",
+      "qodanaSeverity": "High",
+      "problemType": "REGULAR",
+      "hasFixes": true,
+      "tags": [
+       "kotlin"
+      ]
+     }
+    },
+    {
+     "ruleId": "UnusedSymbol",
+     "kind": "fail",
+     "level": "warning",
+     "message": {
+      "text": "Property \"version\" is never used",
+      "markdown": "Property \"version\" is never used"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "src/main/kotlin/dev/codelanes/flow/FlowFiles.kt",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 31,
+         "startColumn": 13,
+         "charOffset": 1392,
+         "charLength": 7,
+         "snippet": {
+          "text": "version"
+         },
+         "sourceLanguage": "kotlin"
+        },
+        "contextRegion": {
+         "startLine": 29,
+         "startColumn": 1,
+         "charOffset": 1349,
+         "charLength": 138,
+         "snippet": {
+          "text": "\n    private class StoredFlow(\n        var version: Int? = null,\n        var name: String? = null,\n        var entry: StoredEntry? = null,"
+         },
+         "sourceLanguage": "kotlin"
+        }
+       },
+       "logicalLocations": [
+        {
+         "fullyQualifiedName": "codelanes.main",
+         "kind": "module"
+        }
+       ]
+      }
+     ],
+     "partialFingerprints": {
+      "equalIndicator/v2": "fd8e944cf399d62f",
+      "equalIndicator/v1": "82a3d7e2797ea354b1e50820228baa0c2dbee9827da9fa5a4579329a7409a64c"
+     },
+     "properties": {
+      "ideaSeverity": "WARNING",
+      "qodanaSeverity": "High",
+      "problemType": "REGULAR",
+      "tags": [
+       "kotlin"
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

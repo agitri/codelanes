@@ -1,0 +1,14 @@
+# Qodana: JetBrains' own inspections, run over the whole project in CI (see .github/workflows/ci.yml).
+# The community linter needs no account or token.
+version: "1.0"
+linter: jetbrains/qodana-jvm-community:2026.1
+projectJDK: "21"
+profile:
+  name: qodana.recommended
+exclude:
+  - name: All
+    paths:
+      - playground
+      - docs
+      - build
+failThreshold: 0 # any problem that is not in the baseline fails the check

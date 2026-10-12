@@ -1,0 +1,86 @@
+# Every push to main and every pull request: tests, the plugin zip, the Marketplace compatibility check and Qodana.
+# Nothing here needs a secret; signing and publishing stay manual (see the README).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Test and build the plugin
+        run: ./gradlew test buildPlugin
+      - name: Keep the test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: build/reports/tests
+      - name: Keep the plugin zip
+        uses: actions/upload-artifact@v7
+        with:
+          name: plugin
+          path: build/distributions/*.zip
+
+  verify:
+    name: Check compatibility with PhpStorm versions
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # The verifier downloads three PhpStorm versions; the runner's preinstalled SDKs leave too little disk for that.
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Run the plugin verifier
+        run: ./gradlew verifyPlugin
+      - name: Keep the verifier reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verifier-reports
+          path: build/reports/pluginVerifier
+
+  qodana:
+    name: Code quality (Qodana)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # Qodana compares a pull request with its base
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      # Fails on problems that aren't in the baseline (qodana.sarif.json): the problems found before CI existed.
+      - uses: JetBrains/qodana-action@v2026.2.2
+        with:
+          args: --baseline,qodana.sarif.json
+          cache-default-branch-only: true
+          upload-result: true

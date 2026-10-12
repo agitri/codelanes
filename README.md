@@ -1,5 +1,7 @@
 # CodeLanes
 
+[![CI](https://github.com/agitri/codelanes/actions/workflows/ci.yml/badge.svg)](https://github.com/agitri/codelanes/actions/workflows/ci.yml)
+
 **Read code like a human.** CodeLanes is a PhpStorm plugin that replaces the vertical, line-by-line editor
 with a canvas of real, editable code blocks laid out in lanes: what a class builds on on the left, the class
 in the middle, its methods on the right, connected by colour-coded lines.
@@ -124,6 +126,18 @@ TypeScript), a Marketplace release, and VS Code later. See [docs/roadmap.md](doc
 ```bash
 ./gradlew test      # unit and platform tests
 ./gradlew runIde    # sandbox PhpStorm with the plugin loaded
+```
+
+CI runs on every push to `main` and every pull request:
+- the tests and the plugin build;
+- the plugin verifier against PhpStorm 2025.1, 2025.2 and 2026.1;
+- [Qodana](https://www.jetbrains.com/qodana/), JetBrains' inspections over the whole project.
+
+Qodana fails on any problem that isn't in `qodana.sarif.json`, the problems already there when CI was added. To run
+it locally (needs Docker):
+
+```bash
+docker run --rm -v "$PWD":/data/project jetbrains/qodana-jvm-community:2026.1 --baseline qodana.sarif.json
 ```
 
 The design and the implementation plans live in [`docs/superpowers`](docs/superpowers).

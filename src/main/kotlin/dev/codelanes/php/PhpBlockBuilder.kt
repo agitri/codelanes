@@ -293,7 +293,7 @@ object PhpBlockBuilder {
             .take(MAX_IMPLEMENTATIONS)
 
     /** Project code only: libraries and vendor/ are never pulled onto the canvas. */
-    private fun inProject(element: com.intellij.psi.PsiElement): Boolean {
+    private fun inProject(element: PsiElement): Boolean {
         val files = ProjectFileIndex.getInstance(element.project)
         return element.containingFile?.virtualFile?.let { files.isInContent(it) && !files.isInLibrary(it) } == true
     }

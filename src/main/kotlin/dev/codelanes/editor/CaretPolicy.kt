@@ -21,7 +21,7 @@ object CaretPolicy {
     fun canDelete(text: CharSequence, bounds: SourceRange, folds: List<SourceRange>, from: Int, to: Int): Boolean {
         if (from >= to || from < bounds.start || to > bounds.end) return false
         if (folds.any { it.start < to && it.end > from }) return false
-        return folds.none { it.start == to && to > bounds.start && SliceRanges.lineStartOf(text, to) == to }
+        return folds.none { it.start == to && SliceRanges.lineStartOf(text, to) == to }
     }
 
     private fun step(text: CharSequence, bounds: SourceRange, folds: List<SourceRange>, o: Int, forward: Boolean): Int {

@@ -41,7 +41,7 @@ class FollowRequestAction : AnAction() {
         }
         val routes = ProgressManager.getInstance().runProcessWithProgressSynchronously<List<EntryPoint>, RuntimeException>(
             { ReadAction.nonBlocking<List<EntryPoint>> { RouteFinder.find(project) }.inSmartMode(project).executeSynchronously() },
-            "Finding routes…",
+            "Finding Routes…",
             true,
             project,
         )
@@ -81,7 +81,7 @@ class FollowRequestAction : AnAction() {
     private fun open(project: Project, saved: SavedFlow) {
         val resolved = ProgressManager.getInstance().runProcessWithProgressSynchronously<dev.codelanes.flow.ResolvedFlow, RuntimeException>(
             { ReadAction.nonBlocking<dev.codelanes.flow.ResolvedFlow> { dev.codelanes.flow.FlowResolver.resolve(project, saved.flow) }.inSmartMode(project).executeSynchronously() },
-            "Checking the flow…",
+            "Checking the Flow…",
             true,
             project,
         )
