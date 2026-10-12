@@ -24,6 +24,7 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.jetbrains.php</depends>
+    <depends optional="true" config-file="codelanes-mcp.xml">com.intellij.mcpServer</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <fileEditorProvider implementation="dev.codelanes.ide.BlocksEditorProvider"/>

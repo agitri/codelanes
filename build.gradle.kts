@@ -3,7 +3,6 @@ import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.4.21"
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.4.21"
     id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
@@ -53,8 +52,12 @@ intellijPlatform {
 
     // `./gradlew verifyPlugin` checks API compatibility with the oldest and newest supported PhpStorm.
     pluginVerification {
+        // These only concern dev.codelanes.mcp.FlowTools, which loads only with PhpStorm's MCP server (2025.2+);
+        // PhpStorm 2025.1 has neither that server nor the matching kotlinx.serialization, and never loads the class.
+        ignoredProblemsFile = file("config/verifier-ignored-problems.txt")
         ides {
             create(IntelliJPlatformType.PhpStorm, "2025.1")
+            create(IntelliJPlatformType.PhpStorm, "2025.2") // first with the MCP server
             create(IntelliJPlatformType.PhpStorm, "2026.1")
         }
     }
