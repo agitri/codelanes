@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Flows from your AI assistant**: through PhpStorm's MCP server (2025.2+), an assistant can show a request flow
+  for any framework (e.g. Laravel's routes, middleware, events and bindings). CodeLanes checks every step against the
+  code: solid lines are proven, dotted lines are only claimed, and references that don't exist are never drawn.
+  Flows are saved as `*.flow.json` dot files and open from Follow a Request without an AI.
+
 ## 0.1.0
 
 First public release: read and edit PHP classes as a canvas of real code blocks.

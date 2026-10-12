@@ -38,7 +38,8 @@
 6. **Record the real road a request took** (long haul): read an Xdebug trace of one real request and show exactly
    the methods that ran, in order (also events and handlers that static analysis can't see).
 7. **AI picks the relevant chain** (optional): describe a flow in words; AI chooses blocks *only from the real
-   call graph*, never invents or explains code.
+   call graph*, never invents or explains code. First part done: AI flows through MCP
+   (`docs/superpowers/specs/2026-10-12-ai-flows-design.md`). Still open: a "Follow with AI" button on the canvas.
 8. **VS Code**: needs its own equivalent of the slice editors.
 9. Keyboard: Tab-based block switching (Tab is indentation today, so it needs a different shortcut).
 

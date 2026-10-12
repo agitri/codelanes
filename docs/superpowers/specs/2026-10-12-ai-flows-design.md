@@ -1,6 +1,6 @@
 # AI flows for Follow a Request — design
 
-Date: 2026-10-12. Status: approved in chat, awaiting spec review.
+Date: 2026-10-12. Status: approved, implemented (see `docs/superpowers/plans/2026-10-12-ai-flows.md`).
 
 ## Goal
 
@@ -54,12 +54,15 @@ All new code lives in `dev.codelanes.flow`, except the MCP part.
   `<depends optional="true" config-file="codelanes-mcp.xml">com.intellij.mcpServer</depends>` on the extension
   point `com.intellij.mcpServer.mcpToolset`.
 - **Follow a Request**: the picker lists saved flows (marked as flows) next to the static Symfony routes.
+- **Verifying**: `verifyPlugin` also checks PhpStorm 2025.2, the first version with the MCP server. The calling
+  project is looked up by name, because its accessor moved between 2025.2 and 2026.1.
 
 ## MCP tools
 
 **`codelanes_show_flow(name, entry, hops)`**
 - `entry`: `{ "label": "POST /orders", "method": "App\\Http\\Controllers\\OrderController::store" }`.
-- `hops`: `[{ "from": "...::...", "to": "...::...", "kind": "dispatches" }]`, in order.
+- `hops`: strings, in order, each `From\Class::method --kind--> To\Class::method`. Plain strings rather than
+  objects, so nothing depends on the MCP server's serialization library version.
 - The tool description briefs the AI:
   - Use full class names and existing methods only.
   - Use only the six hop kinds, with one line on each.
