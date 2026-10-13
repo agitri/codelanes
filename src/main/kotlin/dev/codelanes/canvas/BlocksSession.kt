@@ -102,7 +102,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         project.messageBus.connect(this).subscribe(com.intellij.openapi.vfs.VirtualFileManager.VFS_CHANGES, object : com.intellij.openapi.vfs.newvfs.BulkFileListener {
             override fun after(events: List<com.intellij.openapi.vfs.newvfs.events.VFileEvent>) {
                 if (events.any { it.path.endsWith("/" + ReviewFile.PATH) || it.path.endsWith("/" + NotesFile.PATH) }) {
-                    com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater({ if (!disposed) withModelAccess { render() } }, { disposed })
+                    ApplicationManager.getApplication().invokeLater({ if (!disposed) withModelAccess { render() } }, { disposed })
                 }
             }
         })
@@ -850,7 +850,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     /** Where notes go: where they were dragged, or else stacked to the right of everything else. */
     private fun noteRects(blocks: Map<String, dev.codelanes.layout.Rect>): Map<String, dev.codelanes.layout.Rect> {
-        var freeX = (blocks.values.maxOfOrNull { it.right } ?: 0) + LayoutEngine.H_GAP
+        val freeX = (blocks.values.maxOfOrNull { it.right } ?: 0) + LayoutEngine.H_GAP
         var freeY = 0
         return notesFile.notes(file.path).mapNotNull { note ->
             val id = NOTE_PREFIX + note.id

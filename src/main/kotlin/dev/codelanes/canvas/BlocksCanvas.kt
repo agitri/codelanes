@@ -462,7 +462,6 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
         }
     }
 
-    private fun Rectangle.toRect() = Rect(x, y, width, height)
 
     companion object {
         const val SLOT_STEP = 12
