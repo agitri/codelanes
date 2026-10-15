@@ -5,13 +5,14 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.ui.SimpleListCellRenderer
+import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import dev.codelanes.flow.FlowFiles
@@ -49,7 +50,7 @@ class FollowRequestAction : AnAction() {
         val choices = flows.map { Choice.SavedFlowChoice(it) } + routes.map { Choice.Route(it) } + Choice.OpenFlowFile
         JBPopupFactory.getInstance().createPopupChooserBuilder(choices)
             .setTitle(if (flows.isEmpty() && routes.isEmpty()) "$TITLE (no #[Route] attributes or saved flows found)" else TITLE)
-            .setRenderer(SimpleListCellRenderer.create("") { it.label })
+            .setRenderer(textListCellRenderer { it.label })
             .setNamerForFiltering { it.label }
             .setItemChosenCallback { choice ->
                 when (choice) {
@@ -106,7 +107,7 @@ class FollowRequestAction : AnAction() {
     private fun follow(project: Project, entry: EntryPoint) {
         val file = LocalFileSystem.getInstance().findFileByPath(entry.filePath) ?: return
         val manager = FileEditorManager.getInstance(project)
-        manager.openFile(file, true)
+        manager.openFileEditor(OpenFileDescriptor(project, file), true)
         manager.setSelectedEditor(file, BlocksEditorProvider.TYPE_ID)
         val canvas = manager.getSelectedEditor(file) as? BlocksFileEditor
         if (canvas == null) {

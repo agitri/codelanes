@@ -45,7 +45,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      # The verifier downloads three PhpStorm versions; the runner's preinstalled SDKs leave too little disk for that.
+      # The verifier downloads four PhpStorm versions; the runner's preinstalled SDKs leave too little disk for that.
       - name: Free disk space
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
       - uses: actions/checkout@v7

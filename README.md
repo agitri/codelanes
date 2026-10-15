@@ -68,7 +68,7 @@ summaries, everything comes from the real code.
 
 CodeLanes is on its way to the JetBrains Marketplace (**Settings → Plugins → Marketplace**, search "CodeLanes"). Until it's listed, build it from source.
 
-Requirements: **PhpStorm 2025.1 or newer** and a **JDK 21+** to build (Gradle downloads the right toolchain).
+Requirements: **PhpStorm 2025.2 or newer** and a **JDK 21+** to build (Gradle downloads the right toolchain).
 
 ```bash
 git clone https://github.com/agitri/codelanes.git
@@ -141,7 +141,7 @@ TypeScript), a Marketplace release, and VS Code later. See [docs/roadmap.md](doc
 
 CI runs on every push to `main` and every pull request:
 - the tests and the plugin build;
-- the plugin verifier against PhpStorm 2025.1, 2025.2 and 2026.1;
+- the plugin verifier against PhpStorm 2025.2, 2025.3, 2026.1 and 2026.2;
 - [Qodana](https://www.jetbrains.com/qodana/), JetBrains' inspections over the whole project.
 
 Qodana fails on any problem that isn't in `qodana.sarif.json`, the problems already there when CI was added. To run

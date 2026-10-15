@@ -879,7 +879,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val blocks = model?.blocks.orEmpty().filter { it.kind != BlockKind.MORE }
         com.intellij.openapi.ui.popup.JBPopupFactory.getInstance().createPopupChooserBuilder(blocks)
             .setTitle("Link Note to Block")
-            .setRenderer(com.intellij.ui.SimpleListCellRenderer.create("") { it.title })
+            .setRenderer(com.intellij.ui.dsl.listCellRenderer.textListCellRenderer { it.title })
             .setNamerForFiltering { it.title }
             .setItemChosenCallback { linkNote(id, it.id) }
             .createPopup()

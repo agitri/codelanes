@@ -9,7 +9,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.popup.JBPopupFactory
-import com.intellij.ui.SimpleListCellRenderer
+import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import dev.codelanes.php.MethodFinder
 import dev.codelanes.php.MethodRef
 
@@ -41,7 +41,7 @@ class AddMethodToCanvasAction : AnAction() {
         }
         JBPopupFactory.getInstance().createPopupChooserBuilder(methods)
             .setTitle(TITLE)
-            .setRenderer(SimpleListCellRenderer.create("") { it.label })
+            .setRenderer(textListCellRenderer { it.label })
             .setNamerForFiltering { it.label }
             .setItemChosenCallback { canvas.session.addToCanvas(it.classFqn, it.method) }
             .createPopup()

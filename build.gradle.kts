@@ -34,7 +34,7 @@ dependencies {
 intellijPlatform {
     pluginConfiguration {
         ideaVersion {
-            sinceBuild = "251"
+            sinceBuild = "252" // PhpStorm 2025.2: the first with the MCP server that flows use
             untilBuild = provider { null } // no upper bound: new PhpStorm versions shouldn't lock the plugin out
         }
         changeNotes = provider { file("CHANGELOG.md").readText().substringAfter("## 0.1.0").substringBefore("\n## ").let(::markdownToHtml) }
@@ -50,15 +50,13 @@ intellijPlatform {
         token = providers.environmentVariable("PUBLISH_TOKEN")
     }
 
-    // `./gradlew verifyPlugin` checks API compatibility with the oldest and newest supported PhpStorm.
+    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm versions.
     pluginVerification {
-        // These only concern dev.codelanes.mcp.FlowTools, which loads only with PhpStorm's MCP server (2025.2+);
-        // PhpStorm 2025.1 has neither that server nor the matching kotlinx.serialization, and never loads the class.
-        ignoredProblemsFile = file("config/verifier-ignored-problems.txt")
         ides {
-            create(IntelliJPlatformType.PhpStorm, "2025.1")
-            create(IntelliJPlatformType.PhpStorm, "2025.2") // first with the MCP server
+            create(IntelliJPlatformType.PhpStorm, "2025.2")
+            create(IntelliJPlatformType.PhpStorm, "2025.3")
             create(IntelliJPlatformType.PhpStorm, "2026.1")
+            create(IntelliJPlatformType.PhpStorm, "2026.2")
         }
     }
 }
