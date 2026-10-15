@@ -116,6 +116,8 @@ describe the flow. CodeLanes checks every step against the real code and draws o
    git, or a git-ignored folder to keep it to yourself. The flow then shows up in **Follow a Request…**, no AI needed,
    and is checked against the code again every time it opens.
 
+![Further down the same flow: the service calls the repository, bound to its Eloquent implementation, and dispatches an event that a listener handles](docs/images/flow-laravel-events.png)
+
 The AI never writes or explains code here; it only points at methods that exist.
 
 ## Status
