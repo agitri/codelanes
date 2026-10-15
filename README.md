@@ -95,6 +95,13 @@ Then in PhpStorm: **Settings → Plugins → ⚙ → Install Plugin from Disk…
 - **View → Open PHP Files as Blocks by Default** turns the canvas on or off as the default.
 - Files with several classes, top-level functions or loose code open as text, with a banner saying why.
 
+**Follow a Request…** is also in Search Everywhere (press Shift twice and type "follow"). It lists the saved flows,
+the routes it found, and **Open flow file…**:
+
+![Search Everywhere with "follow" typed, showing the Follow a Request… action](docs/images/follow-a-request-search.png)
+
+![The Follow a Request list: a saved flow, three routes and Open flow file…](docs/images/follow-a-request.png)
+
 ## Flows from your AI assistant
 
 Follow a Request finds Symfony routes by itself. For frameworks where the request takes paths the code doesn't spell
