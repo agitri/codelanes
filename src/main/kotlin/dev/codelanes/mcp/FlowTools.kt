@@ -25,6 +25,9 @@ import kotlin.coroutines.CoroutineContext
  * Only plain strings cross the boundary, so nothing depends on the server's serialization library version.
  */
 class FlowTools : McpToolset {
+    // Declared here, not inherited: PhpStorm 2025.2 and 2025.3 have no McpToolset.isEnabled() to call.
+    override fun isEnabled(): Boolean = true
+
     @McpTool(name = "codelanes_show_flow")
     @McpDescription(
         """

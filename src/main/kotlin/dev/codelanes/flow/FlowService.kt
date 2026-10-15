@@ -6,6 +6,7 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.guessProjectDir
@@ -58,7 +59,7 @@ class FlowService(private val project: Project) {
     /** Opens [file] as blocks and shows the flow there; false if it can't be shown as blocks. Replaced in tests. */
     var showOnCanvas: (file: VirtualFile, resolved: ResolvedFlow, title: String) -> Boolean = { file, resolved, title ->
         val manager = FileEditorManager.getInstance(project)
-        manager.openFile(file, true)
+        manager.openFileEditor(OpenFileDescriptor(project, file), true)
         manager.setSelectedEditor(file, BlocksEditorProvider.TYPE_ID)
         val canvas = manager.getSelectedEditor(file) as? BlocksFileEditor
         canvas?.session?.showFlow(resolved, title)

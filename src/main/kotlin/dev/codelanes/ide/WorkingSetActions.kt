@@ -4,6 +4,7 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -66,7 +67,7 @@ class OpenWorkingSetAction : AnAction(), DumbAware {
                     missing += state.file.substringAfterLast('/')
                     continue
                 }
-                manager.openFile(file, true)
+                manager.openFileEditor(OpenFileDescriptor(project, file), true)
                 manager.setSelectedEditor(file, BlocksEditorProvider.TYPE_ID)
                 val canvas = manager.getSelectedEditor(file) as? BlocksFileEditor
                 if (canvas == null) missing += file.name else canvas.session.restore(state)
