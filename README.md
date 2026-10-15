@@ -101,6 +101,8 @@ Follow a Request finds Symfony routes by itself. For frameworks where the reques
 out (Laravel's `routes/web.php`, middleware, events and listeners, container bindings), let your AI assistant
 describe the flow. CodeLanes checks every step against the real code and draws only what exists.
 
+![A Laravel request flow: the route (dotted, from the AI) into the Authenticate middleware, the controller action, and the service it calls](docs/images/flow-laravel.png)
+
 1. PhpStorm 2025.2 or newer: enable **Settings → Tools → MCP Server** and connect your assistant (JetBrains AI
    Assistant/Junie, GitHub Copilot's agent mode, Claude Code, or any MCP client).
 2. Ask it, for example: *"Show the flow of POST /invoices in CodeLanes."*
