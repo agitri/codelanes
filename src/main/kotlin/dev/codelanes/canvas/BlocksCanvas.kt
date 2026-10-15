@@ -222,7 +222,11 @@ class BlocksCanvas(val listener: Listener) : JPanel(null) {
     override fun doLayout() {
         // Bottom-left, right above the editor's Blocks | Text tabs; the legend sits above it.
         // On a narrow canvas the toolbar wraps onto more rows instead of being cut off.
-        val width = minOf(toolbar.preferredSize.width, maxOf(120, this.width - 24))
+        // The one-row width comes from the buttons: the toolbar's own preferred width shrinks to its current width once
+        // it has wrapped, which would keep it narrow (and tall) after the canvas widens again.
+        val gap = (toolbar.layout as java.awt.FlowLayout).hgap
+        val oneRow = toolbar.components.sumOf { it.preferredSize.width + gap } + gap + toolbar.insets.left + toolbar.insets.right
+        val width = minOf(oneRow, maxOf(120, this.width - 24))
         toolbar.setSize(width, 0)
         val rowsHeight = toolbar.preferredSize.height
         toolbar.setBounds(12, height - rowsHeight - 8, width, rowsHeight)

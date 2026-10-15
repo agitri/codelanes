@@ -298,4 +298,12 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         assertTrue(narrow.toolbar.width <= 320 - 24)
         assertTrue(narrow.toolbar.height > wide.toolbar.height)
     }
+
+    fun testTheToolbarWidensAgainWhenTheCanvasDoes() {
+        val canvas = BlocksCanvas(NoListener).apply { setSize(2000, 800); doLayout() }
+        val oneRow = canvas.toolbar.bounds
+        canvas.setSize(200, 800); canvas.doLayout()
+        canvas.setSize(2000, 800); canvas.doLayout()
+        assertEquals(oneRow, canvas.toolbar.bounds)
+    }
 }
