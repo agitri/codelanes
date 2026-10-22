@@ -64,39 +64,47 @@ object JavaBlockBuilder {
         return null
     }
 
-    internal fun fqn(cls: PsiClass): String = cls.qualifiedName ?: cls.name.orEmpty()
+    fun fqn(cls: PsiClass): String = cls.qualifiedName ?: cls.name.orEmpty()
 
     /** The class's own methods as written: no constructors, no generated ones (enum values(), record accessors, Lombok). */
-    internal fun ownMethods(cls: PsiClass): List<PsiMethod> =
+    fun ownMethods(cls: PsiClass): List<PsiMethod> =
         cls.methods.filter { !it.isConstructor && it !is LightElement && it !is SyntheticElement }.sortedBy { it.textRange?.startOffset ?: 0 }
 
-    /** `place`, or `place(Order, boolean)` when the class has more than one `place`. */
-    internal fun methodKey(method: PsiMethod): String {
-        val owner = method.containingClass
-        val overloaded = owner != null && ownMethods(owner).count { it.name == method.name } > 1
-        return if (overloaded) signatureKey(method, ", ") else method.name
+    /**
+     * `place`, or `place(Order, boolean)` when the class has more than one `place`. Overloads whose simple-name
+     * signatures collide (`save(a.Order)` / `save(b.Order)`) are keyed by qualified type names instead.
+     */
+    fun methodKey(method: PsiMethod): String {
+        val same = method.containingClass?.findMethodsByName(method.name, false)?.filter { !it.isConstructor }.orEmpty()
+        if (same.size <= 1) return method.name
+        val simple = signatureKey(method, ", ", ::simpleType)
+        val collides = same.any { it != method && signatureKey(it, ", ", ::simpleType) == simple }
+        return if (collides) signatureKey(method, ", ", ::qualifiedType) else simple
     }
 
-    private fun signatureKey(method: PsiMethod, separator: String): String =
-        method.name + method.parameterList.parameters.joinToString(separator, "(", ")") { simpleType(it.type) }
+    private fun signatureKey(method: PsiMethod, separator: String, typeName: (PsiType) -> String = ::simpleType): String =
+        method.name + method.parameterList.parameters.joinToString(separator, "(", ")") { typeName(it.type) }
 
     /** `java.util.List<Order>` → `List`; unresolved types keep the name they were written with. */
     private fun simpleType(type: PsiType): String = type.presentableText.replace(Regex("<.*>"), "")
+
+    private fun qualifiedType(type: PsiType): String = type.canonicalText.replace(Regex("<.*>"), "")
 
     /**
      * [key] as an id or a flow writes it: `place`, `place(Order)`, `place(Order,boolean)` (spaces don't matter).
      * A bare name picks the first in source order.
      */
-    internal fun findOwnMethod(cls: PsiClass, key: String): PsiMethod? {
+    fun findOwnMethod(cls: PsiClass, key: String): PsiMethod? {
         val wanted = key.replace(" ", "")
         val own = ownMethods(cls)
         if ('(' !in wanted) return own.firstOrNull { it.name == wanted }
-        return own.firstOrNull { signatureKey(it, ",") == wanted }
+        return own.firstOrNull { methodKey(it).replace(" ", "") == wanted }
+            ?: own.firstOrNull { signatureKey(it, ",") == wanted }
     }
 
     private fun methodId(method: PsiMethod) = "method:${methodKey(method)}"
 
-    internal fun methodTitle(method: PsiMethod): String =
+    fun methodTitle(method: PsiMethod): String =
         method.name + method.parameterList.parameters.joinToString(", ", "(", ")") { p -> "${p.typeElement?.text ?: p.type.presentableText} ${p.name}" }
 
     internal fun keyword(cls: PsiClass): String = when {

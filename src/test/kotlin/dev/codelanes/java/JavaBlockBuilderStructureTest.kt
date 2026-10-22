@@ -66,6 +66,22 @@ class JavaBlockBuilderStructureTest : JavaBuilderTestCase() {
         assertEquals(listOf("method:save(Order)", "method:save(List, boolean)", "method:find"), model.ofKind(BlockKind.METHOD).map { it.id })
     }
 
+    fun testOverloadsWithSameSimpleTypeNamesGetDistinctIds() {
+        addClass("package a; public class Order {}")
+        addClass("package b; public class Order {}")
+        val model = supported("""
+            package c;
+            class Repo {
+                void save(a.Order o) {}
+                void save(b.Order o) {}
+            }
+        """.trimIndent())
+        assertEquals(listOf("method:save(a.Order)", "method:save(b.Order)"), model.ofKind(BlockKind.METHOD).map { it.id })
+        val cls = (myFixture.file as com.intellij.psi.PsiJavaFile).classes.single()
+        val second = JavaBlockBuilder.findOwnMethod(cls, "save(b.Order)")
+        assertSame(JavaBlockBuilder.ownMethods(cls)[1], second)
+    }
+
     fun testKeywordsInTheClassTitle() {
         addClass("package a; public interface Named {}")
         addClass("package a; public class Base {}")
