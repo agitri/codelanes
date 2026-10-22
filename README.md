@@ -69,6 +69,7 @@ summaries, everything comes from the real code.
 ## Install
 
 Requirements: **PhpStorm 2025.2 or newer** for PHP, **IntelliJ IDEA 2025.2 or newer** for Java.
+Works in PhpStorm (PHP) and IntelliJ IDEA (Java); other JetBrains IDEs aren't supported yet.
 
 - **From the Marketplace:** in PhpStorm or IntelliJ IDEA, **Settings → Plugins → Marketplace**, search "CodeLanes" and click
   **Install**. Or open [CodeLanes on the JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35151-codelanes)
@@ -139,8 +140,8 @@ same lanes and lines as PHP:
 
 | In the Java code | Lane |
 |---|---|
-| `extends Base`, or the interfaces an interface extends | parent |
-| `implements Foo` | interface |
+| `extends Base` | parent |
+| `implements Foo`, or the interfaces an interface extends | interface |
 | injected beans: constructor parameters, `@Autowired`/`@Inject`/`@Resource` fields, Lombok `@RequiredArgsConstructor` and `@AllArgsConstructor` fields | dependency |
 | the class itself, with annotations and Javadoc | middle |
 | each method | methods, on the right |

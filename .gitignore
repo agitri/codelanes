@@ -5,4 +5,5 @@ build/
 .kotlin/
 *.iml
 .superpowers/
-playground/
+playground/*
+!playground/java-spring/

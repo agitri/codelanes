@@ -12,6 +12,8 @@ Java in IntelliJ IDEA. For PhpStorm and IntelliJ IDEA 2025.2 and newer.
 - **AI flows for Spring**: Java references (`com.acme.OrderController::create`); `binds` (interface → bean), `dispatches`
   (`publishEvent(new …)`) and `listens` (`@EventListener`) are proven from the code.
 - Library types without source show their name and methods only.
+- Java files open as blocks by default, like PHP files (switch it off with **View → Open Files as Blocks by Default**);
+  library code isn't opened as blocks.
 - The plugin no longer requires PHP: it installs in IntelliJ IDEA without the PHP plugin, and in PhpStorm without Java.
 
 ## 0.1.0
