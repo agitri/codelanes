@@ -69,4 +69,15 @@ class JavaBlockBuilderCallsTest : JavaBuilderTestCase() {
         assertEquals(10, model.ofKind(BlockKind.CALLEE).size)
         assertEquals("and 2 more calls", model.block("more:calls:method:run").title)
     }
+
+    fun testGeneratedMethodsAreNotFollowed() {
+        addClass("package com.acme; public record Point(int x, int y) {}")
+        val model = supported("""
+            package com.acme;
+            public class Plotter {
+                void run(Point p) { p.x(); }
+            }
+        """.trimIndent(), "Plotter.java", followed = setOf("method:run"))
+        assertTrue(model.ofKind(BlockKind.CALLEE).none { it.id.contains("Point::x") })
+    }
 }

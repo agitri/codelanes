@@ -125,7 +125,7 @@ object JavaBlockBuilder {
     /** Project implementations of an interface/abstract [method] (at most [MAX_IMPLEMENTATIONS]). */
     private fun implementationsOf(method: PsiMethod): List<Pair<String, PsiMethod>> =
         OverridingMethodsSearch.search(method, GlobalSearchScope.projectScope(method.project), true).findAll()
-            .filter { !isAbstract(it) && inProject(it) && it.containingClass !is PsiAnonymousClass }
+            .filter { !isAbstract(it) && !isGenerated(it) && inProject(it) && it.containingClass !is PsiAnonymousClass }
             .mapNotNull { impl -> impl.containingClass?.let { "callee:${fqn(it)}::${methodKey(impl)}" to impl } }
             .sortedBy { it.first }
             .distinctBy { it.first }
@@ -160,7 +160,7 @@ object JavaBlockBuilder {
                 break
             }
             val allCallees = calledMethods(caller)
-                .filter { it.containingClass.let { c -> c != null && fqn(c) != fqn(cls) } && inProject(it) }
+                .filter { !isGenerated(it) && it.containingClass.let { c -> c != null && fqn(c) != fqn(cls) } && inProject(it) }
                 .distinct()
             val callees = allCallees.take(MAX_CALLEES)
             if (allCallees.size > MAX_CALLEES) {
@@ -323,9 +323,12 @@ object JavaBlockBuilder {
 
     fun fqn(cls: PsiClass): String = cls.qualifiedName ?: cls.name.orEmpty()
 
+    /** Lombok / record / enum methods have no text of their own to show or edit. */
+    private fun isGenerated(method: PsiMethod) = method is LightElement || method is SyntheticElement
+
     /** The class's own methods as written: no constructors, no generated ones (enum values(), record accessors, Lombok). */
     fun ownMethods(cls: PsiClass): List<PsiMethod> =
-        cls.methods.filter { !it.isConstructor && it !is LightElement && it !is SyntheticElement }.sortedBy { it.textRange?.startOffset ?: 0 }
+        cls.methods.filter { !it.isConstructor && !isGenerated(it) }.sortedBy { it.textRange?.startOffset ?: 0 }
 
     /**
      * `place`, or `place(Order, boolean)` when the class has more than one `place`. Overloads whose simple-name
