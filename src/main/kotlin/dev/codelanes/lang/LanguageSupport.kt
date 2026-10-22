@@ -7,8 +7,8 @@ import com.intellij.psi.PsiFile
 import dev.codelanes.model.BuildResult
 
 /**
- * Everything CodeLanes needs to know about one language. Registered from an optional descriptor
- * (`codelanes-php.xml`, `codelanes-java.xml`), so each one only loads in an IDE that has the language.
+ * Everything CodeLanes needs to know about one language. Registered from a content module
+ * (`codelanes.php`, and `codelanes.java` to come), so each one only loads in an IDE that has the language.
  */
 interface LanguageSupport {
     /** Cheap check on the file type only, no PSI: is this file this language's? */

@@ -88,7 +88,7 @@
       {
        "physicalLocation": {
         "artifactLocation": {
-         "uri": "src/main/kotlin/dev/codelanes/php/PhpBlockBuilder.kt",
+         "uri": "php/src/main/kotlin/dev/codelanes/php/PhpBlockBuilder.kt",
          "uriBaseId": "SRCROOT"
         },
         "region": {
