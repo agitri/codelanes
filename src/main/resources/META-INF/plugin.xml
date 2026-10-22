@@ -23,8 +23,12 @@
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends optional="true" config-file="codelanes-php.xml">com.jetbrains.php</depends>
     <depends optional="true" config-file="codelanes-mcp.xml">com.intellij.mcpServer</depends>
+
+    <!-- Language support lives in content modules with their own jars (lib/modules/), each loaded only when its language plugin is there. -->
+    <content>
+        <module name="codelanes.php"/>
+    </content>
 
     <extensionPoints>
         <extensionPoint qualifiedName="dev.codelanes.languageSupport" interface="dev.codelanes.lang.LanguageSupport" dynamic="true"/>
