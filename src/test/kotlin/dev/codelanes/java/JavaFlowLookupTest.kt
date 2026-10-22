@@ -101,4 +101,10 @@ class JavaFlowLookupTest : JavaBuilderTestCase() {
         val resolved = resolve(FlowHop(create, "App\\Services\\OrderService::place", "calls"))
         assertEquals(listOf("App\\Services\\OrderService::place (no such class)"), resolved.unknown)
     }
+
+    fun testAnEntryInALibraryWithoutSourceIsNotShown() {
+        val resolved = resolve(entry = "junit.framework.TestCase::setUp")
+        assertEquals("TestCase.class can't be shown as blocks: Compiled class without source", resolved.entryProblem)
+        assertNull(resolved.entryId)
+    }
 }

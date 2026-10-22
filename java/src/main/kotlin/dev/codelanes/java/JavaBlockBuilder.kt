@@ -314,6 +314,7 @@ object JavaBlockBuilder {
     /** Why [file] can't be shown as blocks, or null. Structure only, no resolving: cheap while indexing. */
     fun unsupportedReason(file: PsiFile): String? {
         if (file !is PsiJavaFile) return "Not a Java file"
+        if (file is PsiCompiledElement) return "Compiled class without source"
         if (file.name == "package-info.java" || file.name == "module-info.java") return "No class in this file"
         val classes = file.classes
         if (classes.size != 1) return "Expected exactly one top-level class, interface, enum or record, found ${classes.size}"
