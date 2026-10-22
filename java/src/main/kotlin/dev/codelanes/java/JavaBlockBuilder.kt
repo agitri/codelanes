@@ -2,7 +2,13 @@ package dev.codelanes.java
 
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.psi.JavaPsiFacade
+import com.intellij.psi.PsiAnnotation
 import com.intellij.psi.PsiClass
+import com.intellij.psi.PsiClassType
+import com.intellij.psi.PsiEnumConstant
+import com.intellij.psi.PsiModifier
+import com.intellij.psi.PsiReferenceList
+import com.intellij.psi.PsiTypeParameter
 import com.intellij.psi.PsiCompiledElement
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -48,10 +54,123 @@ object JavaBlockBuilder {
         blocks += Block(classId, BlockKind.CLASS, classTitle(cls), path, classRange, excluded = methodBlocks.map { it.range })
         blocks += methodBlocks
         links += methodBlocks.map { Link(LinkKind.OWNS, classId, it.id) }
-        // Task 6: related types, overrides, dependencies, revealDeeper
+        val related = relatedTypes(cls)
+        related.forEach { (block, linkKind, _) ->
+            blocks += block
+            links += Link(linkKind, block.id, classId)
+        }
+        links += overrides(methods, related)
+        revealDeeper(related, revealed, classId).let { (deeperBlocks, deeperLinks) ->
+            blocks += deeperBlocks
+            links += deeperLinks
+        }
+        dependencies(cls).forEach { block ->
+            if (blocks.none { it.id == block.id }) blocks += block
+            links += Link(LinkKind.INJECTS, block.id, classId)
+        }
         // Task 7: followCalls, implementedBy
         links += calls(methods)
         return BuildResult.Supported(BlockModel(blocks, links))
+    }
+
+    private val INJECT_ANNOTATIONS = setOf(
+        "org.springframework.beans.factory.annotation.Autowired",
+        "javax.inject.Inject", "jakarta.inject.Inject",
+        "javax.annotation.Resource", "jakarta.annotation.Resource",
+    )
+
+    internal fun externalBlock(kind: BlockKind, target: PsiClass): Block {
+        val sourceless = isSourceless(target)
+        val source = if (sourceless) target else (target.navigationElement as? PsiClass ?: target)
+        return Block(
+            id = "${kind.name.lowercase()}:${fqn(target)}",
+            kind = kind,
+            title = "${keyword(target)} ${target.name}",
+            filePath = source.containingFile?.virtualFile?.path.orEmpty(),
+            range = if (sourceless) SourceRange(0, 0) else rangeOf(source),
+            collapsed = true,
+            summary = ownMethods(source).map(::methodTitle),
+            sourceless = sourceless,
+        )
+    }
+
+    private data class Related(val block: Block, val linkKind: LinkKind, val type: PsiClass)
+
+    private fun resolved(list: PsiReferenceList?): List<PsiClass> =
+        list?.referenceElements.orEmpty().mapNotNull { it.resolve() as? PsiClass }.distinctBy(::fqn)
+
+    /** Interfaces, then parents, each with the link kind pointing into the class block. */
+    private fun relatedTypes(cls: PsiClass): List<Related> {
+        val parentKind = if (cls.isInterface) BlockKind.INTERFACE else BlockKind.PARENT
+        return resolved(cls.implementsList).map { Related(externalBlock(BlockKind.INTERFACE, it), LinkKind.IMPLEMENTS, it) } +
+            resolved(cls.extendsList).map { Related(externalBlock(parentKind, it), LinkKind.EXTENDS, it) }
+    }
+
+    /** A method links to each related type that declares a method it overrides. */
+    private fun overrides(methods: List<PsiMethod>, related: List<Related>): List<Link> =
+        methods.flatMap { method ->
+            val supers = method.findSuperMethods().toSet()
+            related.mapNotNull { r ->
+                r.type.methods.firstOrNull { it in supers }?.let { overridden ->
+                    val landing = (overridden.navigationElement as? PsiMethod)?.takeUnless { r.block.sourceless }
+                    Link(LinkKind.OVERRIDES, methodId(method), r.block.id, landing?.let(::rangeOf))
+                }
+            }
+        }
+
+    /** Same as PhpBlockBuilder.revealDeeper: parents of revealed blocks, as deep as revealed. */
+    private fun revealDeeper(related: List<Related>, revealed: Set<String>, classId: String): Pair<List<Block>, List<Link>> {
+        val known = related.associateBy { it.block.id }.toMutableMap()
+        val queue = ArrayDeque(revealed.filter { it in known })
+        val seen = mutableSetOf<String>()
+        val blocks = mutableListOf<Block>()
+        val links = mutableListOf<Link>()
+        while (queue.isNotEmpty()) {
+            val id = queue.removeFirst()
+            if (!seen.add(id)) continue
+            for (deeper in relatedTypes(known.getValue(id).type)) {
+                val deeperId = deeper.block.id
+                if (deeperId == classId) continue
+                if (deeperId !in known) {
+                    known[deeperId] = deeper
+                    blocks += deeper.block
+                }
+                links += Link(deeper.linkKind, deeperId, id)
+                if (deeperId in revealed) queue += deeperId
+            }
+        }
+        return blocks to links.distinct()
+    }
+
+    /**
+     * Injected types: constructor parameters, @Autowired/@Inject/@Resource fields, and the fields Lombok's
+     * @RequiredArgsConstructor (final, no initializer) or @AllArgsConstructor (all) turn into constructor parameters.
+     */
+    private fun dependencies(cls: PsiClass): List<Block> {
+        val fields = cls.fields.filter { it !is PsiEnumConstant && !it.hasModifierProperty(PsiModifier.STATIC) }
+        val types = mutableListOf<PsiType>()
+        cls.constructors.forEach { constructor -> constructor.parameterList.parameters.forEach { types += it.type } }
+        fields.filter { field -> field.annotations.any { annotated(it, INJECT_ANNOTATIONS) } }.forEach { types += it.type }
+        if (cls.annotations.any { annotated(it, setOf("lombok.RequiredArgsConstructor")) }) {
+            fields.filter { it.hasModifierProperty(PsiModifier.FINAL) && it.initializer == null }.forEach { types += it.type }
+        }
+        if (cls.annotations.any { annotated(it, setOf("lombok.AllArgsConstructor")) }) fields.forEach { types += it.type }
+        return types.mapNotNull { (it as? PsiClassType)?.resolve() }
+            .filter { it !is PsiTypeParameter && fqn(it) != fqn(cls) && !isJdk(it) }
+            .distinctBy(::fqn)
+            .map { externalBlock(BlockKind.DEPENDENCY, it) }
+    }
+
+    /** By qualified name when the annotation resolves, else by its short name. */
+    private fun annotated(annotation: PsiAnnotation, names: Set<String>): Boolean {
+        if (annotation.resolveAnnotationType() != null) return annotation.qualifiedName in names
+        val short = annotation.nameReferenceElement?.referenceName ?: return false
+        return names.any { it.substringAfterLast('.') == short }
+    }
+
+    private fun isJdk(cls: PsiClass): Boolean {
+        val name = fqn(cls)
+        return name.startsWith("java.") || (name.startsWith("javax.") && !name.startsWith("javax.inject."))
     }
 
     /** Why [file] can't be shown as blocks, or null. Structure only, no resolving: cheap while indexing. */
