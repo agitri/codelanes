@@ -32,8 +32,8 @@
 1. **Polish from the reviews** (done for 0.1.0; leftovers below).
 2. **JetBrains Marketplace release 0.1.0**: icon, description, change notes, signing and publishing config are ready and `verifyPlugin` passes on PhpStorm 2025.2 to 2026.2. Live since 2026-10-22: https://plugins.jetbrains.com/plugin/35151-codelanes
 3. **Fresh screenshots** for the README and the Marketplace page.
-4. **Java/Kotlin**: a new `BlockBuilder` per language; layout, canvas, reviews and notes stay. The biggest group of
-   JetBrains users.
+4. **Java** (done in 0.2.0, `docs/superpowers/specs/2026-10-22-java-support-design.md`); next: Spring routes in Follow a
+   Request, then JAX-RS/Micronaut routes, then Kotlin.
 5. **TypeScript/JavaScript**.
 6. **Record the real road a request took** (long haul): read an Xdebug trace of one real request and show exactly
    the methods that ran, in order (also events and handlers that static analysis can't see).

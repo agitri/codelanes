@@ -124,12 +124,13 @@ object JavaBlockBuilder {
 
     /** Project implementations of an interface/abstract [method] (at most [MAX_IMPLEMENTATIONS]). */
     private fun implementationsOf(method: PsiMethod): List<Pair<String, PsiMethod>> =
-        OverridingMethodsSearch.search(method, GlobalSearchScope.projectScope(method.project), true).findAll()
+        OverridingMethodsSearch.search(method, GlobalSearchScope.projectScope(method.project), true).findAll().asSequence()
             .filter { !isAbstract(it) && !isGenerated(it) && inProject(it) && it.containingClass !is PsiAnonymousClass }
             .mapNotNull { impl -> impl.containingClass?.let { "callee:${fqn(it)}::${methodKey(impl)}" to impl } }
             .sortedBy { it.first }
             .distinctBy { it.first }
             .take(MAX_IMPLEMENTATIONS)
+            .toList()
 
     /** "+ calls", as in PhpBlockBuilder.followCalls: callees in other project classes become editable blocks. */
     private fun followCalls(cls: PsiClass, methods: List<PsiMethod>, followed: Set<String>, added: Set<String>, path: String): Pair<List<Block>, List<Link>> {

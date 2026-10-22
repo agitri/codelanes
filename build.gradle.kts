@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "dev.codelanes"
-version = "0.1.0"
+version = "0.2.0"
 
 kotlin {
     jvmToolchain(21)
@@ -41,10 +41,10 @@ dependencies {
 intellijPlatform {
     pluginConfiguration {
         ideaVersion {
-            sinceBuild = "252" // PhpStorm 2025.2: the first with the MCP server that flows use
+            sinceBuild = "252" // 2025.2: the first IDE versions with the MCP server that flows use
             untilBuild = provider { null } // no upper bound: new PhpStorm versions shouldn't lock the plugin out
         }
-        changeNotes = provider { file("CHANGELOG.md").readText().substringAfter("## 0.1.0").substringBefore("\n## ").let(::markdownToHtml) }
+        changeNotes = provider { file("CHANGELOG.md").readText().substringAfter("## ${project.version}").substringBefore("\n## ").let(::markdownToHtml) }
     }
 
     // Signing and publishing read secrets from the environment only, never from files in this repository.

@@ -4,8 +4,8 @@
 [![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/35151-codelanes?label=Marketplace)](https://plugins.jetbrains.com/plugin/35151-codelanes)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/35151-codelanes)](https://plugins.jetbrains.com/plugin/35151-codelanes)
 
-**Read code like a human.** CodeLanes is a PhpStorm plugin that replaces the vertical, line-by-line editor
-with a canvas of real, editable code blocks laid out in lanes: what a class builds on on the left, the class
+**Read code like a human.** CodeLanes is a plugin for PhpStorm and IntelliJ IDEA that replaces the vertical, line-by-line
+editor with a canvas of real, editable code blocks laid out in lanes: what a class builds on on the left, the class
 in the middle, its methods on the right, connected by colour-coded lines.
 
 ![A class with its parent, interfaces, trait and dependencies on the left and its methods on the right](docs/images/canvas-expanded.png)
@@ -24,8 +24,8 @@ summaries, everything comes from the real code.
 
 ## What you get
 
-- **The canvas is the editor.** Every block is a real PhpStorm editor showing one slice of the file:
-  completion, inspections, refactorings and undo all work. The file on disk stays plain PHP, so git, your
+- **The canvas is the editor.** Every block is a real IDE editor showing one slice of the file:
+  completion, inspections, refactorings and undo all work. The file on disk stays plain PHP or Java, so git, your
   team and your tools see nothing unusual.
 - **Lanes, not a mess.** Parents, interfaces, traits and injected dependencies each get their own lane in a
   staircase left of the class. The class (with a collapsed `namespace`/`use` header above it) sits in the
@@ -68,11 +68,11 @@ summaries, everything comes from the real code.
 
 ## Install
 
-Requirements: **PhpStorm 2025.2 or newer**.
+Requirements: **PhpStorm 2025.2 or newer** for PHP, **IntelliJ IDEA 2025.2 or newer** for Java.
 
-- **From the Marketplace:** in PhpStorm, **Settings → Plugins → Marketplace**, search "CodeLanes" and click
+- **From the Marketplace:** in PhpStorm or IntelliJ IDEA, **Settings → Plugins → Marketplace**, search "CodeLanes" and click
   **Install**. Or open [CodeLanes on the JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35151-codelanes)
-  and click **Install to PhpStorm**.
+  and click **Install**.
 - **From source** (needs a **JDK 21+**; Gradle downloads the right toolchain):
 
   ```bash
@@ -81,14 +81,12 @@ Requirements: **PhpStorm 2025.2 or newer**.
   ./gradlew buildPlugin
   ```
 
-  Then in PhpStorm: **Settings → Plugins → ⚙ → Install Plugin from Disk…** and choose
-  `build/distributions/codelanes-0.1.0.zip`. Restart PhpStorm.
-
-CodeLanes reads PHP only for now, so it needs PhpStorm. IntelliJ IDEA support comes with Java (see Status).
+  Then in your IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…** and choose
+  `build/distributions/codelanes-0.2.0.zip`. Restart the IDE.
 
 ## Use
 
-- Open a PHP file that contains one class, interface, trait or enum. It opens as a canvas.
+- Open a PHP or Java file that contains one class, interface, trait, enum or record. It opens as a canvas.
 - **Ctrl+Alt+Shift+B** (or **View → Toggle Blocks / Text View**) switches between the canvas and the classic
   text editor. The **Blocks | Text** tabs at the bottom of the editor do the same.
 - Pan by dragging the background or scrolling; **Cmd/Ctrl+scroll** zooms.
@@ -117,7 +115,7 @@ describe the flow. CodeLanes checks every step against the real code and draws o
 
 ![A Laravel request flow: the route (dotted, from the AI) into the Authenticate middleware, the controller action, and the service it calls](docs/images/flow-laravel.png)
 
-1. PhpStorm 2025.2 or newer: enable **Settings → Tools → MCP Server** and connect your assistant (JetBrains AI
+1. PhpStorm or IntelliJ IDEA 2025.2 or newer: enable **Settings → Tools → MCP Server** and connect your assistant (JetBrains AI
    Assistant/Junie, GitHub Copilot's agent mode, Claude Code, or any MCP client).
 2. Ask it, for example: *"Show the flow of POST /invoices in CodeLanes."*
 3. The assistant reads the code and calls the `codelanes_show_flow` tool. The canvas opens on the controller action
@@ -134,21 +132,47 @@ describe the flow. CodeLanes checks every step against the real code and draws o
 
 The AI never writes or explains code here; it only points at methods that exist.
 
+## Java and Spring
+
+In IntelliJ IDEA, a `.java` file with one class, interface, enum, record or annotation opens as a canvas, with the
+same lanes and lines as PHP:
+
+| In the Java code | Lane |
+|---|---|
+| `extends Base`, or the interfaces an interface extends | parent |
+| `implements Foo` | interface |
+| injected beans: constructor parameters, `@Autowired`/`@Inject`/`@Resource` fields, Lombok `@RequiredArgsConstructor` and `@AllArgsConstructor` fields | dependency |
+| the class itself, with annotations and Javadoc | middle |
+| each method | methods, on the right |
+
+- JDK types are left out of the dependency lane. A library type without source (say `JpaRepository`) shows its name
+  and methods only.
+- An overloaded method gets its parameters in its id, so flows can tell them apart:
+  `com.acme.shop.order.OrderService::place(String,int)`. A method with a unique name needs no parameters.
+- AI flows use dots in Java references (`com.acme.shop.order.OrderController::create`). `binds` (interface to bean),
+  `dispatches` (`publishEvent(new OrderPlaced(…))`) and `listens` (`@EventListener`) are proven from the code.
+- **Follow a Request** lists Spring routes in a later version. Until then, ask your AI assistant for Spring flows.
+
+Try it in [`playground/java-spring`](playground/java-spring), a small Spring-style shop that opens without Maven or Gradle.
+
 ## Status
 
-Early, but usable for reading and editing PHP classes. Next up: Java (with Spring) in IntelliJ IDEA, then Kotlin
-and TypeScript, and VS Code later. See [docs/roadmap.md](docs/roadmap.md).
+Usable for reading and editing PHP and Java classes. Next up: Spring routes in Follow a Request, then
+JAX-RS/Micronaut, Kotlin and TypeScript, and VS Code later. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Develop
 
 ```bash
 ./gradlew test      # unit and platform tests
-./gradlew runIde    # sandbox PhpStorm with the plugin loaded
+./gradlew runIde    # sandbox IntelliJ IDEA with PHP and the plugin loaded: both playgrounds work in it
 ```
+
+PHP and Java support live in the `php/` and `java/` Gradle modules. They are content modules: each is loaded only
+when the IDE has that language.
 
 CI runs on every push to `main` and every pull request:
 - the tests and the plugin build;
-- the plugin verifier against PhpStorm 2025.2, 2025.3, 2026.1 and 2026.2;
+- the plugin verifier against PhpStorm and IntelliJ IDEA 2025.2, 2025.3, 2026.1 and 2026.2;
 - [Qodana](https://www.jetbrains.com/qodana/), JetBrains' inspections over the whole project.
 
 Qodana fails on any problem that isn't in `qodana.sarif.json`, the problems already there when CI was added. To run
