@@ -24,9 +24,9 @@ class PhpLanguageSupport : LanguageSupport {
 
     override fun routes(project: Project): List<EntryPoint> = RouteFinder.find(project)
 
-    override fun findFlowTarget(project: Project, reference: String): FlowLookup? = null
+    override fun findFlowTarget(project: Project, reference: String): FlowLookup? = PhpFlowLookup.find(project, reference, this)
 
-    override fun proves(kind: String, from: FlowTarget, to: FlowTarget): Boolean = false
+    override fun proves(kind: String, from: FlowTarget, to: FlowTarget): Boolean = PhpFlowLookup.proves(kind, from, to)
 
     override fun newMethodText(name: String, indent: String, inInterface: Boolean): String =
         if (inInterface) "${indent}public function $name(): void;\n"
