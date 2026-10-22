@@ -28,6 +28,7 @@
     <!-- Language support lives in content modules with their own jars (lib/modules/), each loaded only when its language plugin is there. -->
     <content>
         <module name="codelanes.php"/>
+        <module name="codelanes.java"/>
     </content>
 
     <extensionPoints>

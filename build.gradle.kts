@@ -24,14 +24,16 @@ dependencies {
     intellijPlatform {
         // IntelliJ IDEA with the PHP plugin: one sandbox and one test run cover both languages.
         intellijIdea("2026.1")
-        bundledPlugin("com.intellij.java") // optional at runtime, see codelanes-java.xml
+        bundledPlugin("com.intellij.java") // the tests need Java; the product loads it via the :java content module
         compatiblePlugin("com.jetbrains.php") // the tests need PHP; the product loads it via the :php content module
         bundledPlugin("com.intellij.mcpServer") // optional at runtime, see codelanes-mcp.xml
         pluginModule(project(":php"))
+        pluginModule(project(":java"))
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.Plugin.Java)
     }
     testImplementation(project(":php"))
+    testImplementation(project(":java"))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.opentest4j:opentest4j:1.3.0")
 }
