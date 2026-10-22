@@ -1,6 +1,8 @@
 # CodeLanes
 
 [![CI](https://github.com/agitri/codelanes/actions/workflows/ci.yml/badge.svg)](https://github.com/agitri/codelanes/actions/workflows/ci.yml)
+[![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/35151-codelanes?label=Marketplace)](https://plugins.jetbrains.com/plugin/35151-codelanes)
+[![Downloads](https://img.shields.io/jetbrains/plugin/d/35151-codelanes)](https://plugins.jetbrains.com/plugin/35151-codelanes)
 
 **Read code like a human.** CodeLanes is a PhpStorm plugin that replaces the vertical, line-by-line editor
 with a canvas of real, editable code blocks laid out in lanes: what a class builds on on the left, the class
@@ -66,18 +68,23 @@ summaries, everything comes from the real code.
 
 ## Install
 
-CodeLanes is on its way to the JetBrains Marketplace (**Settings → Plugins → Marketplace**, search "CodeLanes"). Until it's listed, build it from source.
+Requirements: **PhpStorm 2025.2 or newer**.
 
-Requirements: **PhpStorm 2025.2 or newer** and a **JDK 21+** to build (Gradle downloads the right toolchain).
+- **From the Marketplace:** in PhpStorm, **Settings → Plugins → Marketplace**, search "CodeLanes" and click
+  **Install**. Or open [CodeLanes on the JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35151-codelanes)
+  and click **Install to PhpStorm**.
+- **From source** (needs a **JDK 21+**; Gradle downloads the right toolchain):
 
-```bash
-git clone https://github.com/agitri/codelanes.git
-cd codelanes
-./gradlew buildPlugin
-```
+  ```bash
+  git clone https://github.com/agitri/codelanes.git
+  cd codelanes
+  ./gradlew buildPlugin
+  ```
 
-Then in PhpStorm: **Settings → Plugins → ⚙ → Install Plugin from Disk…** and choose
-`build/distributions/codelanes-0.1.0.zip`. Restart PhpStorm.
+  Then in PhpStorm: **Settings → Plugins → ⚙ → Install Plugin from Disk…** and choose
+  `build/distributions/codelanes-0.1.0.zip`. Restart PhpStorm.
+
+CodeLanes reads PHP only for now, so it needs PhpStorm. IntelliJ IDEA support comes with Java (see Status).
 
 ## Use
 
@@ -129,8 +136,8 @@ The AI never writes or explains code here; it only points at methods that exist.
 
 ## Status
 
-Early, but usable for reading and editing PHP classes. Next up: languages other than PHP (Java/Kotlin and
-TypeScript), a Marketplace release, and VS Code later. See [docs/roadmap.md](docs/roadmap.md).
+Early, but usable for reading and editing PHP classes. Next up: Java (with Spring) in IntelliJ IDEA, then Kotlin
+and TypeScript, and VS Code later. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Develop
 
