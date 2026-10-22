@@ -26,9 +26,12 @@ object JavaFlowLookup {
         val name = trimmed.substringAfter("::")
         val cls = JavaPsiFacade.getInstance(project).findClass(classPart, GlobalSearchScope.allScope(project))
             ?: return FlowLookup.Missing("$trimmed (no such class)")
+        val nested = FlowLookup.Missing("$trimmed (nested classes aren't shown as blocks)")
+        if (cls.containingClass != null) return nested
         if (name == "class" || name == "<init>" || name.substringBefore('(') == cls.name) return FlowLookup.Found(target(cls, null, support))
         val method = JavaBlockBuilder.findOwnMethod(cls, name) ?: inherited(cls, name)
             ?: return FlowLookup.Missing("$trimmed (no such method)")
+        if (method.containingClass?.containingClass != null) return nested // inherited from a nested class
         return FlowLookup.Found(target(cls, method, support))
     }
 

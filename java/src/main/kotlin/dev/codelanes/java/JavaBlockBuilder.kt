@@ -23,6 +23,7 @@ import com.intellij.psi.impl.light.LightElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.ClassInheritorsSearch
 import com.intellij.psi.search.searches.OverridingMethodsSearch
+import com.intellij.psi.util.MethodSignatureUtil
 import com.intellij.psi.util.PsiTreeUtil
 import dev.codelanes.model.Block
 import dev.codelanes.model.BlockKind
@@ -49,6 +50,8 @@ object JavaBlockBuilder {
         val path = file.virtualFile.path
         val classId = "class:${fqn(cls)}"
         val methods = ownMethods(cls)
+        // Pasted twice, or overloads with the same erasure: keep the last good canvas until it compiles again.
+        methods.groupBy(::methodId).values.firstOrNull { it.size > 1 }?.let { return BuildResult.Unsupported("Duplicate method ${it.first().name}") }
         val methodBlocks = methods.map { Block(methodId(it), BlockKind.METHOD, methodTitle(it), path, rangeOf(it)) }
 
         val blocks = mutableListOf<Block>()
@@ -212,14 +215,16 @@ object JavaBlockBuilder {
         val blocks = mutableListOf<Block>()
         val links = mutableListOf<Link>()
         for (implementer in candidates.take(MAX_IMPLEMENTERS)) {
-            val implemented = methods.mapNotNull { implementer.findMethodBySignature(it, false) }
-            val block = externalBlock(BlockKind.IMPLEMENTER, implementer).copy(summary = implemented.map(::methodTitle))
+            // findMethodBySuperMethod substitutes type parameters: `save(T)` of Repo<Order> is `save(Order)`.
+            val implemented = methods.mapNotNull { MethodSignatureUtil.findMethodBySuperMethod(implementer, it, false) }
+            val block = externalBlock(BlockKind.IMPLEMENTER, implementer).copy(summary = implemented.distinct().map(::methodTitle))
             blocks += block
             links += Link(LinkKind.IMPLEMENTED_BY, classId, block.id)
             for (method in methods) {
-                val implementation = implementer.findMethodBySignature(method, false) ?: continue
+                val implementation = MethodSignatureUtil.findMethodBySuperMethod(implementer, method, false) ?: continue
                 val id = "implementation:${fqn(implementer)}::${methodKey(implementation)}"
-                blocks += Block(id, BlockKind.IMPLEMENTATION, "${implementer.name}::${methodTitle(implementation)}",
+                // One method can implement two of this type's (`put(T)` and `put(Order)` of Store<Order>).
+                if (blocks.none { it.id == id }) blocks += Block(id, BlockKind.IMPLEMENTATION, "${implementer.name}::${methodTitle(implementation)}",
                     implementer.containingFile.virtualFile.path, rangeOf(implementation), collapsed = true)
                 links += Link(LinkKind.OWNS, block.id, id)
                 links += Link(LinkKind.OVERRIDES, id, methodId(method), rangeOf(method))
@@ -241,8 +246,9 @@ object JavaBlockBuilder {
     /** Interfaces, then parents, each with the link kind pointing into the class block. */
     private fun relatedTypes(cls: PsiClass): List<Related> {
         val parentKind = if (cls.isInterface) BlockKind.INTERFACE else BlockKind.PARENT
-        return resolved(cls.implementsList).map { Related(externalBlock(BlockKind.INTERFACE, it), LinkKind.IMPLEMENTS, it) } +
+        val related = resolved(cls.implementsList).map { Related(externalBlock(BlockKind.INTERFACE, it), LinkKind.IMPLEMENTS, it) } +
             resolved(cls.extendsList).map { Related(externalBlock(parentKind, it), LinkKind.EXTENDS, it) }
+        return related.distinctBy { it.block.id } // half-typed `interface Foo extends J implements J`
     }
 
     /** A method links to each related type that declares a method it overrides. */
@@ -316,6 +322,8 @@ object JavaBlockBuilder {
     fun unsupportedReason(file: PsiFile): String? {
         if (file !is PsiJavaFile) return "Not a Java file"
         if (file is PsiCompiledElement) return "Compiled class without source"
+        // JDK and library sources (Cmd+B into them) stay in the text editor. The file index works while indexing.
+        if (file.virtualFile?.let { ProjectFileIndex.getInstance(file.project).isInLibrary(it) } == true) return "Library code"
         if (file.name == "package-info.java" || file.name == "module-info.java") return "No class in this file"
         val classes = file.classes
         if (classes.size != 1) return "Expected exactly one top-level class, interface, enum or record, found ${classes.size}"
@@ -354,14 +362,28 @@ object JavaBlockBuilder {
 
     /**
      * [key] as an id or a flow writes it: `place`, `place(Order)`, `place(Order,boolean)` (spaces don't matter).
-     * A bare name picks the first in source order.
+     * A bare name picks the first in source order. `save(List<Order>)` and `save(com.acme.Order)` match too.
      */
     fun findOwnMethod(cls: PsiClass, key: String): PsiMethod? {
         val wanted = key.replace(" ", "")
         val own = ownMethods(cls)
         if ('(' !in wanted) return own.firstOrNull { it.name == wanted }
+        val simple = simpleSignature(wanted)
         return own.firstOrNull { methodKey(it).replace(" ", "") == wanted }
             ?: own.firstOrNull { signatureKey(it, ",") == wanted }
+            ?: own.firstOrNull { signatureKey(it, ",") == simple }
+    }
+
+    /** `save(List<Order>,com.acme.Order)` → `save(List,Order)`: no type arguments, no packages. */
+    private fun simpleSignature(signature: String): String {
+        var params = signature.substringAfter('(').removeSuffix(")")
+        var previous: String
+        do {
+            previous = params
+            params = params.replace(Regex("<[^<>]*>"), "") // innermost first: Map<String, List<Order>>
+        } while (params != previous)
+        return signature.substringBefore('(') +
+            params.split(',').joinToString(",", "(", ")") { it.replace(Regex("^(\\w+\\.)+(?=\\w)"), "") }
     }
 
     private fun methodId(method: PsiMethod) = "method:${methodKey(method)}"

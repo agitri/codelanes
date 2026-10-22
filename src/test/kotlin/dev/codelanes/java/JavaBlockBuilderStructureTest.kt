@@ -124,6 +124,14 @@ class JavaBlockBuilderStructureTest : JavaBuilderTestCase() {
         assertEquals(listOf("method:sum"), recordModel.ofKind(BlockKind.METHOD).map { it.id })
     }
 
+    fun testDuplicateMethodsDontOpen() {
+        val pasted = build("package a;\npublic class Foo {\n    void foo(int a) {}\n    void foo(int a) {}\n}\n")
+        assertEquals("Duplicate method foo", (pasted as BuildResult.Unsupported).reason)
+        addClass("package java.util; public interface List<E> {}")
+        val erasure = build("package a;\nimport java.util.List;\npublic class Foo {\n    void foo(List<String> a) {}\n    void foo(List<Integer> a) {}\n}\n")
+        assertEquals("Duplicate method foo", (erasure as BuildResult.Unsupported).reason)
+    }
+
     fun testHalfTypedMethodDoesNotThrow() {
         val result = build("package a;\npublic class Foo {\n    void ok() {}\n    void broken(Strin\n    Unknown x;\n}\n")
         assertTrue(result is BuildResult.Supported)

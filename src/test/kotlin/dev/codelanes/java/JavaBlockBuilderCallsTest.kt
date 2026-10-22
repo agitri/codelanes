@@ -61,6 +61,20 @@ class JavaBlockBuilderCallsTest : JavaBuilderTestCase() {
             model.block("method:notify").range)))
     }
 
+    fun testImplementersOfAGenericInterfaceGetTheirImplementations() {
+        addClass("package com.acme; public class OrderRepo implements Repo<Order> { public void save(Order o) {} }")
+        val model = supported("package com.acme; public interface Repo<T> { void save(T t); }", "Repo.java")
+        assertEquals(listOf("save(Order o)"), model.block("implementer:com.acme.OrderRepo").summary)
+        assertTrue(model.links.contains(Link(LinkKind.OVERRIDES, "implementation:com.acme.OrderRepo::save", "method:save",
+            model.block("method:save").range)))
+    }
+
+    fun testOneImplementationOfTwoInterfaceMethodsGetsOneBlock() {
+        addClass("package com.acme; public class OrderStore implements Store<Order> { public void put(Order o) {} }")
+        val model = supported("package com.acme; public interface Store<T> { void put(T t); void put(Order o); }", "Store.java")
+        assertEquals(listOf("implementation:com.acme.OrderStore::put"), model.ofKind(BlockKind.IMPLEMENTATION).map { it.id })
+    }
+
     fun testTheChainStopsAtTheCap() {
         // 12 classes, each calling the next: following them all stays within the 80-block cap and notes the 10-callee cap.
         val calls = (1..12).joinToString("\n") { "        new C$it().go();" }

@@ -19,6 +19,7 @@ import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.text.StringUtil
+import com.intellij.openapi.vfs.JarFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
@@ -308,8 +309,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         canvas.place(layout.rects + noteRects(layout.rects))
     }
 
-    private fun fileOf(block: Block): VirtualFile? =
-        if (block.filePath == file.path) file else file.fileSystem.findFileByPath(block.filePath)
+    /** Library sources live inside a jar (`…-sources.jar!/org/acme/X.java`): those open read-only. */
+    private fun fileOf(block: Block): VirtualFile? = when {
+        block.filePath == file.path -> file
+        "!/" in block.filePath -> JarFileSystem.getInstance().findFileByPath(block.filePath)
+        else -> file.fileSystem.findFileByPath(block.filePath)
+    }
 
     private fun documentOf(block: Block): Document? = fileOf(block)?.let { FileDocumentManager.getInstance().getDocument(it) }
 

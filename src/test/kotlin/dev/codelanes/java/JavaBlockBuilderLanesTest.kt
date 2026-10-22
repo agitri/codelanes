@@ -35,6 +35,11 @@ class JavaBlockBuilderLanesTest : JavaBuilderTestCase() {
         assertTrue(model.links.contains(Link(LinkKind.EXTENDS, "interface:com.acme.Clock", "class:com.acme.Timed")))
     }
 
+    fun testAHalfTypedInterfaceNamingATypeTwiceGetsOneBlock() {
+        val model = supported("package com.acme; public interface Timed extends Clock implements Clock { }", "Timed.java")
+        assertEquals(listOf("interface:com.acme.Clock"), model.ofKind(BlockKind.INTERFACE).map { it.id })
+    }
+
     fun testPlusParentsDigsDeeper() {
         val model = supported("package com.acme; public class Svc implements Audited { public long now() { return 0; } }", "Svc.java",
             revealed = setOf("interface:com.acme.Audited"))

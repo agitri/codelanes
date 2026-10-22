@@ -102,6 +102,24 @@ class JavaFlowLookupTest : JavaBuilderTestCase() {
         assertEquals(listOf("App\\Services\\OrderService::place (no such class)"), resolved.unknown)
     }
 
+    fun testParameterTypesMayBeGenericOrQualified() {
+        addClass("package java.util; public interface List<E> {}")
+        myFixture.addFileToProject("com/acme/Store.java",
+            "package com.acme;\nimport java.util.List;\npublic class Store { public void save(Order o) {} public void save(List<Order> os) {} }")
+        val resolved = resolve(
+            FlowHop(create, "com.acme.Store::save(List<Order>)", "calls"),
+            FlowHop(create, "com.acme.Store::save(com.acme.Order)", "calls"),
+        )
+        assertTrue(resolved.unknown.isEmpty())
+        assertEquals(listOf("callee:com.acme.Store::save(List)", "callee:com.acme.Store::save(Order)"), resolved.hops.map { it.toId })
+    }
+
+    fun testANestedClassIsNotShownAsABlock() {
+        myFixture.addFileToProject("com/acme/Outer.java", "package com.acme;\npublic class Outer { public static class Inner { public void m() {} } }")
+        val resolved = resolve(FlowHop(create, "com.acme.Outer.Inner::m", "calls"))
+        assertEquals(listOf("com.acme.Outer.Inner::m (nested classes aren't shown as blocks)"), resolved.unknown)
+    }
+
     fun testAnEntryInALibraryWithoutSourceIsNotShown() {
         val resolved = resolve(entry = "junit.framework.TestCase::setUp")
         assertEquals("TestCase.class can't be shown as blocks: Compiled class without source", resolved.entryProblem)
