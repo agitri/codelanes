@@ -51,6 +51,7 @@ class JavaSessionTest : JavaBuilderTestCase() {
     fun testALibraryParentWithoutSourceGetsNoEditorAndDoesNotFold() {
         val session = open("package com.acme;\npublic class MyTest extends junit.framework.TestCase {\n}\n", "MyTest.java")
         val id = "parent:junit.framework.TestCase"
+        assertTrue(session.blockIds().contains(id))
         assertFalse(session.hasSliceEditor(id))
         session.collapseToggled(id)
         assertFalse(session.hasSliceEditor(id))
