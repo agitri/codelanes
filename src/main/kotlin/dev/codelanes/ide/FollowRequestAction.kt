@@ -49,7 +49,7 @@ class FollowRequestAction : AnAction() {
         val flows = FlowFiles.getInstance(project).list()
         val choices = flows.map { Choice.SavedFlowChoice(it) } + routes.map { Choice.Route(it) } + Choice.OpenFlowFile
         JBPopupFactory.getInstance().createPopupChooserBuilder(choices)
-            .setTitle(if (flows.isEmpty() && routes.isEmpty()) "$TITLE (no routes or saved flows found)" else TITLE)
+            .setTitle(if (flows.isEmpty() && routes.isEmpty()) "$TITLE (No Routes or Saved Flows Found)" else TITLE)
             .setRenderer(textListCellRenderer { it.label })
             .setNamerForFiltering { it.label }
             .setItemChosenCallback { choice ->

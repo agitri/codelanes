@@ -32,6 +32,7 @@ import com.intellij.util.Alarm
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.JBUI
 import dev.codelanes.editor.SliceEditor
+import dev.codelanes.lang.LanguageSupports
 import dev.codelanes.layout.LayoutEngine
 import dev.codelanes.layout.Point
 import dev.codelanes.model.Block
@@ -40,7 +41,6 @@ import dev.codelanes.model.BlockModel
 import dev.codelanes.model.LinkKind
 import dev.codelanes.model.SourceRange
 import dev.codelanes.notes.NotesFile
-import dev.codelanes.lang.LanguageSupports
 import dev.codelanes.review.Review
 import dev.codelanes.review.ReviewEntry
 import dev.codelanes.review.ReviewFile

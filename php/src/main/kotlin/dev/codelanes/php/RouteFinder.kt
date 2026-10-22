@@ -2,7 +2,6 @@ package dev.codelanes.php
 
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
-import dev.codelanes.lang.EntryPoint
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.psi.PsiFile
 import com.intellij.psi.search.GlobalSearchScope
@@ -11,8 +10,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.php.lang.psi.PhpFile
 import com.jetbrains.php.lang.psi.elements.PhpAttribute
 import com.jetbrains.php.lang.psi.elements.PhpClass
-
-/** A request entry point: e.g. "POST /api/orders → OrderController::create". */
+import dev.codelanes.lang.EntryPoint
 
 /**
  * Finds controller actions with a `#[Route]` attribute (Symfony style): class-level prefixes, invokable controllers
