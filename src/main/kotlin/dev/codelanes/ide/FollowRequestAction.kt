@@ -19,8 +19,8 @@ import dev.codelanes.flow.FlowFiles
 import dev.codelanes.flow.FlowRead
 import dev.codelanes.flow.FlowService
 import dev.codelanes.flow.SavedFlow
-import dev.codelanes.php.EntryPoint
-import dev.codelanes.php.RouteFinder
+import dev.codelanes.lang.EntryPoint
+import dev.codelanes.lang.LanguageSupports
 
 /**
  * "Follow a Request…": pick a route (e.g. POST /api/orders), open its controller action as a canvas and follow
@@ -41,7 +41,7 @@ class FollowRequestAction : AnAction() {
             return
         }
         val routes = ProgressManager.getInstance().runProcessWithProgressSynchronously<List<EntryPoint>, RuntimeException>(
-            { ReadAction.nonBlocking<List<EntryPoint>> { RouteFinder.find(project) }.inSmartMode(project).executeSynchronously() },
+            { ReadAction.nonBlocking<List<EntryPoint>> { LanguageSupports.all().flatMap { it.routes(project) } }.inSmartMode(project).executeSynchronously() },
             "Finding Routes…",
             true,
             project,
@@ -49,7 +49,7 @@ class FollowRequestAction : AnAction() {
         val flows = FlowFiles.getInstance(project).list()
         val choices = flows.map { Choice.SavedFlowChoice(it) } + routes.map { Choice.Route(it) } + Choice.OpenFlowFile
         JBPopupFactory.getInstance().createPopupChooserBuilder(choices)
-            .setTitle(if (flows.isEmpty() && routes.isEmpty()) "$TITLE (no #[Route] attributes or saved flows found)" else TITLE)
+            .setTitle(if (flows.isEmpty() && routes.isEmpty()) "$TITLE (no routes or saved flows found)" else TITLE)
             .setRenderer(textListCellRenderer { it.label })
             .setNamerForFiltering { it.label }
             .setItemChosenCallback { choice ->

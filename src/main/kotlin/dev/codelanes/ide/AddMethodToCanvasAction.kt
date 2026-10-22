@@ -10,8 +10,8 @@ import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
-import dev.codelanes.php.MethodFinder
-import dev.codelanes.php.MethodRef
+import dev.codelanes.lang.LanguageSupports
+import dev.codelanes.lang.MethodRef
 
 /** "Add method…": search any method in the project and drop it on the canvas that is open. */
 class AddMethodToCanvasAction : AnAction() {
@@ -30,7 +30,7 @@ class AddMethodToCanvasAction : AnAction() {
             return
         }
         val methods = ProgressManager.getInstance().runProcessWithProgressSynchronously<List<MethodRef>, RuntimeException>(
-            { ReadAction.nonBlocking<List<MethodRef>> { MethodFinder.find(project) }.inSmartMode(project).executeSynchronously() },
+            { ReadAction.nonBlocking<List<MethodRef>> { LanguageSupports.forFile(canvas.file)?.methods(project).orEmpty() }.inSmartMode(project).executeSynchronously() },
             "Finding Methods…",
             true,
             project,

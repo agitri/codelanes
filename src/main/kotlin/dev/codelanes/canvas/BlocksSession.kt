@@ -40,7 +40,7 @@ import dev.codelanes.model.BlockModel
 import dev.codelanes.model.LinkKind
 import dev.codelanes.model.SourceRange
 import dev.codelanes.notes.NotesFile
-import dev.codelanes.php.PhpBlockBuilder
+import dev.codelanes.lang.LanguageSupports
 import dev.codelanes.review.Review
 import dev.codelanes.review.ReviewEntry
 import dev.codelanes.review.ReviewFile
@@ -175,7 +175,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     private fun computeUpdate(previous: BlockModel?, reveal: Set<String>, follow: Set<String>, extra: Set<String>, overlay: FlowOverlay?): CanvasUpdate? {
         val psi = PsiManager.getInstance(project).findFile(file) ?: return null
-        val built = PhpBlockBuilder.build(psi, reveal, follow, extra).let { result ->
+        val language = LanguageSupports.forFile(file) ?: return null
+        val built = language.build(psi, reveal, follow, extra).let { result ->
             if (overlay != null && result is dev.codelanes.model.BuildResult.Supported) {
                 dev.codelanes.model.BuildResult.Supported(overlay.applyTo(result.model, file.path))
             } else {
@@ -533,8 +534,9 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             indentOptions.USE_TAB_CHARACTER -> "\t"
             else -> " ".repeat(indentOptions.INDENT_SIZE)
         }
-        val method = if (cls.title.startsWith("interface")) "${indent}public function $name(): void;\n"
-        else "${indent}public function $name(): void\n$indent{\n$indent}\n"
+        val language = LanguageSupports.forFile(file) ?: return@withModelAccess
+        val inInterface = cls.title.startsWith("interface") || cls.title.startsWith("@interface")
+        val method = language.newMethodText(name, indent, inInterface)
         // The class range can have grown past its brace (text typed after it): find the brace itself.
         val closingBrace = document.charsSequence.lastIndexOf('}', range.end - 1)
         if (closingBrace < range.start) return@withModelAccess

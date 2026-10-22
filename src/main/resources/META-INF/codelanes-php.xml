@@ -1,0 +1,6 @@
+<!-- Loaded only when the PHP plugin is there (PhpStorm, or IntelliJ IDEA with PHP). -->
+<idea-plugin>
+    <extensions defaultExtensionNs="dev.codelanes">
+        <languageSupport implementation="dev.codelanes.php.PhpLanguageSupport"/>
+    </extensions>
+</idea-plugin>

@@ -4,22 +4,20 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorPolicy
 import com.intellij.openapi.fileEditor.FileEditorProvider
-import com.intellij.openapi.fileTypes.FileTypeRegistry
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
-import com.jetbrains.php.lang.PhpFileType
-import dev.codelanes.php.PhpBlockBuilder
+import dev.codelanes.lang.LanguageSupports
 import dev.codelanes.settings.BlocksSettings
 
 /** Cheap structural check only, so it also works (and stays fast) while the IDE is indexing. */
 class BlocksEditorProvider : FileEditorProvider, DumbAware {
     override fun accept(project: Project, file: VirtualFile): Boolean {
-        if (!FileTypeRegistry.getInstance().isFileOfType(file, PhpFileType.INSTANCE)) return false
+        val language = LanguageSupports.forFile(file) ?: return false
         return ApplicationManager.getApplication().runReadAction<Boolean> {
             val psi = PsiManager.getInstance(project).findFile(file) ?: return@runReadAction false
-            PhpBlockBuilder.unsupportedReason(psi) == null
+            language.unsupportedReason(psi) == null
         }
     }
 

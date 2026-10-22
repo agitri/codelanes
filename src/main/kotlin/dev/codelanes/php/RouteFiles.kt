@@ -2,6 +2,7 @@ package dev.codelanes.php
 
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
+import dev.codelanes.lang.EntryPoint
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.psi.search.FilenameIndex
