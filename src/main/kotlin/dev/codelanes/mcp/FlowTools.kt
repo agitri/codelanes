@@ -25,7 +25,7 @@ import kotlin.coroutines.CoroutineContext
  * Only plain strings cross the boundary, so nothing depends on the server's serialization library version.
  */
 class FlowTools : McpToolset {
-    // Declared here, not inherited: PhpStorm 2025.2 and 2025.3 have no McpToolset.isEnabled() to call.
+    // Declared here, not inherited: IDE versions 2025.2 and 2025.3 have no McpToolset.isEnabled() to call.
     override fun isEnabled(): Boolean = true
 
     @McpTool(name = "codelanes_show_flow")
@@ -39,7 +39,7 @@ class FlowTools : McpToolset {
         dispatches (code fires an event, job or message; 'to' is the event, written App\Events\OrderPlaced::class),
         listens (a listener or handler picks it up; 'from' is the event as ...::class, 'to' the handler method),
         binds (an interface or abstract method ends up in a bound class), calls (a plain call that matters to the story).
-        Java references use dots and no spaces, e.g. com.acme.OrderController::create, or ::create(Order,int) for one of several overloads; PHP references use backslashes.
+        Java references use dots and no spaces, e.g. com.acme.OrderController::create, or ::create(Order,int) for one of several overloads (simple parameter type names, no generics); PHP references use backslashes.
         Use fully qualified class names and existing methods only. Don't explain the code. Use the same name again to
         update a flow (see codelanes_list_flows). The reply lists references that don't exist, so you can fix them.
         """,

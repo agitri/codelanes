@@ -55,7 +55,7 @@ import javax.swing.SwingUtilities
 import kotlin.math.roundToInt
 
 /**
- * Keeps the canvas in sync with one PHP file.
+ * Keeps the canvas in sync with one source file.
  *
  * A fresh build ([adopt]) is the only thing that decides *which* blocks exist and where they start;
  * between builds every block's range is tracked with range markers, so re-rendering (zoom, collapse)

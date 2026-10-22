@@ -8,7 +8,7 @@ import dev.codelanes.model.BuildResult
 
 /**
  * Everything CodeLanes needs to know about one language. Registered from a content module
- * (`codelanes.php`, and `codelanes.java` to come), so each one only loads in an IDE that has the language.
+ * (`codelanes.php`, `codelanes.java`), so each one only loads in an IDE that has the language.
  */
 interface LanguageSupport {
     /** Cheap check on the file type only, no PSI: is this file this language's? */
