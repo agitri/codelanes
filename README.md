@@ -99,7 +99,7 @@ CodeLanes reads PHP only for now, so it needs PhpStorm. IntelliJ IDEA support co
 - The toolbar in the bottom-left corner of the canvas switches the layout (**Lanes | Column | Tree**) and has
   **Follow a Request…**, **Working sets ▾** and **Tidy up** (forgets dragged positions). The same actions are in
   the View menu.
-- **View → Open PHP Files as Blocks by Default** turns the canvas on or off as the default.
+- **View → Open Files as Blocks by Default** turns the canvas on or off as the default.
 - Files with several classes, top-level functions or loose code open as text, with a banner saying why.
 
 **Follow a Request…** is also in Search Everywhere (press Shift twice and type "follow"). It lists the saved flows,

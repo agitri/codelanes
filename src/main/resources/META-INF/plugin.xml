@@ -59,7 +59,7 @@
         </action>
         <action id="CodeLanes.BlocksByDefault"
                 class="dev.codelanes.ide.BlocksByDefaultAction"
-                text="Open PHP Files as Blocks by Default">
+                text="Open Files as Blocks by Default">
             <add-to-group group-id="ViewMenu" anchor="last"/>
         </action>
         <action id="CodeLanes.VerticalLayout" class="dev.codelanes.ide.VerticalLayoutAction" text="Vertical Layout (experiment)"
