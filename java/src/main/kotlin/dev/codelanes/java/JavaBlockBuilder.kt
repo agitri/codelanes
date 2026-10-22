@@ -3,6 +3,7 @@ package dev.codelanes.java
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiAnnotation
+import com.intellij.psi.PsiAnonymousClass
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiClassType
 import com.intellij.psi.PsiEnumConstant
@@ -20,6 +21,8 @@ import com.intellij.psi.PsiType
 import com.intellij.psi.SyntheticElement
 import com.intellij.psi.impl.light.LightElement
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.search.searches.ClassInheritorsSearch
+import com.intellij.psi.search.searches.OverridingMethodsSearch
 import com.intellij.psi.util.PsiTreeUtil
 import dev.codelanes.model.Block
 import dev.codelanes.model.BlockKind
@@ -60,6 +63,10 @@ object JavaBlockBuilder {
             links += Link(linkKind, block.id, classId)
         }
         links += overrides(methods, related)
+        followCalls(cls, methods, followedCalls, added, path).let { (calleeBlocks, calleeLinks) ->
+            blocks += calleeBlocks
+            links += calleeLinks
+        }
         revealDeeper(related, revealed, classId).let { (deeperBlocks, deeperLinks) ->
             blocks += deeperBlocks
             links += deeperLinks
@@ -68,7 +75,10 @@ object JavaBlockBuilder {
             if (blocks.none { it.id == block.id }) blocks += block
             links += Link(LinkKind.INJECTS, block.id, classId)
         }
-        // Task 7: followCalls, implementedBy
+        implementedBy(cls, classId, methods, path).let { (implBlocks, implLinks) ->
+            blocks += implBlocks
+            links += implLinks
+        }
         links += calls(methods)
         return BuildResult.Supported(BlockModel(blocks, links))
     }
@@ -92,6 +102,134 @@ object JavaBlockBuilder {
             summary = ownMethods(source).map(::methodTitle),
             sourceless = sourceless,
         )
+    }
+
+    private fun isAbstract(method: PsiMethod) = method.hasModifierProperty(PsiModifier.ABSTRACT)
+
+    private fun calleeBlock(id: String, method: PsiMethod): Block {
+        val owner = method.containingClass!!
+        if (isSourceless(owner)) {
+            return Block(id, BlockKind.CALLEE, "${owner.name}::${methodTitle(method)}", owner.containingFile?.virtualFile?.path.orEmpty(),
+                SourceRange(0, 0), collapsed = true, sourceless = true)
+        }
+        val source = method.navigationElement as? PsiMethod ?: method
+        return Block(id, BlockKind.CALLEE, "${owner.name}::${methodTitle(source)}", source.containingFile.virtualFile.path, rangeOf(source))
+    }
+
+    /** "Fqn::key" → that method of that class, or null if either no longer exists. */
+    private fun methodByKey(context: PsiElement, key: String): PsiMethod? {
+        val cls = classByFqn(context, key.substringBefore("::")) ?: return null
+        return findOwnMethod(cls, key.substringAfter("::"))
+    }
+
+    /** Project implementations of an interface/abstract [method] (at most [MAX_IMPLEMENTATIONS]). */
+    private fun implementationsOf(method: PsiMethod): List<Pair<String, PsiMethod>> =
+        OverridingMethodsSearch.search(method, GlobalSearchScope.projectScope(method.project), true).findAll()
+            .filter { !isAbstract(it) && inProject(it) && it.containingClass !is PsiAnonymousClass }
+            .mapNotNull { impl -> impl.containingClass?.let { "callee:${fqn(it)}::${methodKey(impl)}" to impl } }
+            .sortedBy { it.first }
+            .distinctBy { it.first }
+            .take(MAX_IMPLEMENTATIONS)
+
+    /** "+ calls", as in PhpBlockBuilder.followCalls: callees in other project classes become editable blocks. */
+    private fun followCalls(cls: PsiClass, methods: List<PsiMethod>, followed: Set<String>, added: Set<String>, path: String): Pair<List<Block>, List<Link>> {
+        if (followed.isEmpty() && added.isEmpty()) return emptyList<Block>() to emptyList()
+        val queue = ArrayDeque(methods.map { methodId(it) to it }.filter { it.first in followed })
+        val seen = mutableSetOf<String>()
+        val blocks = linkedMapOf<String, Block>()
+        var truncated = false
+        val firstRoot = queue.firstOrNull()?.first
+        for (key in added) {
+            if (key.endsWith("::class")) {
+                val target = classByFqn(cls, key.removeSuffix("::class")) ?: continue
+                val id = "callee:$key"
+                blocks.getOrPut(id) { externalBlock(BlockKind.CALLEE, target).let { if (it.sourceless) it.copy(id = id) else it.copy(id = id, collapsed = false) } }
+                continue
+            }
+            val method = methodByKey(cls, key) ?: continue
+            val id = "callee:${fqn(method.containingClass!!)}::${methodKey(method)}"
+            blocks.getOrPut(id) { calleeBlock(id, method) }
+            if (id in followed) queue += id to method
+        }
+        val links = mutableListOf<Link>()
+        while (queue.isNotEmpty()) {
+            val (id, caller) = queue.removeFirst()
+            if (!seen.add(id)) continue
+            if (blocks.size >= MAX_CHAIN_BLOCKS) {
+                truncated = true
+                break
+            }
+            val allCallees = calledMethods(caller)
+                .filter { it.containingClass.let { c -> c != null && fqn(c) != fqn(cls) } && inProject(it) }
+                .distinct()
+            val callees = allCallees.take(MAX_CALLEES)
+            if (allCallees.size > MAX_CALLEES) {
+                val moreId = "more:calls:$id"
+                blocks[moreId] = Block(moreId, BlockKind.MORE, "and ${allCallees.size - MAX_CALLEES} more calls", path, SourceRange(0, 0), collapsed = true)
+                links += Link(LinkKind.CALLS_INTO, id, moreId)
+            }
+            for (callee in callees) {
+                if (blocks.size >= MAX_CHAIN_BLOCKS) {
+                    truncated = true
+                    break
+                }
+                val owner = callee.containingClass!!
+                val calleeId = "callee:${fqn(owner)}::${methodKey(callee)}"
+                blocks.getOrPut(calleeId) { calleeBlock(calleeId, callee) }
+                links += Link(LinkKind.CALLS_INTO, id, calleeId)
+                if (calleeId in followed) queue += calleeId to callee
+                // A call into an interface/abstract method: the real work happens in its implementations.
+                if (owner.isInterface || isAbstract(callee)) {
+                    for ((implId, implementation) in implementationsOf(callee)) {
+                        blocks.getOrPut(implId) { calleeBlock(implId, implementation) }
+                        links += Link(LinkKind.IMPLEMENTED_BY, calleeId, implId)
+                        if (implId in followed) queue += implId to implementation
+                    }
+                }
+            }
+        }
+        if (truncated && firstRoot != null) {
+            blocks[MORE_CHAIN_ID] = Block(
+                MORE_CHAIN_ID, BlockKind.MORE, "chain cut off at $MAX_CHAIN_BLOCKS blocks — use + calls on a block to go further",
+                path, SourceRange(0, 0), collapsed = true,
+            )
+            links += Link(LinkKind.CALLS_INTO, firstRoot, MORE_CHAIN_ID)
+        }
+        return blocks.values.toList() to links.distinct()
+    }
+
+    /**
+     * For an interface or abstract class: the project classes that implement / extend it (at most [MAX_IMPLEMENTERS],
+     * alphabetical, plus a "more" block), and per class only the methods that implement or override one of this type's.
+     */
+    private fun implementedBy(cls: PsiClass, classId: String, methods: List<PsiMethod>, path: String): Pair<List<Block>, List<Link>> {
+        if (!cls.isInterface && !cls.hasModifierProperty(PsiModifier.ABSTRACT)) return emptyList<Block>() to emptyList()
+        val candidates = ClassInheritorsSearch.search(cls, GlobalSearchScope.projectScope(cls.project), false).findAll()
+            .filter { !it.isInterface && it !is PsiAnonymousClass && fqn(it) != fqn(cls) && inProject(it) }
+            .distinctBy(::fqn)
+            .sortedWith(compareBy({ it.name }, { fqn(it) }))
+        val blocks = mutableListOf<Block>()
+        val links = mutableListOf<Link>()
+        for (implementer in candidates.take(MAX_IMPLEMENTERS)) {
+            val implemented = methods.mapNotNull { implementer.findMethodBySignature(it, false) }
+            val block = externalBlock(BlockKind.IMPLEMENTER, implementer).copy(summary = implemented.map(::methodTitle))
+            blocks += block
+            links += Link(LinkKind.IMPLEMENTED_BY, classId, block.id)
+            for (method in methods) {
+                val implementation = implementer.findMethodBySignature(method, false) ?: continue
+                val id = "implementation:${fqn(implementer)}::${methodKey(implementation)}"
+                blocks += Block(id, BlockKind.IMPLEMENTATION, "${implementer.name}::${methodTitle(implementation)}",
+                    implementer.containingFile.virtualFile.path, rangeOf(implementation), collapsed = true)
+                links += Link(LinkKind.OWNS, block.id, id)
+                links += Link(LinkKind.OVERRIDES, id, methodId(method), rangeOf(method))
+            }
+        }
+        val rest = candidates.drop(MAX_IMPLEMENTERS)
+        if (rest.isNotEmpty()) {
+            blocks += Block(MORE_ID, BlockKind.MORE, "and ${rest.size} more", path, SourceRange(0, 0), collapsed = true, summary = rest.mapNotNull { it.name })
+            links += Link(LinkKind.IMPLEMENTED_BY, classId, MORE_ID)
+        }
+        return blocks to links
     }
 
     private data class Related(val block: Block, val linkKind: LinkKind, val type: PsiClass)
@@ -249,7 +387,7 @@ object JavaBlockBuilder {
     }
 
     /** Java PSI ranges include the Javadoc and the annotations. */
-    internal fun rangeOf(element: PsiElement): SourceRange = SourceRange(element.textRange.startOffset, element.textRange.endOffset)
+    fun rangeOf(element: PsiElement): SourceRange = SourceRange(element.textRange.startOffset, element.textRange.endOffset)
 
     /** Methods [element] calls or refers to (`this::toDto`), constructors excluded. */
     internal fun calledMethods(element: PsiElement): List<PsiMethod> =

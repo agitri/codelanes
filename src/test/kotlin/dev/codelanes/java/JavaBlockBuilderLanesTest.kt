@@ -107,4 +107,22 @@ class JavaBlockBuilderLanesTest : JavaBuilderTestCase() {
         assertTrue(parent.collapsed)
         assertTrue(parent.summary.isNotEmpty())
     }
+
+    fun testOverridesLandOnTheOverriddenMethod() {
+        val model = supported("""
+            package com.acme;
+            public class OrderService extends BaseService { public void place() {} }
+        """.trimIndent())
+        val link = model.links.single { it.kind == LinkKind.OVERRIDES && it.from == "method:place" && it.to == "parent:com.acme.BaseService" }
+        val baseClass = com.intellij.psi.JavaPsiFacade.getInstance(project)
+            .findClass("com.acme.BaseService", com.intellij.psi.search.GlobalSearchScope.allScope(project))!!
+        val place = baseClass.findMethodsByName("place", false).single()
+        assertEquals(baseClass.containingFile.virtualFile.path, model.block("parent:com.acme.BaseService").filePath)
+        assertNotNull(link.targetRange)
+        assertEquals(JavaBlockBuilder.rangeOf(place), link.targetRange)
+
+        val sourceless = supported("public class MyTest extends junit.framework.TestCase { protected void setUp() {} }", "MyTest.java")
+        val junit = sourceless.links.single { it.kind == LinkKind.OVERRIDES && it.from == "method:setUp" && it.to == "parent:junit.framework.TestCase" }
+        assertNull(junit.targetRange)
+    }
 }
