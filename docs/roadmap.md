@@ -30,7 +30,7 @@
 ## Later (in order)
 
 1. **Polish from the reviews** (done for 0.1.0; leftovers below).
-2. **JetBrains Marketplace release 0.1.0**: icon, description, change notes, signing and publishing config are ready and `verifyPlugin` passes on PhpStorm 2025.2 to 2026.2. Uploaded; under review.
+2. **JetBrains Marketplace release 0.1.0**: icon, description, change notes, signing and publishing config are ready and `verifyPlugin` passes on PhpStorm 2025.2 to 2026.2. Live since 2026-10-22: https://plugins.jetbrains.com/plugin/35151-codelanes
 3. **Fresh screenshots** for the README and the Marketplace page.
 4. **Java/Kotlin**: a new `BlockBuilder` per language; layout, canvas, reviews and notes stay. The biggest group of
    JetBrains users.
