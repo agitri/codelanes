@@ -22,10 +22,13 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        phpstorm("2026.1")
-        bundledPlugin("com.jetbrains.php")
+        // IntelliJ IDEA with the PHP plugin: one sandbox and one test run cover both languages.
+        intellijIdea("2026.1")
+        bundledPlugin("com.intellij.java") // optional at runtime, see codelanes-java.xml
+        compatiblePlugin("com.jetbrains.php") // optional at runtime, see codelanes-php.xml
         bundledPlugin("com.intellij.mcpServer") // optional at runtime, see codelanes-mcp.xml
         testFramework(TestFrameworkType.Platform)
+        testFramework(TestFrameworkType.Plugin.Java)
     }
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.opentest4j:opentest4j:1.3.0")
@@ -50,13 +53,18 @@ intellijPlatform {
         token = providers.environmentVariable("PUBLISH_TOKEN")
     }
 
-    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm versions.
+    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm and IntelliJ IDEA versions.
     pluginVerification {
         ides {
             create(IntelliJPlatformType.PhpStorm, "2025.2")
             create(IntelliJPlatformType.PhpStorm, "2025.3")
             create(IntelliJPlatformType.PhpStorm, "2026.1")
             create(IntelliJPlatformType.PhpStorm, "2026.2")
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2025.2") // the last split Ultimate/Community release
+            create(IntelliJPlatformType.IntellijIdeaCommunity, "2025.2") // no PHP: the case Task 2 makes installable
+            create(IntelliJPlatformType.IntellijIdea, "2025.3")
+            create(IntelliJPlatformType.IntellijIdea, "2026.1")
+            create(IntelliJPlatformType.IntellijIdea, "2026.2")
         }
     }
 }
