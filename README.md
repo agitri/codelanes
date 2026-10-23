@@ -38,7 +38,8 @@ summaries, everything comes from the real code.
 - **Follow the code.** Cmd/Ctrl+click jumps to the right block instead of leaving the canvas. With the caret on
   a symbol, the block that defines it gets an orange border and every block using it a yellow one.
 - **Follow a request.** **View → Follow a Request…** lists the routes in your project (`#[Route]` attributes and
-  `config/routes` YAML/XML files in PHP, Spring's `@…Mapping` annotations in Java, e.g. `POST /api/orders → OrderController::create`). Pick one and the whole chain it runs (controller, services,
+  `config/routes` YAML/XML files in PHP, Spring's `@…Mapping` annotations in Java, e.g.
+  `POST /api/orders → OrderController::create`). Pick one and the whole chain it runs (controller, services,
   repositories, through interfaces into their implementations) lands on one canvas.
 - **Search and add.** **Add method…** (canvas toolbar) finds any method in your project and drops it on the
   canvas as an editable block, ready to follow with `+ calls`; right-click → **Remove from canvas** takes it off.
@@ -160,7 +161,8 @@ Try it in [`playground/java-spring`](playground/java-spring), a small Spring-sty
 
 ## Status
 
-Usable for reading and editing PHP and Java classes. Next up: JAX-RS/Micronaut routes, Kotlin and TypeScript, and VS Code later. See [docs/roadmap.md](docs/roadmap.md).
+Usable for reading and editing PHP and Java classes. Next up: JAX-RS/Micronaut routes, Kotlin and TypeScript, and
+VS Code later. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Develop
 
