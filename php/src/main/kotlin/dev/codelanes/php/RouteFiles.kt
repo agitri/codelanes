@@ -7,6 +7,7 @@ import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.jetbrains.php.PhpIndex
+import dev.codelanes.lang.EntryPoint
 import javax.xml.parsers.DocumentBuilderFactory
 import org.w3c.dom.Element
 

@@ -20,18 +20,18 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
 /**
- * CodeLanes tools for AI assistants, through PhpStorm's MCP server (only loaded when that plugin is there, see
+ * CodeLanes tools for AI assistants, through the IDE's MCP server (only loaded when that plugin is there, see
  * `codelanes-mcp.xml`). The AI reads the code and names the hops of a request; CodeLanes checks them and draws them.
  * Only plain strings cross the boundary, so nothing depends on the server's serialization library version.
  */
 class FlowTools : McpToolset {
-    // Declared here, not inherited: PhpStorm 2025.2 and 2025.3 have no McpToolset.isEnabled() to call.
+    // Declared here, not inherited: IDE versions 2025.2 and 2025.3 have no McpToolset.isEnabled() to call.
     override fun isEnabled(): Boolean = true
 
     @McpTool(name = "codelanes_show_flow")
     @McpDescription(
         """
-        Shows a request flow on the CodeLanes canvas in PhpStorm and saves it for the team, so a person can read the
+        Shows a request flow on the CodeLanes canvas in the IDE and saves it for the team, so a person can read the
         real code of the whole flow. Read the code first; CodeLanes checks every reference and draws nothing that
         doesn't exist. Give only the hops the code can't show by itself (framework wiring); CodeLanes follows ordinary
         method calls on its own. Write each hop as  From\Class::method --kind--> To\Class::method  with kind one of:
@@ -39,6 +39,7 @@ class FlowTools : McpToolset {
         dispatches (code fires an event, job or message; 'to' is the event, written App\Events\OrderPlaced::class),
         listens (a listener or handler picks it up; 'from' is the event as ...::class, 'to' the handler method),
         binds (an interface or abstract method ends up in a bound class), calls (a plain call that matters to the story).
+        Java references use dots and no spaces, e.g. com.acme.OrderController::create, or ::create(Order,int) for one of several overloads (simple parameter type names, no generics); PHP references use backslashes.
         Use fully qualified class names and existing methods only. Don't explain the code. Use the same name again to
         update a flow (see codelanes_list_flows). The reply lists references that don't exist, so you can fix them.
         """,
@@ -74,7 +75,7 @@ class FlowTools : McpToolset {
         /** The EDT, but never on top of a modal dialog (Settings, a commit): opening files and writing need that. */
         val UI = Dispatchers.EDT + ModalityState.nonModal().asContextElement()
 
-        const val NO_PROJECT = "No PhpStorm project to show the flow in. Open the project in PhpStorm first."
+        const val NO_PROJECT = "No project to show the flow in. Open the project in the IDE first."
 
         /** Where the MCP server keeps the calling project moved between versions (2025.2 vs 2026.1), so look it up by name. */
         private val PROJECT_ACCESSORS = listOf("com.intellij.mcpserver.McpCallInfoKt", "com.intellij.mcpserver.ProjectContextElementKt")

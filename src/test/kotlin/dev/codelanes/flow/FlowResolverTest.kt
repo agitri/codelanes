@@ -61,6 +61,11 @@ class FlowResolverTest : BasePlatformTestCase() {
     private val placed = "App\\Events\\OrderPlaced::__construct"
     private val mail = "App\\Listeners\\SendOrderMail::handle"
 
+    fun testAReferenceNoLanguageCanReadIsUnknown() {
+        val resolved = resolve(hop(store, "not a reference", "calls"))
+        assertEquals(listOf("not a reference (not a Class::method reference)"), resolved.unknown)
+    }
+
     fun testTheEntryOpensItsOwnFileAndIsAMethodBlockThere() {
         val flow = resolve()
         assertEquals("OrderController.php", flow.entryFile?.name)

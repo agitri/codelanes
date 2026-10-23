@@ -27,6 +27,15 @@ class BlocksCanvasTest : BasePlatformTestCase() {
         assertEquals(Point(10, 20), canvas.toCanvas(java.awt.Point(60, 80)))
     }
 
+    fun testASourcelessBlockHasNoFoldArrow() {
+        val block = dev.codelanes.model.Block("parent:junit.framework.TestCase", dev.codelanes.model.BlockKind.PARENT, "class TestCase",
+            "/lib/junit.jar!/junit/framework/TestCase.class", dev.codelanes.model.SourceRange(0, 0), collapsed = true,
+            summary = listOf("run()"), sourceless = true)
+        val view = BlockView(block.id, BlocksCanvas(NoListener))
+        view.update(block, collapsed = false, body = javax.swing.JPanel(), zoom = 1.0)
+        assertEquals("class TestCase", view.titleText())
+    }
+
     fun testZoomIsClamped() {
         val canvas = BlocksCanvas(NoListener)
         canvas.setZoom(10.0)

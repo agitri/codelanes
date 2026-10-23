@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "dev.codelanes"
-version = "0.1.0"
+version = "0.2.0"
 
 kotlin {
     jvmToolchain(21)
@@ -22,11 +22,18 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        phpstorm("2026.1")
-        bundledPlugin("com.jetbrains.php")
+        // IntelliJ IDEA with the PHP plugin: one sandbox and one test run cover both languages.
+        intellijIdea("2026.1")
+        bundledPlugin("com.intellij.java") // the tests need Java; the product loads it via the :java content module
+        compatiblePlugin("com.jetbrains.php") // the tests need PHP; the product loads it via the :php content module
         bundledPlugin("com.intellij.mcpServer") // optional at runtime, see codelanes-mcp.xml
+        pluginModule(project(":php"))
+        pluginModule(project(":java"))
         testFramework(TestFrameworkType.Platform)
+        testFramework(TestFrameworkType.Plugin.Java)
     }
+    testImplementation(project(":php"))
+    testImplementation(project(":java"))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.opentest4j:opentest4j:1.3.0")
 }
@@ -34,10 +41,10 @@ dependencies {
 intellijPlatform {
     pluginConfiguration {
         ideaVersion {
-            sinceBuild = "252" // PhpStorm 2025.2: the first with the MCP server that flows use
+            sinceBuild = "252" // 2025.2: the first IDE versions with the MCP server that flows use
             untilBuild = provider { null } // no upper bound: new PhpStorm versions shouldn't lock the plugin out
         }
-        changeNotes = provider { file("CHANGELOG.md").readText().substringAfter("## 0.1.0").substringBefore("\n## ").let(::markdownToHtml) }
+        changeNotes = provider { file("CHANGELOG.md").readText().substringAfter("## ${project.version}").substringBefore("\n## ").let(::markdownToHtml) }
     }
 
     // Signing and publishing read secrets from the environment only, never from files in this repository.
@@ -50,13 +57,29 @@ intellijPlatform {
         token = providers.environmentVariable("PUBLISH_TOKEN")
     }
 
-    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm versions.
+    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm and IntelliJ IDEA versions.
     pluginVerification {
         ides {
             create(IntelliJPlatformType.PhpStorm, "2025.2")
             create(IntelliJPlatformType.PhpStorm, "2025.3")
             create(IntelliJPlatformType.PhpStorm, "2026.1")
             create(IntelliJPlatformType.PhpStorm, "2026.2")
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2025.2") // the last split Ultimate/Community release
+            create(IntelliJPlatformType.IntellijIdeaCommunity, "2025.2") // no PHP: the case Task 2 makes installable
+            create(IntelliJPlatformType.IntellijIdea, "2025.3")
+            create(IntelliJPlatformType.IntellijIdea, "2026.1")
+            create(IntelliJPlatformType.IntellijIdea, "2026.2")
+        }
+    }
+}
+
+// `./gradlew runIde` starts IntelliJ IDEA (Java; its PHP plugin needs an Ultimate licence, which the sandbox lacks).
+// `./gradlew runPhpStorm` starts PhpStorm, to try the PHP side.
+intellijPlatformTesting {
+    runIde {
+        register("runPhpStorm") {
+            type = IntelliJPlatformType.PhpStorm
+            version = "2026.1"
         }
     }
 }

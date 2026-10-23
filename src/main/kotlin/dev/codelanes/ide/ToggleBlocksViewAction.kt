@@ -7,7 +7,7 @@ import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.DumbAware
 
-/** The hidden toggle: switch the current PHP file between the blocks canvas and the classic text editor. */
+/** The hidden toggle: switch the current file between the blocks canvas and the classic text editor. */
 class ToggleBlocksViewAction : AnAction(), DumbAware {
     override fun getActionUpdateThread() = ActionUpdateThread.BGT
 

@@ -10,9 +10,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.php.lang.psi.PhpFile
 import com.jetbrains.php.lang.psi.elements.PhpAttribute
 import com.jetbrains.php.lang.psi.elements.PhpClass
-
-/** A request entry point: e.g. "POST /api/orders → OrderController::create". */
-data class EntryPoint(val label: String, val filePath: String, val methodName: String)
+import dev.codelanes.lang.EntryPoint
 
 /**
  * Finds controller actions with a `#[Route]` attribute (Symfony style): class-level prefixes, invokable controllers

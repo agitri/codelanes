@@ -27,6 +27,8 @@ data class Block(
     val collapsed: Boolean = false,
     /** One line per member signature; shown in the body of a collapsed block. */
     val summary: List<String> = emptyList(),
+    /** A library type without source (e.g. a compiled Spring interface): title and summary only, never an editor. */
+    val sourceless: Boolean = false,
 ) {
     init {
         require(excluded.all { it.start >= range.start && it.end <= range.end }) {

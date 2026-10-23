@@ -68,7 +68,7 @@ class FlowService(private val project: Project) {
 
     /** [resolved] can come from a background read action (the MCP tool does that); resolving here blocks the EDT. */
     fun show(flow: Flow, resolved: ResolvedFlow? = null): String {
-        if (resolved == null && DumbService.isDumb(project)) return "Nothing shown: PhpStorm is still indexing. Try again when it has finished."
+        if (resolved == null && DumbService.isDumb(project)) return "Nothing shown: the IDE is still indexing. Try again when it has finished."
         val resolved = resolved ?: resolve(flow)
         resolved.entryProblem?.let { return "Nothing shown: the entry $it." }
         if (!showOnCanvas(resolved.entryFile!!, resolved, flow.entry.label)) {

@@ -144,9 +144,9 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
     }
 
     fun update(block: Block, collapsed: Boolean, body: JComponent, zoom: Double) {
-        // A MORE block never opens into code, so it has nothing to fold.
+        // A MORE block and a block without source never open into code, so they have nothing to fold.
         title.text = when {
-            block.kind == BlockKind.MORE -> block.title
+            block.kind == BlockKind.MORE || block.sourceless -> block.title
             collapsed -> "▸ " + block.title
             else -> "▾ " + block.title
         }

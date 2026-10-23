@@ -1,0 +1,9 @@
+<!-- Content module: loaded only when the Java plugin is there (IntelliJ IDEA, Android Studio). -->
+<idea-plugin package="dev.codelanes.java">
+    <dependencies>
+        <plugin id="com.intellij.java"/>
+    </dependencies>
+    <extensions defaultExtensionNs="dev.codelanes">
+        <languageSupport implementation="dev.codelanes.java.JavaLanguageSupport"/>
+    </extensions>
+</idea-plugin>

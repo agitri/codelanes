@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.0
+
+Java in IntelliJ IDEA. For PhpStorm and IntelliJ IDEA 2025.2 and newer.
+
+- **Java classes as a canvas**: classes, interfaces, enums, records and annotations, with the same lanes as PHP:
+  parent class, interfaces, injected beans (constructor, `@Autowired`/`@Inject` fields and Lombok
+  `@RequiredArgsConstructor`), methods, calls and overrides; overloaded methods are told apart by their parameters.
+- **+ calls**, **+ parents**, **Add method…**, implementers of interfaces and abstract classes, review marks, notes and
+  working sets all work for Java.
+- **AI flows for Spring**: Java references (`com.acme.OrderController::create`); `binds` (interface → bean), `dispatches`
+  (`publishEvent(new …)`) and `listens` (`@EventListener`) are proven from the code.
+- **Follow a Request for Spring**: `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`, `@PatchMapping`
+  and `@RequestMapping` routes, with the class's `@RequestMapping` prefix.
+- Library types without source show their name and methods only.
+- Java files open as blocks by default, like PHP files (switch it off with **View → Open Files as Blocks by Default**);
+  library code isn't opened as blocks.
+- The plugin no longer requires PHP: it installs in IntelliJ IDEA without the PHP plugin, and in PhpStorm without Java.
+
 ## 0.1.0
 
 First public release: read and edit PHP classes as a canvas of real code blocks. For PhpStorm 2025.2 and newer.

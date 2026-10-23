@@ -19,6 +19,7 @@ import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.text.StringUtil
+import com.intellij.openapi.vfs.JarFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
@@ -32,6 +33,7 @@ import com.intellij.util.Alarm
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.JBUI
 import dev.codelanes.editor.SliceEditor
+import dev.codelanes.lang.LanguageSupports
 import dev.codelanes.layout.LayoutEngine
 import dev.codelanes.layout.Point
 import dev.codelanes.model.Block
@@ -40,7 +42,6 @@ import dev.codelanes.model.BlockModel
 import dev.codelanes.model.LinkKind
 import dev.codelanes.model.SourceRange
 import dev.codelanes.notes.NotesFile
-import dev.codelanes.php.PhpBlockBuilder
 import dev.codelanes.review.Review
 import dev.codelanes.review.ReviewEntry
 import dev.codelanes.review.ReviewFile
@@ -54,7 +55,7 @@ import javax.swing.SwingUtilities
 import kotlin.math.roundToInt
 
 /**
- * Keeps the canvas in sync with one PHP file.
+ * Keeps the canvas in sync with one source file.
  *
  * A fresh build ([adopt]) is the only thing that decides *which* blocks exist and where they start;
  * between builds every block's range is tracked with range markers, so re-rendering (zoom, collapse)
@@ -175,7 +176,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     private fun computeUpdate(previous: BlockModel?, reveal: Set<String>, follow: Set<String>, extra: Set<String>, overlay: FlowOverlay?): CanvasUpdate? {
         val psi = PsiManager.getInstance(project).findFile(file) ?: return null
-        val built = PhpBlockBuilder.build(psi, reveal, follow, extra).let { result ->
+        val language = LanguageSupports.forFile(file) ?: return null
+        val built = language.build(psi, reveal, follow, extra).let { result ->
             if (overlay != null && result is dev.codelanes.model.BuildResult.Supported) {
                 dev.codelanes.model.BuildResult.Supported(overlay.applyTo(result.model, file.path))
             } else {
@@ -228,6 +230,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         model = next
         for (block in next.blocks) {
             tracked.remove(block.id)?.dispose()
+            if (block.sourceless) continue // no document behind it: its path is a jar entry and its range is empty
             val doc = documentOf(block) ?: continue
             watch(doc)
             tracked[block.id] = TrackedBlock(doc, block)
@@ -277,7 +280,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         for (block in current.blocks) {
             val isCollapsed = collapsed.getOrPut(block.id) { block.collapsed }
             val view = views.getOrPut(block.id) { BlockView(block.id, canvas) }
-            val slice = if (isCollapsed || block.kind == BlockKind.MORE) null else sliceFor(block)
+            val slice = if (isCollapsed || block.kind == BlockKind.MORE || block.sourceless) null else sliceFor(block)
             if (slice == null) {
                 slices.remove(block.id)?.let(Disposer::dispose)
             } else {
@@ -306,8 +309,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         canvas.place(layout.rects + noteRects(layout.rects))
     }
 
-    private fun fileOf(block: Block): VirtualFile? =
-        if (block.filePath == file.path) file else file.fileSystem.findFileByPath(block.filePath)
+    /** Library sources live inside a jar (`…-sources.jar!/org/acme/X.java`): those open read-only. */
+    private fun fileOf(block: Block): VirtualFile? = when {
+        block.filePath == file.path -> file
+        "!/" in block.filePath -> JarFileSystem.getInstance().findFileByPath(block.filePath)
+        else -> file.fileSystem.findFileByPath(block.filePath)
+    }
 
     private fun documentOf(block: Block): Document? = fileOf(block)?.let { FileDocumentManager.getInstance().getDocument(it) }
 
@@ -382,6 +389,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     }
 
     override fun collapseToggled(id: String) = withModelAccess {
+        if (model?.blocks?.firstOrNull { it.id == id }?.sourceless == true) return@withModelAccess
         collapsed[id] = !(collapsed[id] ?: false)
         render()
     }
@@ -533,8 +541,9 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             indentOptions.USE_TAB_CHARACTER -> "\t"
             else -> " ".repeat(indentOptions.INDENT_SIZE)
         }
-        val method = if (cls.title.startsWith("interface")) "${indent}public function $name(): void;\n"
-        else "${indent}public function $name(): void\n$indent{\n$indent}\n"
+        val language = LanguageSupports.forFile(file) ?: return@withModelAccess
+        val inInterface = cls.title.startsWith("interface") || cls.title.startsWith("@interface")
+        val method = language.newMethodText(name, indent, inInterface)
         // The class range can have grown past its brace (text typed after it): find the brace itself.
         val closingBrace = document.charsSequence.lastIndexOf('}', range.end - 1)
         if (closingBrace < range.start) return@withModelAccess

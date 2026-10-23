@@ -8,9 +8,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.php.lang.PhpFileType
 import com.jetbrains.php.lang.psi.PhpFile
 import com.jetbrains.php.lang.psi.elements.PhpClass
-
-/** A method that can be dropped on a canvas, e.g. "OrderService::place(string $customer)". */
-data class MethodRef(val label: String, val classFqn: String, val method: String)
+import dev.codelanes.lang.MethodRef
 
 /** Lists every method of every class, interface, trait and enum in the project's own code. */
 object MethodFinder {
