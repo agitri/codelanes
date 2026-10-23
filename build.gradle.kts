@@ -73,6 +73,17 @@ intellijPlatform {
     }
 }
 
+// `./gradlew runIde` starts IntelliJ IDEA (Java; its PHP plugin needs an Ultimate licence, which the sandbox lacks).
+// `./gradlew runPhpStorm` starts PhpStorm, to try the PHP side.
+intellijPlatformTesting {
+    runIde {
+        register("runPhpStorm") {
+            type = IntelliJPlatformType.PhpStorm
+            version = "2026.1"
+        }
+    }
+}
+
 /** Minimal Markdown → HTML for the Marketplace change notes (bullets and paragraphs). */
 fun markdownToHtml(markdown: String): String {
     val html = StringBuilder()

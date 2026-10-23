@@ -165,11 +165,18 @@ JAX-RS/Micronaut, Kotlin and TypeScript, and VS Code later. See [docs/roadmap.md
 
 ```bash
 ./gradlew test      # unit and platform tests
-./gradlew runIde    # sandbox IntelliJ IDEA with PHP and the plugin loaded: both playgrounds work in it
+./gradlew runIde       # sandbox IntelliJ IDEA with the plugin: open playground/java-spring as its own project
+./gradlew runPhpStorm  # sandbox PhpStorm with the plugin, for the PHP side
 ```
 
+The sandbox IntelliJ IDEA has the PHP plugin installed but can't run it without an Ultimate licence, so try PHP in
+`runPhpStorm`.
+
 PHP and Java support live in the `php/` and `java/` Gradle modules. They are content modules: each is loaded only
-when the IDE has that language.
+when the IDE has that language, with its own class loader. A content module only sees the main jars of the plugins it
+depends on, not their own content modules, and the tests don't catch that (they run on one class path). So use the
+platform's searches (`DefinitionsScopedSearch`) over the Java plugin's own (`ClassInheritorsSearch`,
+`OverridingMethodsSearch`), which moved into a content module in 2026.1, and try a change in the sandbox IDE.
 
 CI runs on every push to `main` and every pull request:
 - the tests and the plugin build;

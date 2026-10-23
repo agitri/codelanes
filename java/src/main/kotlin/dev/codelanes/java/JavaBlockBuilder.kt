@@ -21,8 +21,7 @@ import com.intellij.psi.PsiType
 import com.intellij.psi.SyntheticElement
 import com.intellij.psi.impl.light.LightElement
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.search.searches.ClassInheritorsSearch
-import com.intellij.psi.search.searches.OverridingMethodsSearch
+import com.intellij.psi.search.searches.DefinitionsScopedSearch
 import com.intellij.psi.util.MethodSignatureUtil
 import com.intellij.psi.util.PsiTreeUtil
 import dev.codelanes.model.Block
@@ -125,10 +124,17 @@ object JavaBlockBuilder {
         return findOwnMethod(cls, key.substringAfter("::"))
     }
 
-    /** Project implementations of an interface/abstract [method] (at most [MAX_IMPLEMENTATIONS]). */
+    /**
+     * Project implementations of an interface/abstract [method] (at most [MAX_IMPLEMENTATIONS]).
+     *
+     * The searches go through the platform's DefinitionsScopedSearch ("Go to Implementation"), not Java's
+     * OverridingMethodsSearch / ClassInheritorsSearch: from 2026.1 those live in the Java plugin's
+     * `intellij.java.indexing` module, which 2025.x doesn't have, so this content module couldn't depend on it.
+     */
     private fun implementationsOf(method: PsiMethod): List<Pair<String, PsiMethod>> =
-        OverridingMethodsSearch.search(method, GlobalSearchScope.projectScope(method.project), true).findAll().asSequence()
-            .filter { !isAbstract(it) && !isGenerated(it) && inProject(it) && it.containingClass !is PsiAnonymousClass }
+        DefinitionsScopedSearch.search(method, GlobalSearchScope.projectScope(method.project)).findAll().asSequence()
+            .filterIsInstance<PsiMethod>()
+            .filter { it != method && !isAbstract(it) && !isGenerated(it) && inProject(it) && it.containingClass !is PsiAnonymousClass }
             .mapNotNull { impl -> impl.containingClass?.let { "callee:${fqn(it)}::${methodKey(impl)}" to impl } }
             .sortedBy { it.first }
             .distinctBy { it.first }
@@ -208,8 +214,9 @@ object JavaBlockBuilder {
      */
     private fun implementedBy(cls: PsiClass, classId: String, methods: List<PsiMethod>, path: String): Pair<List<Block>, List<Link>> {
         if (!cls.isInterface && !cls.hasModifierProperty(PsiModifier.ABSTRACT)) return emptyList<Block>() to emptyList()
-        val candidates = ClassInheritorsSearch.search(cls, GlobalSearchScope.projectScope(cls.project), false).findAll()
-            .filter { !it.isInterface && it !is PsiAnonymousClass && fqn(it) != fqn(cls) && inProject(it) }
+        val candidates = DefinitionsScopedSearch.search(cls, GlobalSearchScope.projectScope(cls.project)).findAll()
+            .filterIsInstance<PsiClass>()
+            .filter { it.isInheritor(cls, false) && !it.isInterface && it !is PsiAnonymousClass && fqn(it) != fqn(cls) && inProject(it) }
             .distinctBy(::fqn)
             .sortedWith(compareBy({ it.name }, { fqn(it) }))
         val blocks = mutableListOf<Block>()

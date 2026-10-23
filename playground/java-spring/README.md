@@ -1,7 +1,10 @@
 # Java Spring playground
 
 A small Spring-style shop to try CodeLanes in IntelliJ IDEA. The Spring and Lombok annotations are stubs in `src/`,
-so it opens without Maven or Gradle: **File → Open…** this folder, mark `src` as Sources Root if IDEA doesn't.
+so it opens without Maven or Gradle: **File → Open…** this folder (`playground/java-spring`, not `playground`), and
+if the file icons in the Project view show a coffee cup instead of a blue **C**, right-click `src` → **Mark Directory
+as → Sources Root**. Outside a source root IDEA can't resolve the types, so the dependency lane and the lines stay
+empty.
 
 Try:
 - Open `OrderService.java`: the repository and the event publisher sit in the dependency lane (Lombok), `place` is
