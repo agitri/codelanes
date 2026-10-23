@@ -147,6 +147,8 @@ same lanes and lines as PHP:
 | the class itself, with annotations and Javadoc | middle |
 | each method | methods, on the right |
 
+![A Spring service: the repository and event publisher Lombok injects on the left, the class in the middle, its overloaded place methods and check on the right](docs/images/java-spring-service.png)
+
 - JDK types are left out of the dependency lane. A library type without source (say `JpaRepository`) shows its name
   and methods only.
 - An overloaded method gets its parameters in its id, so flows can tell them apart:
@@ -156,6 +158,8 @@ same lanes and lines as PHP:
 - **Follow a Request** lists Spring MVC routes: `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`,
   `@PatchMapping` and `@RequestMapping`, with the class's `@RequestMapping` prefix (`POST /orders →
   OrderController::create`). Constant paths are worked out; other expressions show as `?`.
+
+![Follow a Request on POST /orders: the controller's create action, the OrderService it injects, and the call into OrderService::place, followed further down](docs/images/java-spring-follow.png)
 
 Try it in [`playground/java-spring`](playground/java-spring), a small Spring-style shop that opens without Maven or Gradle.
 
