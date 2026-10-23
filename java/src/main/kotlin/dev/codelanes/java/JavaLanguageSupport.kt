@@ -22,8 +22,8 @@ class JavaLanguageSupport : LanguageSupport {
 
     override fun methods(project: Project): List<MethodRef> = JavaMethodFinder.find(project)
 
-    /** Spring routes come in a later project; until then Java flows come from the AI. */
-    override fun routes(project: Project): List<EntryPoint> = emptyList()
+    /** Spring MVC routes, see [JavaRouteFinder]. */
+    override fun routes(project: Project): List<EntryPoint> = JavaRouteFinder.find(project)
 
     override fun findFlowTarget(project: Project, reference: String): FlowLookup? = JavaFlowLookup.find(project, reference, this)
 

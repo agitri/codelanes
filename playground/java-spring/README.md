@@ -7,6 +7,8 @@ as → Sources Root**. Outside a source root IDEA can't resolve the types, so th
 empty.
 
 Try:
+- **Follow a Request…** lists `POST /orders → OrderController::create`; pick it to see the chain down to the
+  repository.
 - Open `OrderService.java`: the repository and the event publisher sit in the dependency lane (Lombok), `place` is
   overloaded, `check` is called by `place`.
 - `+ calls` on `OrderController.create` reaches `OrderService.place`; `+ calls` on that block reaches

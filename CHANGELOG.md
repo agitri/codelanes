@@ -11,6 +11,8 @@ Java in IntelliJ IDEA. For PhpStorm and IntelliJ IDEA 2025.2 and newer.
   working sets all work for Java.
 - **AI flows for Spring**: Java references (`com.acme.OrderController::create`); `binds` (interface → bean), `dispatches`
   (`publishEvent(new …)`) and `listens` (`@EventListener`) are proven from the code.
+- **Follow a Request for Spring**: `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`, `@PatchMapping`
+  and `@RequestMapping` routes, with the class's `@RequestMapping` prefix.
 - Library types without source show their name and methods only.
 - Java files open as blocks by default, like PHP files (switch it off with **View → Open Files as Blocks by Default**);
   library code isn't opened as blocks.

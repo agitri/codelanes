@@ -210,3 +210,10 @@ end of the class, exactly where PHP adds it today.
 - Android-specific lanes.
 - Bean resolution beyond inheritance (`@Qualifier`, `@Primary`, `@Bean` factory methods): a `binds` hop the AI names
   through those is claimed, not proven.
+
+## Addendum (2026-10-23)
+
+Project 2 (Spring routes in Follow a Request) was pulled into 0.2.0 after the sandbox test: `JavaRouteFinder` finds
+`@Get/Post/Put/Delete/PatchMapping` and `@RequestMapping` (its `method`, else ANY) on methods of concrete classes,
+prefixed by the class's `@RequestMapping`; several paths give several routes, constant paths are evaluated, anything
+else is `?`. The entry carries the method key, so an overloaded action opens the right block.

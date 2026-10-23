@@ -38,7 +38,7 @@ summaries, everything comes from the real code.
 - **Follow the code.** Cmd/Ctrl+click jumps to the right block instead of leaving the canvas. With the caret on
   a symbol, the block that defines it gets an orange border and every block using it a yellow one.
 - **Follow a request.** **View → Follow a Request…** lists the routes in your project (`#[Route]` attributes and
-  `config/routes` YAML/XML files, e.g. `POST /api/orders → OrderController::create`). Pick one and the whole chain it runs (controller, services,
+  `config/routes` YAML/XML files in PHP, Spring's `@…Mapping` annotations in Java, e.g. `POST /api/orders → OrderController::create`). Pick one and the whole chain it runs (controller, services,
   repositories, through interfaces into their implementations) lands on one canvas.
 - **Search and add.** **Add method…** (canvas toolbar) finds any method in your project and drops it on the
   canvas as an editable block, ready to follow with `+ calls`; right-click → **Remove from canvas** takes it off.
@@ -110,7 +110,7 @@ the routes it found, and **Open flow file…**:
 
 ## Flows from your AI assistant
 
-Follow a Request finds Symfony routes by itself. For frameworks where the request takes paths the code doesn't spell
+Follow a Request finds Symfony and Spring routes by itself. For frameworks where the request takes paths the code doesn't spell
 out (Laravel's `routes/web.php`, middleware, events and listeners, container bindings), let your AI assistant
 describe the flow. CodeLanes checks every step against the real code and draws only what exists.
 
@@ -152,14 +152,15 @@ same lanes and lines as PHP:
   `com.acme.shop.order.OrderService::place(String,int)`. A method with a unique name needs no parameters.
 - AI flows use dots in Java references (`com.acme.shop.order.OrderController::create`). `binds` (interface to bean),
   `dispatches` (`publishEvent(new OrderPlaced(…))`) and `listens` (`@EventListener`) are proven from the code.
-- **Follow a Request** lists Spring routes in a later version. Until then, ask your AI assistant for Spring flows.
+- **Follow a Request** lists Spring MVC routes: `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`,
+  `@PatchMapping` and `@RequestMapping`, with the class's `@RequestMapping` prefix (`POST /orders →
+  OrderController::create`). Constant paths are worked out; other expressions show as `?`.
 
 Try it in [`playground/java-spring`](playground/java-spring), a small Spring-style shop that opens without Maven or Gradle.
 
 ## Status
 
-Usable for reading and editing PHP and Java classes. Next up: Spring routes in Follow a Request, then
-JAX-RS/Micronaut, Kotlin and TypeScript, and VS Code later. See [docs/roadmap.md](docs/roadmap.md).
+Usable for reading and editing PHP and Java classes. Next up: JAX-RS/Micronaut routes, Kotlin and TypeScript, and VS Code later. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Develop
 

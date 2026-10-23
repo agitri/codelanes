@@ -48,6 +48,14 @@ class JavaSessionTest : JavaBuilderTestCase() {
         assertTrue(session.hasSliceEditor("callee:com.acme.Mailer::send"))
     }
 
+    /** Follow a Request passes a route's method key, which carries the parameters when the method is overloaded. */
+    fun testFollowChainFromAnOverloadedMethod() {
+        addClass("package com.acme; public class Mailer { public void send() {} }")
+        val session = open("package com.acme;\npublic class OrderService {\n    private final Mailer m = new Mailer();\n    public void place(String s) { m.send(); }\n    public void place(int n) {}\n}\n")
+        session.followChain("method:place(String)", 3)
+        assertTrue(session.hasSliceEditor("callee:com.acme.Mailer::send"))
+    }
+
     fun testALibraryParentWithoutSourceGetsNoEditorAndDoesNotFold() {
         val session = open("package com.acme;\npublic class MyTest extends junit.framework.TestCase {\n}\n", "MyTest.java")
         val id = "parent:junit.framework.TestCase"
