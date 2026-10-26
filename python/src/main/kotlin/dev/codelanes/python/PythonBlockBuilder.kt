@@ -1,3 +1,6 @@
+// PythonCore exposes its PSI names through the experimental PyAst* interfaces; there is no stable alternative.
+@file:Suppress("UnstableApiUsage")
+
 package dev.codelanes.python
 
 import com.intellij.openapi.project.Project
@@ -254,13 +257,14 @@ object PythonBlockBuilder {
     private fun calls(ids: Map<PyFunction, String>, context: TypeEvalContext): List<Link> {
         val resolveContext = PyResolveContext.defaultContext(context)
         return ids.flatMap { (caller, callerId) ->
-            PsiTreeUtil.findChildrenOfType(caller, PyCallExpression::class.java)
+            PsiTreeUtil.findChildrenOfType(caller, PyCallExpression::class.java).asSequence()
                 .filter { it !is PyDecorator }
                 .flatMap { it.multiResolveCalleeFunction(resolveContext) }
                 .mapNotNull { ids[it] }
                 .filter { it != callerId }
                 .distinct()
                 .map { Link(LinkKind.CALLS, callerId, it) }
+                .toList()
         }
     }
 

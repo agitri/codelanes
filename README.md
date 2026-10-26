@@ -249,7 +249,8 @@ python3 scripts/check-module-classes.py build/distributions/codelanes-0.3.0.zip 
 
 CI runs on every push to `main` and every pull request:
 - the tests and the plugin build;
-- the plugin verifier against PhpStorm, IntelliJ IDEA and PyCharm 2025.2, 2025.3, 2026.1 and 2026.2;
+- the plugin verifier against PhpStorm, IntelliJ IDEA and PyCharm 2025.2, 2025.3, 2026.1 and 2026.2, one job per
+  IDE (locally `./gradlew verifyPlugin` checks all of them; `-Pverify.ides=PyCharm` only the PyCharms);
 - [Qodana](https://www.jetbrains.com/qodana/), JetBrains' inspections over the whole project.
 
 Qodana fails on any problem that isn't in `qodana.sarif.json`, the problems already there when CI was added. To run

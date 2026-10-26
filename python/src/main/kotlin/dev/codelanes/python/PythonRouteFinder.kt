@@ -130,9 +130,9 @@ object PythonRouteFinder {
         val pathText = positional.firstOrNull()?.text
             ?: arguments.firstNotNullOfOrNull { arg -> keyword(arg)?.takeIf { it.first == "path" || it.first == "rule" }?.second }
         val path = pathText?.let { literal(it, constants) } ?: ""
-        val verbs = when {
-            name in VERBS -> name.uppercase()
-            name in ROUTE_METHODS -> {
+        val verbs = when (name) {
+            in VERBS -> name.uppercase()
+            in ROUTE_METHODS -> {
                 val methods = arguments.firstNotNullOfOrNull { arg -> keyword(arg)?.takeIf { it.first == "methods" }?.second }
                 val listed = methods?.let { Regex("""["']([A-Za-z]+)["']""").findAll(it).map { m -> m.groupValues[1].uppercase() }.toList() }
                 when {

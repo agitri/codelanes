@@ -1,3 +1,6 @@
+// PythonCore exposes its PSI names through the experimental PyAst* interfaces; there is no stable alternative.
+@file:Suppress("UnstableApiUsage")
+
 package dev.codelanes.python
 
 import com.intellij.openapi.project.Project
