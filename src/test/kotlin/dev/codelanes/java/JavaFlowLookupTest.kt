@@ -6,6 +6,7 @@ import dev.codelanes.flow.FlowHop
 import dev.codelanes.flow.FlowResolver
 import dev.codelanes.flow.ResolvedFlow
 import dev.codelanes.flow.ResolvedHop
+import dev.codelanes.lang.FlowLookup
 
 class JavaFlowLookupTest : JavaBuilderTestCase() {
     override fun setUp() {
@@ -124,5 +125,17 @@ class JavaFlowLookupTest : JavaBuilderTestCase() {
         val resolved = resolve(entry = "junit.framework.TestCase::setUp")
         assertEquals("TestCase.class can't be shown as blocks: Compiled class without source", resolved.entryProblem)
         assertNull(resolved.entryId)
+    }
+
+    /** Which language's "not found" reason is shown mustn't depend on the order the language modules load in. */
+    fun testAMissingMemberOfAFoundClassOutranksOtherLanguages() {
+        myFixture.addFileToProject("com/acme/Outer.java", "package com.acme;\npublic class Outer { public static class Inner { public void m() {} } }")
+        val support = JavaLanguageSupport()
+        assertTrue((JavaFlowLookup.find(project, "com.acme.OrderService::gone", support) as FlowLookup.Missing).ownerFound)
+        assertTrue((JavaFlowLookup.find(project, "com.acme.Outer.Inner::m", support) as FlowLookup.Missing).ownerFound)
+    }
+
+    fun testPythonStaysSilentInAProjectWithoutPythonFiles() {
+        assertNull(dev.codelanes.python.PythonFlowLookup.find(project, "com.acme.Nope::x", dev.codelanes.python.PythonLanguageSupport()))
     }
 }

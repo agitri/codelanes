@@ -5,6 +5,8 @@ package dev.codelanes.python
 
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
+import com.intellij.psi.search.FilenameIndex
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyArgumentList
 import com.jetbrains.python.psi.PyCallExpression
@@ -33,9 +35,13 @@ import dev.codelanes.lang.LanguageSupport
  * block). The part before `::` is the dotted module.
  */
 object PythonFlowLookup {
+    private fun hasPythonFiles(project: Project) =
+        FilenameIndex.getAllFilesByExt(project, "py", GlobalSearchScope.projectScope(project)).isNotEmpty()
+
     /**
-     * Null when the reference is PHP's (a backslash). A module part that isn't a project `.py` module is Missing
-     * without [FlowLookup.Missing.ownerFound]: `com.acme.Foo::bar` still goes to Java, whose Found wins.
+     * Null when the reference is PHP's (a backslash), or when the module isn't found in a project without `.py` files,
+     * so another language's reason is shown. A module part that isn't a project `.py` module is Missing without
+     * [FlowLookup.Missing.ownerFound]: `com.acme.Foo::bar` still goes to Java, whose Found wins.
      */
     fun find(project: Project, reference: String, support: LanguageSupport): FlowLookup? {
         val trimmed = reference.trim()
@@ -43,7 +49,7 @@ object PythonFlowLookup {
         val modulePart = trimmed.substringBefore("::")
         if ('\\' in modulePart) return null
         val module = PythonBlockBuilder.moduleByName(project, modulePart)
-            ?: return FlowLookup.Missing("$trimmed (no such module)")
+            ?: return if (hasPythonFiles(project)) FlowLookup.Missing("$trimmed (no such module)") else null
         val name = trimmed.substringAfter("::").removeSuffix("()")
         fun missing(why: String) = FlowLookup.Missing("$trimmed ($why)", ownerFound = true)
         if ('.' !in name) {

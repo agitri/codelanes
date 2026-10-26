@@ -213,6 +213,10 @@ class PythonFlowLookupTest : PythonTestCase() {
         assertEquals(FlowLookup.Missing("django.dispatch::Signal (no such module)"), find("django.dispatch::Signal"))
     }
 
+    fun testJavaStaysSilentInAProjectWithoutJavaFiles() {
+        assertNull(dev.codelanes.java.JavaFlowLookup.find(project, "shop.nope::place", dev.codelanes.java.JavaLanguageSupport()))
+    }
+
     fun testCallsAreProvenByACallOrAnInstantiation() {
         assertTrue(proves("calls", create, place))
         assertTrue(proves("calls", place, "shop.repo::Repo.save"))

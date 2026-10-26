@@ -6,6 +6,7 @@ import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiClassType
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiNewExpression
+import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.MethodSignatureUtil
 import com.intellij.psi.util.PsiTreeUtil
@@ -18,22 +19,29 @@ import dev.codelanes.lang.LanguageSupport
  * `::<init>` (or the class's own name) for a constructor, which stands for the class block.
  */
 object JavaFlowLookup {
-    /** Null when the class part has a backslash: that's PHP's syntax. */
+    /**
+     * Null when the class part has a backslash (PHP's syntax), or when the class isn't found in a project without
+     * Java files, so another language's reason is shown. A missing member of a found class is
+     * [FlowLookup.Missing.ownerFound], so it outranks other languages whatever order they load in.
+     */
     fun find(project: Project, reference: String, support: LanguageSupport): FlowLookup? {
         val trimmed = reference.trim()
         val classPart = trimmed.substringBefore("::")
         if ('\\' in classPart) return null
         val name = trimmed.substringAfter("::")
         val cls = JavaPsiFacade.getInstance(project).findClass(classPart, GlobalSearchScope.allScope(project))
-            ?: return FlowLookup.Missing("$trimmed (no such class)")
-        val nested = FlowLookup.Missing("$trimmed (nested classes aren't shown as blocks)")
+            ?: return if (hasJavaFiles(project)) FlowLookup.Missing("$trimmed (no such class)") else null
+        val nested = FlowLookup.Missing("$trimmed (nested classes aren't shown as blocks)", ownerFound = true)
         if (cls.containingClass != null) return nested
         if (name == "class" || name == "<init>" || name.substringBefore('(') == cls.name) return FlowLookup.Found(target(cls, null, support))
         val method = JavaBlockBuilder.findOwnMethod(cls, name) ?: inherited(cls, name)
-            ?: return FlowLookup.Missing("$trimmed (no such method)")
+            ?: return FlowLookup.Missing("$trimmed (no such method)", ownerFound = true)
         if (method.containingClass?.containingClass != null) return nested // inherited from a nested class
         return FlowLookup.Found(target(cls, method, support))
     }
+
+    private fun hasJavaFiles(project: Project) =
+        FilenameIndex.getAllFilesByExt(project, "java", GlobalSearchScope.projectScope(project)).isNotEmpty()
 
     /** An inherited method, found in the nearest superclass or interface that declares it. */
     private fun inherited(cls: PsiClass, name: String): PsiMethod? {
