@@ -7,3 +7,4 @@ build/
 .superpowers/
 playground/*
 !playground/java-spring/
+!playground/python/

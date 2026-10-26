@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "dev.codelanes"
-version = "0.2.0"
+version = "0.3.0"
 
 kotlin {
     jvmToolchain(21)
@@ -60,7 +60,7 @@ intellijPlatform {
         token = providers.environmentVariable("PUBLISH_TOKEN")
     }
 
-    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm and IntelliJ IDEA versions.
+    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm, IntelliJ IDEA and PyCharm versions.
     pluginVerification {
         ides {
             create(IntelliJPlatformType.PhpStorm, "2025.2")
@@ -72,16 +72,24 @@ intellijPlatform {
             create(IntelliJPlatformType.IntellijIdea, "2025.3")
             create(IntelliJPlatformType.IntellijIdea, "2026.1")
             create(IntelliJPlatformType.IntellijIdea, "2026.2")
+            create(IntelliJPlatformType.PyCharm, "2025.2")
+            create(IntelliJPlatformType.PyCharm, "2025.3")
+            create(IntelliJPlatformType.PyCharm, "2026.1")
+            create(IntelliJPlatformType.PyCharm, "2026.2")
         }
     }
 }
 
-// `./gradlew runIde` starts IntelliJ IDEA (Java; its PHP plugin needs an Ultimate licence, which the sandbox lacks).
-// `./gradlew runPhpStorm` starts PhpStorm, to try the PHP side.
+// `./gradlew runIde` starts IntelliJ IDEA with Java and Python (its PHP plugin needs an Ultimate licence, which the
+// sandbox lacks). `./gradlew runPhpStorm` starts PhpStorm, to try the PHP side; `./gradlew runPyCharm` starts PyCharm.
 intellijPlatformTesting {
     runIde {
         register("runPhpStorm") {
             type = IntelliJPlatformType.PhpStorm
+            version = "2026.1"
+        }
+        register("runPyCharm") {
+            type = IntelliJPlatformType.PyCharm
             version = "2026.1"
         }
     }

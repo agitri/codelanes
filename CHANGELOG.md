@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0
+
+Python in PyCharm. For PhpStorm, IntelliJ IDEA and PyCharm 2025.2 and newer.
+
+- **Python modules as a canvas**: in PyCharm, or IntelliJ IDEA with the Python plugin, every `.py` file opens as
+  blocks (not `.pyi` stubs or library code). The module and its classes sit in the middle, stacked; functions and
+  methods on the right; base classes and injected types on the left. Injected types are the typed `__init__`
+  parameters and the annotated fields of dataclasses and pydantic-style classes, when they are classes of your own
+  project (`Optional[X]`, `X | None`, `list[X]`, `Annotated[X, …]` count as `X`).
+- **Calls, overrides, + calls, + parents, Add method…**, implementers of abstract classes (`ABC`, `@abstractmethod`,
+  `Protocol`), `+ method`, delete, review marks, notes and working sets all work for Python. Calls are found with
+  PyCharm's type inference, so untyped code shows fewer call lines.
+- **Follow a Request for Python**: FastAPI (`@app.get`, `@router.post`, `api_route`, with the `APIRouter` prefix),
+  Flask (`@app.route(..., methods=...)`, `@bp.get`, with the `Blueprint` `url_prefix`) and Django `urlpatterns`
+  (`path`, `re_path`, `include`, one route per HTTP method of a class-based view). The app, router or blueprint may be
+  imported from another module. Paths are shown as written.
+- **AI flows for Python**: references like `shop.orders.service::OrderService.place`; calls, overrides (`binds`),
+  Django signals (`send` → `@receiver`) and event classes are proven from the code.
+- Nothing changes for PHP and Java.
+
 ## 0.2.0
 
 Java in IntelliJ IDEA. For PhpStorm and IntelliJ IDEA 2025.2 and newer.

@@ -34,6 +34,10 @@
 3. **Fresh screenshots** for the README and the Marketplace page.
 4. **Java** (done in 0.2.0, `docs/superpowers/specs/2026-10-22-java-support-design.md`, with Spring routes in Follow a
    Request); next: JAX-RS/Micronaut routes, then Kotlin.
+   **Python** (done in 0.3.0 on `feat/python-support`, `docs/superpowers/specs/2026-10-26-python-support-design.md`):
+   module canvases in PyCharm, FastAPI/Flask/Django routes in Follow a Request, AI flows with Django signals. Left
+   for later: FastAPI `include_router` and Flask `register_blueprint` prefixes, Django REST Framework routers, Flask
+   `add_url_rule`, Starlette routes. Needs a manual check in `runPyCharm` with `playground/python`.
 5. **TypeScript/JavaScript**.
 6. **Record the real road a request took** (long haul): read an Xdebug trace of one real request and show exactly
    the methods that ran, in order (also events and handlers that static analysis can't see).
