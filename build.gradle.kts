@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "dev.codelanes"
-version = "0.2.0"
+version = "0.3.0"
 
 kotlin {
     jvmToolchain(21)
@@ -26,14 +26,17 @@ dependencies {
         intellijIdea("2026.1")
         bundledPlugin("com.intellij.java") // the tests need Java; the product loads it via the :java content module
         compatiblePlugin("com.jetbrains.php") // the tests need PHP; the product loads it via the :php content module
+        compatiblePlugin("PythonCore") // the tests need Python; the product loads it via the :python content module
         bundledPlugin("com.intellij.mcpServer") // optional at runtime, see codelanes-mcp.xml
         pluginModule(project(":php"))
         pluginModule(project(":java"))
+        pluginModule(project(":python"))
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.Plugin.Java)
     }
     testImplementation(project(":php"))
     testImplementation(project(":java"))
+    testImplementation(project(":python"))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.opentest4j:opentest4j:1.3.0")
 }
@@ -57,28 +60,45 @@ intellijPlatform {
         token = providers.environmentVariable("PUBLISH_TOKEN")
     }
 
-    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm and IntelliJ IDEA versions.
+    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm, IntelliJ IDEA and PyCharm versions.
+    // `-Pverify.ides=PhpStorm,IntelliJ,PyCharm` picks IDE families (default: all); CI runs one family per job.
     pluginVerification {
+        val families = providers.gradleProperty("verify.ides").orNull?.split(',')?.map { it.trim() }?.toSet()
+            ?: setOf("PhpStorm", "IntelliJ", "PyCharm")
         ides {
-            create(IntelliJPlatformType.PhpStorm, "2025.2")
-            create(IntelliJPlatformType.PhpStorm, "2025.3")
-            create(IntelliJPlatformType.PhpStorm, "2026.1")
-            create(IntelliJPlatformType.PhpStorm, "2026.2")
-            create(IntelliJPlatformType.IntellijIdeaUltimate, "2025.2") // the last split Ultimate/Community release
-            create(IntelliJPlatformType.IntellijIdeaCommunity, "2025.2") // no PHP: the case Task 2 makes installable
-            create(IntelliJPlatformType.IntellijIdea, "2025.3")
-            create(IntelliJPlatformType.IntellijIdea, "2026.1")
-            create(IntelliJPlatformType.IntellijIdea, "2026.2")
+            if ("PhpStorm" in families) {
+                create(IntelliJPlatformType.PhpStorm, "2025.2")
+                create(IntelliJPlatformType.PhpStorm, "2025.3")
+                create(IntelliJPlatformType.PhpStorm, "2026.1")
+                create(IntelliJPlatformType.PhpStorm, "2026.2")
+            }
+            if ("IntelliJ" in families) {
+                create(IntelliJPlatformType.IntellijIdeaUltimate, "2025.2") // the last split Ultimate/Community release
+                create(IntelliJPlatformType.IntellijIdeaCommunity, "2025.2") // no PHP: the case Task 2 makes installable
+                create(IntelliJPlatformType.IntellijIdea, "2025.3")
+                create(IntelliJPlatformType.IntellijIdea, "2026.1")
+                create(IntelliJPlatformType.IntellijIdea, "2026.2")
+            }
+            if ("PyCharm" in families) {
+                create(IntelliJPlatformType.PyCharm, "2025.2") // resolves to PyCharm Professional, the last split release
+                create(IntelliJPlatformType.PyCharm, "2025.3")
+                create(IntelliJPlatformType.PyCharm, "2026.1")
+                create(IntelliJPlatformType.PyCharm, "2026.2")
+            }
         }
     }
 }
 
-// `./gradlew runIde` starts IntelliJ IDEA (Java; its PHP plugin needs an Ultimate licence, which the sandbox lacks).
-// `./gradlew runPhpStorm` starts PhpStorm, to try the PHP side.
+// `./gradlew runIde` starts IntelliJ IDEA with Java and Python (its PHP plugin needs an Ultimate licence, which the
+// sandbox lacks). `./gradlew runPhpStorm` starts PhpStorm, to try the PHP side; `./gradlew runPyCharm` starts PyCharm.
 intellijPlatformTesting {
     runIde {
         register("runPhpStorm") {
             type = IntelliJPlatformType.PhpStorm
+            version = "2026.1"
+        }
+        register("runPyCharm") {
+            type = IntelliJPlatformType.PyCharm
             version = "2026.1"
         }
     }

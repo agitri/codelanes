@@ -43,7 +43,7 @@ object LayoutEngine {
     fun layout(model: BlockModel, sizeOf: (Block) -> Size, pins: Map<String, Point> = emptyMap(), mode: LayoutMode = LayoutMode.LANES): Layout {
         val rank = ranks(model, flattenChain = mode != LayoutMode.TREE)
         val columns = orderedColumns(model, rank).map { lane -> lane.filter { it.id !in pins } }
-        val classRank = model.ofKind(BlockKind.CLASS).firstOrNull()?.let { rank.getValue(it.id) } ?: 0
+        val classRank = centre(model).firstOrNull()?.let { rank.getValue(it.id) } ?: 0
         val auto = when (mode) {
             LayoutMode.LANES -> place(columns, classRank, sizeOf)
             LayoutMode.COLUMN -> placeVertically(columns, classRank, sizeOf)
@@ -57,47 +57,85 @@ object LayoutEngine {
         return Layout(applyPins(model, auto, pinned))
     }
 
+    /**
+     * The centre column: the MODULE block (if any) followed by every CLASS block in model order. A PHP or Java
+     * canvas has exactly one (its class); a Python module canvas has the module plus its classes.
+     */
+    internal fun centre(model: BlockModel): List<Block> = model.ofKind(BlockKind.MODULE) + model.ofKind(BlockKind.CLASS)
+
+    /** Several centre blocks (a module canvas) share one rank; with one class everything stays as it was. */
+    private fun hasSeveralCentres(model: BlockModel): Boolean =
+        model.ofKind(BlockKind.MODULE).isNotEmpty() || model.ofKind(BlockKind.CLASS).size > 1
+
+    /** Blocks owned (OWNS) by a centre block, mapped to their owner's position in [centre]. */
+    private fun ownerPositions(model: BlockModel, centre: List<Block>): Map<String, Int> {
+        val position = centre.withIndex().associate { (i, b) -> b.id to i }
+        return model.links.filter { it.kind == LinkKind.OWNS && it.from in position && it.to !in position }
+            .groupBy { it.to }
+            .mapValues { (_, owns) -> owns.minOf { position.getValue(it.from) } }
+    }
+
     /** Longest-path ranks over structural links, compacted so sources sit next to what they feed. */
     private fun ranks(model: BlockModel, flattenChain: Boolean): Map<String, Int> {
         val kindOf = model.blocks.associate { it.id to it.kind }
         // A method added from search has no caller: treat it as hanging off the class like the followed chain
         // (one lane after the methods), not as a source on the far left.
         val chainSteps = setOf(LinkKind.CALLS_INTO, LinkKind.IMPLEMENTED_BY, LinkKind.FLOW)
-        val orphanEdges = model.ofKind(BlockKind.CLASS).firstOrNull()?.let { cls ->
+        val centre = centre(model)
+        val orphanEdges = centre.firstOrNull()?.let { cls ->
             model.ofKind(BlockKind.CALLEE)
                 .filter { callee -> model.links.none { it.to == callee.id && it.kind in chainSteps } }
                 .map { dev.codelanes.model.Link(LinkKind.IMPLEMENTED_BY, cls.id, it.id) }
         }.orEmpty()
-        val edges = model.links.filter { it.kind in STRUCTURAL } + orphanEdges
+        // Links between centre blocks (a module owning its classes) never split the centre column.
+        val centreIds = if (hasSeveralCentres(model)) centre.map { it.id }.toSet() else emptySet()
+        val edges = model.links.filter { it.kind in STRUCTURAL && !(it.from in centreIds && it.to in centreIds) } + orphanEdges
         // Implementers of an opened type go one lane further than its own methods (type | methods | implementers);
         // inside a followed chain an implementation is simply the next level after its interface method.
         fun weight(edge: dev.codelanes.model.Link): Int =
             if (edge.kind == LinkKind.IMPLEMENTED_BY && kindOf[edge.from] != BlockKind.CALLEE) 2 else 1
         val rank = model.blocks.associate { it.id to 0 }.toMutableMap()
-        for (pass in model.blocks.indices) {
-            var changed = false
-            for (edge in edges) {
-                val wanted = rank.getValue(edge.from) + weight(edge)
-                if (rank.getValue(edge.to) < wanted) {
-                    rank[edge.to] = wanted
-                    changed = true
+        fun pushForward() {
+            for (pass in model.blocks.indices) {
+                var changed = false
+                for (edge in edges) {
+                    val wanted = rank.getValue(edge.from) + weight(edge)
+                    if (rank.getValue(edge.to) < wanted) {
+                        rank[edge.to] = wanted
+                        changed = true
+                    }
                 }
+                if (!changed) break
             }
-            if (!changed) break
         }
         // Pull sources down next to what they feed, respecting each edge's weight.
-        for (pass in model.blocks.indices) {
-            var changed = false
-            for (block in model.blocks) {
-                val latest = edges.filter { it.from == block.id }.minOfOrNull { rank.getValue(it.to) - weight(it) } ?: continue
-                if (latest > rank.getValue(block.id)) {
-                    rank[block.id] = latest
-                    changed = true
+        fun pullSources(fixed: Set<String>) {
+            for (pass in model.blocks.indices) {
+                var changed = false
+                for (block in model.blocks) {
+                    if (block.id in fixed) continue
+                    val latest = edges.filter { it.from == block.id }.minOfOrNull { rank.getValue(it.to) - weight(it) } ?: continue
+                    if (latest > rank.getValue(block.id)) {
+                        rank[block.id] = latest
+                        changed = true
+                    }
                 }
+                if (!changed) break
             }
-            if (!changed) break
         }
-        model.ofKind(BlockKind.CLASS).firstOrNull()?.let { cls ->
+        pushForward()
+        pullSources(emptySet())
+        if (hasSeveralCentres(model)) {
+            // One centre column (the highest rank any centre block got), their own members in the next one;
+            // then push what follows them along and pull each class's parents back next to it.
+            val centreRank = centre.maxOf { rank.getValue(it.id) }
+            centre.forEach { rank[it.id] = centreRank }
+            val owned = ownerPositions(model, centre).keys
+            owned.forEach { rank[it] = centreRank + 1 }
+            pushForward()
+            pullSources(centre.map { it.id }.toSet() + owned)
+        }
+        centre.firstOrNull()?.let { cls ->
             model.ofKind(BlockKind.HEADER).forEach { rank[it.id] = rank.getValue(cls.id) }
         }
         // A followed chain is one lane (read top to bottom), not a new lane per call level.
@@ -120,7 +158,22 @@ object LayoutEngine {
 
         columns.forEach { column -> keepCallersAndCalleesTogether(column, model) }
         columns.forEach { column -> orderChain(column, model, columns) }
-        model.ofKind(BlockKind.CLASS).firstOrNull()?.let { cls ->
+        val centre = centre(model)
+        if (hasSeveralCentres(model)) {
+            // Centre column: module first, then the classes in source order; the next column grouped by owner.
+            val column = columns[rank.getValue(centre.first().id)]
+            val centreIds = centre.map { it.id }.toSet()
+            val at = column.indexOfFirst { it.id in centreIds }
+            column.removeAll { it.id in centreIds }
+            column.addAll(at, centre)
+            val owner = ownerPositions(model, centre)
+            columns.getOrNull(rank.getValue(centre.first().id) + 1)?.let { next ->
+                val sorted = next.sortedBy { owner[it.id] ?: Int.MAX_VALUE }
+                next.clear()
+                next.addAll(sorted)
+            }
+        }
+        centre.firstOrNull()?.let { cls ->
             val column = columns[rank.getValue(cls.id)]
             val headers = column.filter { it.kind == BlockKind.HEADER }
             column.removeAll(headers)

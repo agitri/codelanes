@@ -125,6 +125,7 @@ class BlockView(var id: String, private val canvas: BlocksCanvas) : JPanel(Borde
     internal fun titleText(): String = title.text
     internal fun actionTexts(): List<String> = actions.map { it.first }
     internal fun menuTexts(): List<String> = menu.map { it.first }
+    internal fun clickAction(text: String) = actions.first { it.first == text }.second()
 
     private fun showMenu(e: MouseEvent) {
         if (menu.isEmpty()) return

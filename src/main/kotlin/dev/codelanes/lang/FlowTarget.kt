@@ -22,5 +22,9 @@ data class FlowTarget(
 
 sealed interface FlowLookup {
     data class Found(val target: FlowTarget) : FlowLookup
-    data class Missing(val why: String) : FlowLookup
+    /**
+     * [ownerFound]: the language knows the module or class but not the member, so its [why] is the one to report
+     * when several languages miss the reference.
+     */
+    data class Missing(val why: String, val ownerFound: Boolean = false) : FlowLookup
 }

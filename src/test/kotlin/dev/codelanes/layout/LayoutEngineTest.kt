@@ -379,4 +379,100 @@ class LayoutEngineTest {
         val tree = LayoutEngine.layout(withAddedMethod(), sizeOf, mode = LayoutMode.TREE).rects
         listOf("callee:followed", "callee:added").forEach { assertTrue(it, tree.getValue(it).y >= tree.getValue("method:m").bottom) }
     }
+
+    /** A Python module canvas: the module plus its classes share the centre column. */
+    private fun moduleCanvas(bHasParentOnly: Boolean = false) = BlockModel(
+        listOf(
+            block("header", HEADER),
+            block("module:m", BlockKind.MODULE),
+            block("class:m.A", CLASS),
+            block("class:m.B", CLASS),
+            // Model order deliberately not owner order: the methods column groups by owner.
+            block("method:B.y", METHOD),
+            block("method:f", METHOD),
+            block("method:A.x", METHOD),
+            block("parent:Base", PARENT),
+        ),
+        listOf(
+            Link(OWNS, "module:m", "method:f"),
+            Link(OWNS, "class:m.A", "method:A.x"),
+            Link(OWNS, "class:m.B", "method:B.y"),
+            Link(EXTENDS, "parent:Base", if (bHasParentOnly) "class:m.B" else "class:m.A"),
+        ),
+    )
+
+    @Test
+    fun testModuleAndClassesShareTheCentreColumn() {
+        val r = LayoutEngine.layout(moduleCanvas(), sizeOf).rects
+        val module = r.getValue("module:m")
+        val a = r.getValue("class:m.A")
+        val b = r.getValue("class:m.B")
+        assertEquals(module.x, a.x)
+        assertEquals(module.x, b.x)
+        assertTrue(module.bottom <= a.y)
+        assertTrue(a.bottom <= b.y)
+        val header = r.getValue("header")
+        assertEquals(module.x, header.x)
+        assertTrue(header.bottom <= module.y)
+        val f = r.getValue("method:f")
+        val x = r.getValue("method:A.x")
+        val y = r.getValue("method:B.y")
+        assertEquals(f.x, x.x)
+        assertEquals(f.x, y.x)
+        assertTrue(f.x >= maxOf(module.right, a.right, b.right))
+        assertTrue(f.bottom <= x.y)
+        assertTrue(x.bottom <= y.y)
+        assertTrue(r.getValue("parent:Base").right <= module.x)
+        assertNoOverlap(r)
+    }
+
+    @Test
+    fun testAClassWithoutParentsStillLinesUpWithOneThatHasThem() {
+        val r = LayoutEngine.layout(moduleCanvas(bHasParentOnly = true), sizeOf).rects
+        assertEquals(r.getValue("class:m.A").x, r.getValue("class:m.B").x)
+        assertEquals(r.getValue("module:m").x, r.getValue("class:m.B").x)
+        assertTrue(r.getValue("parent:Base").right <= r.getValue("class:m.B").x)
+        assertNoOverlap(r)
+    }
+
+    @Test
+    fun testOrphanCalleeHangsOffTheModule() {
+        val base = moduleCanvas()
+        val model = BlockModel(base.blocks + block("callee:other::g", BlockKind.CALLEE), base.links)
+        val r = LayoutEngine.layout(model, sizeOf).rects
+        val callee = r.getValue("callee:other::g")
+        listOf("method:f", "method:A.x", "method:B.y").forEach { assertTrue(it, callee.x >= r.getValue(it).right) }
+        assertNoOverlap(r)
+        // A module with only functions (no class at all): the callee still hangs off the module, not far left.
+        val functionsOnly = BlockModel(
+            listOf(block("header", HEADER), block("module:m", BlockKind.MODULE), block("method:f", METHOD), block("callee:other::g", BlockKind.CALLEE)),
+            listOf(Link(OWNS, "module:m", "method:f")),
+        )
+        val only = LayoutEngine.layout(functionsOnly, sizeOf).rects
+        assertTrue(only.getValue("method:f").x >= only.getValue("module:m").right)
+        assertTrue(only.getValue("callee:other::g").x >= only.getValue("method:f").right)
+    }
+
+    @Test
+    fun aLinkFromTheModuleToItsClassDoesNotSplitTheCentre() {
+        val base = moduleCanvas()
+        val model = BlockModel(base.blocks, base.links + Link(OWNS, "module:m", "class:m.A") + Link(OWNS, "module:m", "class:m.B"))
+        val r = LayoutEngine.layout(model, sizeOf).rects
+        assertEquals(r.getValue("module:m").x, r.getValue("class:m.A").x)
+        assertEquals(r.getValue("module:m").x, r.getValue("class:m.B").x)
+        assertEquals(r.getValue("method:f").x, r.getValue("method:B.y").x)
+        assertNoOverlap(r)
+    }
+
+    @Test
+    fun aModuleCanvasReadsInOrderInTheColumnAndTreeLayouts() {
+        val column = LayoutEngine.layout(moduleCanvas(), sizeOf, mode = LayoutMode.COLUMN).rects
+        val order = listOf("parent:Base", "header", "module:m", "class:m.A", "class:m.B", "method:f", "method:A.x", "method:B.y")
+        order.zipWithNext().forEach { (above, below) -> assertTrue("$above above $below", column.getValue(above).bottom <= column.getValue(below).y) }
+        val tree = LayoutEngine.layout(moduleCanvas(), sizeOf, mode = LayoutMode.TREE).rects
+        listOf("module:m", "class:m.A", "class:m.B").forEach { assertTrue(it, tree.getValue(it).y >= tree.getValue("parent:Base").bottom) }
+        listOf("method:f", "method:A.x", "method:B.y").forEach { m ->
+            listOf("module:m", "class:m.A", "class:m.B").forEach { c -> assertTrue("$m below $c", tree.getValue(m).y >= tree.getValue(c).bottom) }
+        }
+    }
 }

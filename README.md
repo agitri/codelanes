@@ -4,9 +4,9 @@
 [![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/35151-codelanes?label=Marketplace)](https://plugins.jetbrains.com/plugin/35151-codelanes)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/35151-codelanes)](https://plugins.jetbrains.com/plugin/35151-codelanes)
 
-**Read code like a human.** CodeLanes is a plugin for PhpStorm and IntelliJ IDEA that replaces the vertical, line-by-line
-editor with a canvas of real, editable code blocks laid out in lanes: what a class builds on on the left, the class
-in the middle, its methods on the right, connected by colour-coded lines.
+**Read code like a human.** CodeLanes is a plugin for PhpStorm, IntelliJ IDEA and PyCharm that replaces the vertical,
+line-by-line editor with a canvas of real, editable code blocks laid out in lanes: what a class builds on on the left,
+the class in the middle, its methods on the right, connected by colour-coded lines. It reads PHP, Java and Python.
 
 ![A class with its parent, interfaces, trait and dependencies on the left and its methods on the right](docs/images/canvas-expanded.png)
 
@@ -16,7 +16,7 @@ More and more code is written by AI, and more and more of it gets skimmed instea
 file read top to bottom hides its structure: which interface does this method satisfy, which methods call
 each other, what does this class actually depend on?
 
-CodeLanes cuts a class into digestible blocks and puts the structure on screen, so that the developer
+CodeLanes cuts a class (or a Python module) into digestible blocks and puts the structure on screen, so that the developer
 who has to own the code really reads it. It is a **viewer and editor**, not an explainer: no AI, no
 summaries, everything comes from the real code.
 
@@ -25,7 +25,7 @@ summaries, everything comes from the real code.
 ## What you get
 
 - **The canvas is the editor.** Every block is a real IDE editor showing one slice of the file:
-  completion, inspections, refactorings and undo all work. The file on disk stays plain PHP or Java, so git, your
+  completion, inspections, refactorings and undo all work. The file on disk stays plain PHP, Java or Python, so git, your
   team and your tools see nothing unusual.
 - **Lanes, not a mess.** Parents, interfaces, traits and injected dependencies each get their own lane in a
   staircase left of the class. The class (with a collapsed `namespace`/`use` header above it) sits in the
@@ -38,8 +38,8 @@ summaries, everything comes from the real code.
 - **Follow the code.** Cmd/Ctrl+click jumps to the right block instead of leaving the canvas. With the caret on
   a symbol, the block that defines it gets an orange border and every block using it a yellow one.
 - **Follow a request.** **View → Follow a Request…** lists the routes in your project (`#[Route]` attributes and
-  `config/routes` YAML/XML files in PHP, Spring's `@…Mapping` annotations in Java, e.g.
-  `POST /api/orders → OrderController::create`). Pick one and the whole chain it runs (controller, services,
+  `config/routes` YAML/XML files in PHP, Spring's `@…Mapping` annotations in Java, FastAPI, Flask and Django
+  routes in Python, e.g. `POST /api/orders → OrderController::create`). Pick one and the whole chain it runs (controller, services,
   repositories, through interfaces into their implementations) lands on one canvas.
 - **Search and add.** **Add method…** (canvas toolbar) finds any method in your project and drops it on the
   canvas as an editable block, ready to follow with `+ calls`; right-click → **Remove from canvas** takes it off.
@@ -69,11 +69,12 @@ summaries, everything comes from the real code.
 
 ## Install
 
-Requirements: **PhpStorm 2025.2 or newer** for PHP, **IntelliJ IDEA 2025.2 or newer** for Java.
-Works in PhpStorm (PHP) and IntelliJ IDEA (Java); other JetBrains IDEs aren't supported yet.
+Requirements: **PhpStorm 2025.2 or newer** for PHP, **IntelliJ IDEA 2025.2 or newer** for Java, **PyCharm 2025.2
+or newer** for Python. IntelliJ IDEA also does Python with the free **Python Community Edition** plugin installed.
+Works in PhpStorm (PHP), IntelliJ IDEA (Java) and PyCharm (Python); other JetBrains IDEs aren't supported yet.
 
-- **From the Marketplace:** in PhpStorm or IntelliJ IDEA, **Settings → Plugins → Marketplace**, search "CodeLanes" and click
-  **Install**. Or open [CodeLanes on the JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35151-codelanes)
+- **From the Marketplace:** in PhpStorm, IntelliJ IDEA or PyCharm, **Settings → Plugins → Marketplace**, search
+  "CodeLanes" and click **Install**. Or open [CodeLanes on the JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35151-codelanes)
   and click **Install**.
 - **From source** (needs a **JDK 21+**; Gradle downloads the right toolchain):
 
@@ -84,11 +85,12 @@ Works in PhpStorm (PHP) and IntelliJ IDEA (Java); other JetBrains IDEs aren't su
   ```
 
   Then in your IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…** and choose
-  `build/distributions/codelanes-0.2.0.zip`. Restart the IDE.
+  `build/distributions/codelanes-0.3.0.zip`. Restart the IDE.
 
 ## Use
 
-- Open a PHP or Java file that contains one class, interface, trait, enum or record. It opens as a canvas.
+- Open a PHP or Java file that contains one class, interface, trait, enum or record, or any Python file. It opens
+  as a canvas.
 - **Ctrl+Alt+Shift+B** (or **View → Toggle Blocks / Text View**) switches between the canvas and the classic
   text editor. The **Blocks | Text** tabs at the bottom of the editor do the same.
 - Pan by dragging the background or scrolling; **Cmd/Ctrl+scroll** zooms.
@@ -100,7 +102,8 @@ Works in PhpStorm (PHP) and IntelliJ IDEA (Java); other JetBrains IDEs aren't su
   **Follow a Request…**, **Working sets ▾** and **Tidy up** (forgets dragged positions). The same actions are in
   the View menu.
 - **View → Open Files as Blocks by Default** turns the canvas on or off as the default.
-- Files with several classes, top-level functions or loose code open as text, with a banner saying why.
+- PHP and Java files with several classes, top-level functions or loose code open as text, with a banner saying
+  why. Python files always open as blocks (see [Python](#python)).
 
 **Follow a Request…** is also in Search Everywhere (press Shift twice and type "follow"). It lists the saved flows,
 the routes it found, and **Open flow file…**:
@@ -111,13 +114,13 @@ the routes it found, and **Open flow file…**:
 
 ## Flows from your AI assistant
 
-Follow a Request finds Symfony and Spring routes by itself. For frameworks where the request takes paths the code doesn't spell
+Follow a Request finds Symfony, Spring, FastAPI, Flask and Django routes by itself. For frameworks where the request takes paths the code doesn't spell
 out (Laravel's `routes/web.php`, middleware, events and listeners, container bindings), let your AI assistant
 describe the flow. CodeLanes checks every step against the real code and draws only what exists.
 
 ![A Laravel request flow: the route (dotted, from the AI) into the Authenticate middleware, the controller action, and the service it calls](docs/images/flow-laravel.png)
 
-1. PhpStorm or IntelliJ IDEA 2025.2 or newer: enable **Settings → Tools → MCP Server** and connect your assistant (JetBrains AI
+1. PhpStorm, IntelliJ IDEA or PyCharm 2025.2 or newer: enable **Settings → Tools → MCP Server** and connect your assistant (JetBrains AI
    Assistant/Junie, GitHub Copilot's agent mode, Claude Code, or any MCP client).
 2. Ask it, for example: *"Show the flow of POST /invoices in CodeLanes."*
 3. The assistant reads the code and calls the `codelanes_show_flow` tool. The canvas opens on the controller action
@@ -163,31 +166,93 @@ same lanes and lines as PHP:
 
 Try it in [`playground/java-spring`](playground/java-spring), a small Spring-style shop that opens without Maven or Gradle.
 
+## Python
+
+In PyCharm (or IntelliJ IDEA with the Python plugin) every `.py` file opens as a canvas, also one with several
+classes, top-level functions or loose code. `.pyi` stubs and library code stay text. A Python file is a module, so
+the middle holds the module and its classes, stacked:
+
+| In the Python code | Lane |
+|---|---|
+| base classes (`class OrderService(BaseService)`) | parent |
+| injected types: the typed parameters of `__init__`, and the annotated fields of a `@dataclass` or a pydantic-style class (`BaseModel`, `BaseSettings`) | dependency |
+| the imports at the top of the file | header, folded |
+| the module: its docstring and every other top-level statement that isn't a `def` or `class` (an import further down stays here) | middle |
+| each top-level class, with its decorators and docstring, below the module | middle |
+| each top-level function, and each method of a class | functions, on the right |
+
+- Only your project's own classes count as injected types, not the standard library or site-packages.
+  `Optional[X]`, `X | None`, `list[X]` and `Annotated[X, …]` count as `X`. A base class without source (say
+  `Exception`) shows its name and methods only.
+- Calls and overrides are found with PyCharm's type inference. Untyped code resolves less: a call PyCharm can't
+  follow simply has no line. Type hints on parameters and attributes bring the lines back.
+- An abstract class (an `ABC` base, `@abstractmethod`, or a `Protocol`) also shows the project classes that
+  implement it, and `+ calls` on a call to an abstract method shows the implementations too.
+- `+ method` on the module adds a function at the end of the file, on a class a method at the end of the class.
+- Methods get their class in their id (`OrderService.place`). Two definitions with the same name in one class (a
+  property and its setter) are told apart with `#2`, as in `Order.total#2`. So renaming a class also resets the
+  review marks and dragged positions of its methods.
+- AI flows use dotted module names: `shop.orders.service::OrderService.place` for a method,
+  `shop.orders.views::create_order` for a function, `shop.orders.service::OrderService` for a class and
+  `::OrderService.__init__` for its constructor. `calls`, `binds` (a method that overrides another), Django signals
+  (`order_placed.send(…)` dispatches to a function decorated `@receiver(order_placed)`) and event classes (created
+  with `OrderPlaced(…)`, received by a function whose first parameter is annotated `OrderPlaced`) are proven from the
+  code.
+- **Follow a Request** lists, without AI:
+  - **FastAPI**: `@app.get/post/put/delete/patch/head/options("/path")` and `@router.api_route("/path",
+    methods=[…])` on a `FastAPI()` or `APIRouter()`, with the router's `prefix=`;
+  - **Flask**: `@app.route("/path", methods=[…])` (GET by default) and `@bp.get/post/…("/path")` on a `Flask()` or
+    `Blueprint()`, with the blueprint's `url_prefix=`;
+  - **Django**: `urlpatterns` with `path()` and `re_path()`, following `include("blog.urls")` (also as
+    `include(("blog.urls", "blog"))`) and inline `include([...])` with their prefix. A function view is `ANY /path`; a class-based view (`PostDetail.as_view()`)
+    gives one route per HTTP method it defines (`GET /blog/posts/<int:pk>/ → views::PostDetail.get`). A generic view
+    that only inherits its handlers is listed with the class, and following it shows the class.
+
+  The app, router or blueprint may be imported from another module of the project (`from shop import app`). Paths
+  are shown as written, with a trailing `/` if it has one; a path that isn't a string (or a constant in the same
+  module) shows as `?`. Not followed: `include_router()` and `register_blueprint()` prefixes, and Django REST
+  Framework routers.
+
+Try it in [`playground/python`](playground/python): a small FastAPI shop with a Flask blueprint and a Django app,
+which opens without installing anything.
+
 ## Status
 
-Usable for reading and editing PHP and Java classes. Next up: JAX-RS/Micronaut routes, Kotlin and TypeScript, and
-VS Code later. See [docs/roadmap.md](docs/roadmap.md).
+Usable for reading and editing PHP and Java classes and Python modules. Next up: JAX-RS/Micronaut routes, Kotlin and
+TypeScript, and VS Code later. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Develop
 
 ```bash
-./gradlew test      # unit and platform tests
-./gradlew runIde       # sandbox IntelliJ IDEA with the plugin: open playground/java-spring as its own project
+./gradlew test         # unit and platform tests
+./gradlew runIde       # sandbox IntelliJ IDEA (Java and Python): open playground/java-spring as its own project
 ./gradlew runPhpStorm  # sandbox PhpStorm with the plugin, for the PHP side
+./gradlew runPyCharm   # sandbox PyCharm with the plugin: open playground/python as its own project
 ```
 
 The sandbox IntelliJ IDEA has the PHP plugin installed but can't run it without an Ultimate licence, so try PHP in
 `runPhpStorm`.
 
-PHP and Java support live in the `php/` and `java/` Gradle modules. They are content modules: each is loaded only
-when the IDE has that language, with its own class loader. A content module only sees the main jars of the plugins it
-depends on, not their own content modules, and the tests don't catch that (they run on one class path). So use the
-platform's searches (`DefinitionsScopedSearch`) over the Java plugin's own (`ClassInheritorsSearch`,
+PHP, Java and Python support live in the `php/`, `java/` and `python/` Gradle modules. They are content modules:
+each is loaded only when the IDE has that language, with its own class loader. A content module only sees the main
+jars of the plugins it depends on, not their own content modules, and the tests don't catch that (they run on one
+class path). So use the platform's searches (`DefinitionsScopedSearch`) over the Java plugin's own (`ClassInheritorsSearch`,
 `OverridingMethodsSearch`), which moved into a content module in 2026.1, and try a change in the sandbox IDE.
+
+`scripts/check-module-classes.py` catches this before a release: it lists every IntelliJ class each of the plugin's
+jars uses and flags the ones that, in a given IDE, only exist in a content module the jar doesn't depend on. Run it on
+the plugin zip against the IDEs the verifier downloaded (they are in Gradle's cache); for IntelliJ IDEA, add the
+Marketplace Python plugin with `+`:
+
+```bash
+./gradlew buildPlugin
+python3 scripts/check-module-classes.py build/distributions/codelanes-0.3.0.zip <PyCharm dir> <IDEA dir>+<python-ce dir>
+```
 
 CI runs on every push to `main` and every pull request:
 - the tests and the plugin build;
-- the plugin verifier against PhpStorm and IntelliJ IDEA 2025.2, 2025.3, 2026.1 and 2026.2;
+- the plugin verifier against PhpStorm, IntelliJ IDEA and PyCharm 2025.2, 2025.3, 2026.1 and 2026.2, one job per
+  IDE family (locally `./gradlew verifyPlugin` checks all of them; `-Pverify.ides=PyCharm` only the PyCharms);
 - [Qodana](https://www.jetbrains.com/qodana/), JetBrains' inspections over the whole project.
 
 Qodana fails on any problem that isn't in `qodana.sarif.json`, the problems already there when CI was added. To run

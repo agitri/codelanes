@@ -5,3 +5,4 @@ plugins {
 rootProject.name = "codelanes"
 include(":php")
 include(":java")
+include(":python")
