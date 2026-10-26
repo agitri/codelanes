@@ -81,4 +81,48 @@ class DjangoRoutesTest : PythonTestCase() {
         addModule("b/urls.py", "from django.urls import path, include\nfrom shop import views\nurlpatterns = [path('x/', views.create_order), path('a/', include('a.urls'))]")
         labels() // must return
     }
+
+    private fun urlsWith(view: String, extra: String = "") = addModule(
+        "site/urls.py",
+        """
+        from django.urls import path
+        from shop import views, cbv
+        $extra
+        urlpatterns = [path("orders/", $view)]
+        """,
+    )
+
+    fun testInheritedFromProjectBase() {
+        addModule("shop/base.py", "class BaseView:\n    def get(self, request): ...")
+        addModule("shop/cbv.py", "from shop.base import BaseView\n\nclass OrderList(BaseView): ...")
+        urlsWith("cbv.OrderList.as_view()")
+        assertEquals(listOf("GET /orders/ → cbv::OrderList"), labels())
+        assertEquals("OrderList", PythonRouteFinder.find(project).single().methodName)
+    }
+
+    fun testInheritedFromLibraryStubAndOwnVerbs() {
+        addModule("django/generic.py", "class ListView:\n    def get(self, request): ...")
+        addModule("shop/cbv.py", "from django.generic import ListView\n\nclass OrderList(ListView):\n    def post(self, request): ...")
+        urlsWith("cbv.OrderList.as_view()")
+        assertEquals(listOf("GET /orders/ → cbv::OrderList", "POST /orders/ → cbv::OrderList.post"), labels())
+    }
+
+    fun testUnresolvableBaseIsAny() {
+        addModule("shop/cbv.py", "from nowhere import ListView\n\nclass OrderList(ListView): ...")
+        urlsWith("cbv.OrderList.as_view()")
+        assertEquals(listOf("ANY /orders/ → cbv::OrderList"), labels())
+    }
+
+    fun testInlineInclude() {
+        addModule("site/urls.py", "from django.urls import path, include\nfrom shop import views\nurlpatterns = [path('api/', include([path('a/', views.create_order)]))]")
+        assertEquals(listOf("ANY /api/a/ → views::create_order"), labels())
+    }
+
+    fun testMutualIncludeCycleStillListsRoutes() {
+        addModule("a/urls.py", "from django.urls import path, include\nfrom shop import views\nurlpatterns = [path('a/', views.create_order), path('b/', include('b.urls'))]")
+        addModule("b/urls.py", "from django.urls import path, include\nfrom shop import views\nurlpatterns = [path('x/', views.OrderView.as_view()), path('a/', include('a.urls'))]")
+        val l = labels()
+        assertEquals(l.toString(), 1, l.count { it.startsWith("ANY /a/ ") })
+        assertTrue(l.toString(), l.any { it.startsWith("GET /b/x/") })
+    }
 }
