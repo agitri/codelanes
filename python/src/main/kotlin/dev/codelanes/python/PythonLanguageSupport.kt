@@ -41,7 +41,7 @@ class PythonLanguageSupport : LanguageSupport {
 
     override fun methods(project: Project): List<MethodRef> = PythonMethodFinder.find(project)
 
-    override fun routes(project: Project): List<EntryPoint> = emptyList()
+    override fun routes(project: Project): List<EntryPoint> = PythonRouteFinder.find(project)
 
     override fun findFlowTarget(project: Project, reference: String): FlowLookup? = null
 
