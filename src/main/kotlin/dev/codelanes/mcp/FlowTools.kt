@@ -40,7 +40,7 @@ class FlowTools : McpToolset {
         listens (a listener or handler picks it up; 'from' is the event as ...::class, 'to' the handler method),
         binds (an interface or abstract method ends up in a bound class), calls (a plain call that matters to the story).
         Java references use dots and no spaces, e.g. com.acme.OrderController::create, or ::create(Order,int) for one of several overloads (simple parameter type names, no generics); PHP references use backslashes.
-        Python references are the dotted module, then the function, Class.method or Class, e.g. shop.orders.views::create_order, shop.orders.service::OrderService.place.
+        Python references are the dotted module, then the function, Class.method or Class, e.g. shop.orders.views::create_order, shop.orders.service::OrderService.place; for a Django signal, link the sending function to the receiver function: shop.service::OrderService.place --dispatches--> shop.mail::on_order_placed.
         Use fully qualified class names and existing methods only. Don't explain the code. Use the same name again to
         update a flow (see codelanes_list_flows). The reply lists references that don't exist, so you can fix them.
         """,

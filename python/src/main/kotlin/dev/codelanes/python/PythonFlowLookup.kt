@@ -31,15 +31,16 @@ import dev.codelanes.lang.LanguageSupport
  */
 object PythonFlowLookup {
     /**
-     * Null when the reference isn't Python's: a backslash (PHP) or a module part that isn't a project `.py` module
-     * (`com.acme.Foo` is Java's), so the other languages keep their references.
+     * Null when the reference is PHP's (a backslash). A module part that isn't a project `.py` module is Missing
+     * without [FlowLookup.Missing.ownerFound]: `com.acme.Foo::bar` still goes to Java, whose Found wins.
      */
     fun find(project: Project, reference: String, support: LanguageSupport): FlowLookup? {
         val trimmed = reference.trim()
         if ("::" !in trimmed) return null
         val modulePart = trimmed.substringBefore("::")
         if ('\\' in modulePart) return null
-        val module = PythonBlockBuilder.moduleByName(project, modulePart) ?: return null
+        val module = PythonBlockBuilder.moduleByName(project, modulePart)
+            ?: return FlowLookup.Missing("$trimmed (no such module)")
         val name = trimmed.substringAfter("::").removeSuffix("()")
         fun missing(why: String) = FlowLookup.Missing("$trimmed ($why)", ownerFound = true)
         if ('.' !in name) {
@@ -99,11 +100,12 @@ object PythonFlowLookup {
         return when (kind) {
             "calls", "middleware" -> fromFunction != null && callsOrCreates(fromFunction, toFunction, toClass, context)
             "dispatches" -> fromFunction != null &&
-                (callsOrCreates(fromFunction, toFunction, toClass, context) || toClass != null && sends(fromFunction, toClass, context))
+                (callsOrCreates(fromFunction, toFunction, toClass, context) || toFunction != null && sameSignal(fromFunction, toFunction))
             "binds" -> fromFunction != null && toFunction != null && overrides(toFunction, fromFunction, context)
             "listens" -> {
                 val event = classOf(from)
-                toFunction != null && event != null && (receives(toFunction, event, context) || takes(toFunction, event, context))
+                toFunction != null &&
+                    (event != null && takes(toFunction, event, context) || fromFunction != null && sameSignal(fromFunction, toFunction))
             }
             else -> false // "routes": nothing in a function proves a route
         }
@@ -129,24 +131,49 @@ object PythonFlowLookup {
         }
     }
 
-    /** [from] calls `send`/`send_robust` on an object of [toClass] (`order_placed.send(sender=...)`). */
-    private fun sends(from: PyFunction, toClass: PyClass, context: TypeEvalContext): Boolean =
-        calls(from).any { call ->
-            val callee = calleeOf(call) as? PyReferenceExpression ?: return@any false
-            if (callee.text.substringAfterLast('.').trim() !in setOf("send", "send_robust")) return@any false
-            val receiver = PsiTreeUtil.getChildOfType(callee, PyExpression::class.java) ?: return@any false
-            objectClass(receiver, context)?.let { isA(it, toClass, context) } == true
+    /**
+     * A Django signal hop: [sender] calls `S.send(...)`/`S.send_robust(...)` and [handler] is decorated `@receiver(S)`
+     * (or a list or tuple with S), both naming the same module-level object. Holds with Signal as library code.
+     */
+    private fun sameSignal(sender: PyFunction, handler: PyFunction): Boolean {
+        val received = receivedSignals(handler)
+        return received.isNotEmpty() && sentSignals(sender).any { it in received }
+    }
+
+    private fun sentSignals(function: PyFunction): List<PyTargetExpression> =
+        calls(function).mapNotNull { call ->
+            val callee = calleeOf(call) as? PyReferenceExpression ?: return@mapNotNull null
+            if (callee.text.substringAfterLast('.').trim() !in setOf("send", "send_robust")) return@mapNotNull null
+            PsiTreeUtil.getChildOfType(callee, PyExpression::class.java)?.let(::moduleObject)
         }
 
-    /**
-     * The class of the object [expression] names. A module-level object of another module (`order_placed = Signal()`)
-     * is typed in its own file: from here, only that file's stubs would be read.
-     */
-    private fun objectClass(expression: PyExpression, context: TypeEvalContext): PyClass? {
-        (context.getType(expression) as? PyClassType)?.takeUnless { it.isDefinition }?.let { return it.pyClass }
-        val target = expression.reference?.resolve() as? PyTargetExpression ?: return null
-        val own = TypeEvalContexts.codeAnalysis(target.project, target.containingFile)
-        return (own.getType(target) as? PyClassType)?.takeUnless { it.isDefinition }?.pyClass
+    private fun receivedSignals(handler: PyFunction): Set<PyTargetExpression> {
+        val decorators = PsiTreeUtil.getChildOfType(handler, PyDecoratorList::class.java)
+            ?.let { PsiTreeUtil.getChildrenOfTypeAsList(it, PyDecorator::class.java) }.orEmpty()
+        return decorators
+            .filter { it.text.removePrefix("@").substringBefore('(').trim().substringAfterLast('.') == "receiver" }
+            .flatMap { decorator ->
+                // The arguments sit in a call inside the decorator (`receiver(order_placed)`).
+                val arguments = PsiTreeUtil.findChildOfType(decorator, PyArgumentList::class.java) ?: return@flatMap emptyList()
+                val signal = PsiTreeUtil.getChildrenOfTypeAsList(arguments, PyExpression::class.java)
+                    .firstOrNull { it !is PyKeywordArgument } ?: return@flatMap emptyList()
+                val signals = if (signal is PyListLiteralExpression || signal is PyTupleExpression) {
+                    PsiTreeUtil.getChildrenOfTypeAsList(signal, PyExpression::class.java)
+                } else {
+                    listOf(signal)
+                }
+                signals.mapNotNull(::moduleObject)
+            }
+            .toSet()
+    }
+
+    /** The module-level name [expression] refers to (`order_placed`, `events.order_placed`), through imports. */
+    private fun moduleObject(expression: PyExpression): PyTargetExpression? {
+        val reference = expression as? PyReferenceExpression ?: return null
+        // With a type context, so a qualified `events.order_placed` resolves through the imported module.
+        val context = TypeEvalContexts.codeAnalysis(reference.project, reference.containingFile)
+        val target = reference.getReference(PyResolveContext.defaultContext(context)).resolve() as? PyTargetExpression ?: return null
+        return target.takeIf { it.parent?.parent is PyFile }
     }
 
     /** [to] overrides [from]: same name, in a subclass of [from]'s class. */
@@ -155,26 +182,6 @@ object PythonFlowLookup {
         val toClass = to.containingClass ?: return false
         val fromClass = from.containingClass ?: return false
         return toClass != fromClass && toClass.isSubclass(fromClass, context)
-    }
-
-    /** [handler] is decorated `@receiver(<object of [event]>)` (or a list of signals that includes one). */
-    private fun receives(handler: PyFunction, event: PyClass, context: TypeEvalContext): Boolean {
-        val decorators = PsiTreeUtil.getChildOfType(handler, PyDecoratorList::class.java)
-            ?.let { PsiTreeUtil.getChildrenOfTypeAsList(it, PyDecorator::class.java) }.orEmpty()
-        return decorators
-            .filter { it.text.removePrefix("@").substringBefore('(').trim().substringAfterLast('.') == "receiver" }
-            .any { decorator ->
-                // The arguments sit in a call inside the decorator (`receiver(order_placed)`).
-                val arguments = PsiTreeUtil.findChildOfType(decorator, PyArgumentList::class.java) ?: return@any false
-                val signal = PsiTreeUtil.getChildrenOfTypeAsList(arguments, PyExpression::class.java)
-                    .firstOrNull { it !is PyKeywordArgument } ?: return@any false
-                val signals = if (signal is PyListLiteralExpression || signal is PyTupleExpression) {
-                    PsiTreeUtil.getChildrenOfTypeAsList(signal, PyExpression::class.java)
-                } else {
-                    listOf(signal)
-                }
-                signals.any { signal -> objectClass(signal, context)?.let { isA(it, event, context) } == true }
-            }
     }
 
     /** [handler]'s first parameter after `self`/`cls` is annotated with [event] (`def on(self, event: OrderPlaced)`). */
@@ -187,6 +194,4 @@ object PythonFlowLookup {
     }
 
     private fun calleeOf(call: PyCallExpression): PyExpression? = PsiTreeUtil.getChildOfType(call, PyExpression::class.java)
-
-    private fun isA(cls: PyClass, base: PyClass, context: TypeEvalContext): Boolean = cls == base || cls.isSubclass(base, context)
 }

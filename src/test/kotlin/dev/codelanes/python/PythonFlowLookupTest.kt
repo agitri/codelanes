@@ -8,27 +8,24 @@ import dev.codelanes.flow.ResolvedFlow
 import dev.codelanes.flow.ResolvedHop
 import dev.codelanes.lang.FlowLookup
 import dev.codelanes.lang.FlowTarget
+import com.intellij.openapi.module.Module
+import com.intellij.openapi.roots.ContentEntry
+import com.intellij.openapi.roots.ModifiableRootModel
+import com.intellij.openapi.roots.OrderRootType
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.testFramework.LightProjectDescriptor
+import com.intellij.testFramework.fixtures.DefaultLightProjectDescriptor
 import com.jetbrains.python.psi.PyClass
+import java.nio.file.Files
 
 /** Python flow references (`shop.service::OrderService.place`) and the hops the code proves. */
 class PythonFlowLookupTest : PythonTestCase() {
     private val support = PythonLanguageSupport()
 
+    override fun getProjectDescriptor(): LightProjectDescriptor = DJANGO_LIBRARY
+
     override fun setUp() {
         super.setUp()
-        // No SDK: django's signal API stubbed as project modules.
-        addModule("django/__init__.py", "")
-        addModule("django/dispatch.py", """
-            class Signal:
-                def send(self, sender, **kwargs): ...
-                def send_robust(self, sender, **kwargs): ...
-
-
-            def receiver(signal, **kwargs):
-                def wrap(f):
-                    return f
-                return wrap
-        """)
         addModule("shop/__init__.py", "")
         addModule("shop/base.py", """
             class Base:
@@ -64,8 +61,10 @@ class PythonFlowLookupTest : PythonTestCase() {
 
 
             order_placed = Signal()
+            order_shipped = Signal()
         """)
         addModule("shop/service.py", """
+            from shop import events
             from shop.repo import Repo
             from shop.events import OrderPlaced, order_placed
 
@@ -81,10 +80,13 @@ class PythonFlowLookupTest : PythonTestCase() {
 
                 def cancel(self, order):
                     pass
+
+                def ship(self, order):
+                    events.order_shipped.send_robust(sender=None, order=order)
         """)
         addModule("shop/listeners.py", """
             from django.dispatch import receiver
-            from shop.events import OrderPlaced, Shipped, order_placed
+            from shop.events import OrderPlaced, Shipped, order_placed, order_shipped
 
 
             @receiver(order_placed)
@@ -101,6 +103,20 @@ class PythonFlowLookupTest : PythonTestCase() {
 
 
             def unrelated(sender, **kwargs):
+                pass
+
+
+            @receiver(order_shipped)
+            def track(sender, **kwargs):
+                pass
+        """)
+        addModule("shop/log.py", """
+            from django.dispatch import receiver
+            from shop import events
+
+
+            @receiver([events.order_placed, events.order_shipped], dispatch_uid="log")
+            def log_all(sender, **kwargs):
                 pass
         """)
         addModule("shop/views.py", """
@@ -188,8 +204,13 @@ class PythonFlowLookupTest : PythonTestCase() {
     fun testReferencesThatAreNotPython() {
         assertNull(find("App\\Services\\OrderService::place"))
         assertNull(find("shop\\views::create_order"))
-        assertNull(find("com.acme.OrderService::place"))
-        assertNull(find("shop.nope::place"))
+    }
+
+    fun testAnUnknownModuleIsMissingButLeavesTheReferenceToOtherLanguages() {
+        assertEquals(FlowLookup.Missing("shop.nope::place (no such module)"), find("shop.nope::place"))
+        assertEquals(FlowLookup.Missing("com.acme.OrderService::place (no such module)"), find("com.acme.OrderService::place"))
+        // Library code isn't a block: django is in a library root here, as in site-packages.
+        assertEquals(FlowLookup.Missing("django.dispatch::Signal (no such module)"), find("django.dispatch::Signal"))
     }
 
     fun testCallsAreProvenByACallOrAnInstantiation() {
@@ -209,20 +230,33 @@ class PythonFlowLookupTest : PythonTestCase() {
         assertFalse(proves("binds", "shop.repo::Repo.save", "shop.base::Base.save"))
     }
 
-    fun testDispatchesIsProvenBySendingASignalOrCreatingTheEvent() {
-        assertTrue(proves("dispatches", place, "django.dispatch::Signal"))
+    fun testDispatchesIsProvenByCreatingTheEvent() {
         assertTrue(proves("dispatches", place, "shop.events::OrderPlaced"))
         assertTrue(proves("dispatches", place, "shop.events::OrderPlaced.__init__"))
         assertFalse(proves("dispatches", place, "shop.events::Shipped"))
-        assertFalse(proves("dispatches", create, "django.dispatch::Signal"))
     }
 
-    fun testListensIsProvenByAReceiverOrAnAnnotatedParameter() {
-        assertTrue(proves("listens", "django.dispatch::Signal", "shop.listeners::send_mail"))
-        assertFalse(proves("listens", "django.dispatch::Signal", "shop.listeners::unrelated"))
+    fun testASignalHopIsProvenFromTheSenderToAReceiverOfThatSameSignal() {
+        val sendMail = "shop.listeners::send_mail"
+        val track = "shop.listeners::track"
+        val logAll = "shop.log::log_all"
+        val ship = "shop.service::OrderService.ship"
+        for (kind in listOf("dispatches", "listens")) {
+            assertTrue(kind, proves(kind, place, sendMail))
+            assertFalse(kind, proves(kind, place, track)) // a receiver of another signal
+            assertTrue(kind, proves(kind, ship, track)) // sent as events.order_shipped, with send_robust
+            assertFalse(kind, proves(kind, ship, sendMail))
+            assertTrue(kind, proves(kind, place, logAll)) // a list of signals, written qualified
+            assertTrue(kind, proves(kind, ship, logAll))
+            assertFalse(kind, proves(kind, create, sendMail)) // sends nothing itself
+            assertFalse(kind, proves(kind, place, "shop.listeners::unrelated"))
+        }
+    }
+
+    fun testListensIsProvenByAnAnnotatedParameter() {
         assertTrue(proves("listens", "shop.events::OrderPlaced", "shop.listeners::Audit.on_placed"))
         assertFalse(proves("listens", "shop.events::OrderPlaced", "shop.listeners::Audit.on_shipped"))
-        assertFalse(proves("listens", "shop.events::Shipped", "shop.listeners::send_mail"))
+        assertFalse(proves("listens", "shop.events::OrderPlaced", "shop.listeners::send_mail"))
     }
 
     fun testRoutesAreNeverProven() {
@@ -234,6 +268,7 @@ class PythonFlowLookupTest : PythonTestCase() {
             FlowHop(create, place, "calls"),
             FlowHop(place, "shop.events::OrderPlaced", "dispatches"),
             FlowHop("shop.events::OrderPlaced", "shop.listeners::Audit.on_placed", "listens"),
+            FlowHop(place, "shop.listeners::send_mail", "dispatches"),
             FlowHop(place, "shop.service::OrderService.cancel", "calls"),
             FlowHop(create, "shop.views::gone", "calls"),
         )
@@ -244,6 +279,7 @@ class PythonFlowLookupTest : PythonTestCase() {
             ResolvedHop("method:create_order", "callee:shop.service::OrderService.place", "calls", true),
             ResolvedHop("callee:shop.service::OrderService.place", "callee:shop.events.OrderPlaced::class", "dispatches", true),
             ResolvedHop("callee:shop.events.OrderPlaced::class", "callee:shop.listeners::Audit.on_placed", "listens", true),
+            ResolvedHop("callee:shop.service::OrderService.place", "callee:shop.listeners::send_mail", "dispatches", true),
             ResolvedHop("callee:shop.service::OrderService.place", "callee:shop.service::OrderService.cancel", "calls", false),
         ), resolved.hops)
         // The language that knows the module explains what's missing, not one that found no class at all.
@@ -261,5 +297,34 @@ class PythonFlowLookupTest : PythonTestCase() {
 
     fun testAClassIsNotAnEntry() {
         assertEquals("shop.service::OrderService (not a method)", resolve(entry = "shop.service::OrderService").entryProblem)
+    }
+
+    companion object {
+        /** django's signal API in a library root (as in site-packages), so it's never project code. */
+        val DJANGO_LIBRARY = object : DefaultLightProjectDescriptor() {
+            override fun configureModule(module: Module, model: ModifiableRootModel, contentEntry: ContentEntry) {
+                super.configureModule(module, model, contentEntry)
+                val dir = Files.createTempDirectory("codelanes-django")
+                Files.createDirectories(dir.resolve("django"))
+                Files.writeString(dir.resolve("django/__init__.py"), "")
+                Files.writeString(dir.resolve("django/dispatch.py"), """
+                    class Signal:
+                        def send(self, sender, **kwargs): ...
+                        def send_robust(self, sender, **kwargs): ...
+
+
+                    def receiver(signal, **kwargs):
+                        def wrap(f):
+                            return f
+                        return wrap
+                """.trimIndent())
+                val root = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir)!!
+                val library = model.moduleLibraryTable.createLibrary("django")
+                library.modifiableModel.apply {
+                    addRoot(root, OrderRootType.CLASSES)
+                    commit()
+                }
+            }
+        }
     }
 }
