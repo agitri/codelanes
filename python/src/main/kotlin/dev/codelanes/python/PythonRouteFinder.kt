@@ -59,6 +59,7 @@ object PythonRouteFinder {
                 }
             }
         }
+        DjangoUrls.find(project, files).forEach { found += it }
         return found.distinctBy { it.second.label }.sortedWith(compareBy({ it.first }, { it.second.label })).map { it.second }
     }
 
@@ -66,7 +67,7 @@ object PythonRouteFinder {
         PsiTreeUtil.getChildOfType(function, PyDecoratorList::class.java)
             ?.let { PsiTreeUtil.getChildrenOfTypeAsList(it, PyDecorator::class.java) }.orEmpty()
 
-    private fun argumentsOf(call: PyCallExpression): List<PyExpression> =
+    internal fun argumentsOf(call: PyCallExpression): List<PyExpression> =
         PsiTreeUtil.getChildOfType(call, PyArgumentList::class.java)
             ?.let { PsiTreeUtil.getChildrenOfTypeAsList(it, PyExpression::class.java) }.orEmpty()
 
@@ -97,7 +98,7 @@ object PythonRouteFinder {
     }
 
     /** Module-level `NAME = "literal"` assignments. */
-    private fun constantsOf(file: PyFile): Map<String, String> {
+    internal fun constantsOf(file: PyFile): Map<String, String> {
         val constants = mutableMapOf<String, String>()
         for (statement in file.statements.filterIsInstance<PyAssignmentStatement>()) {
             val parts = PsiTreeUtil.getChildrenOfTypeAsList(statement, PyExpression::class.java)
@@ -110,7 +111,7 @@ object PythonRouteFinder {
     }
 
     /** A string literal's value, a module constant's value, else "?". */
-    private fun literal(text: String, constants: Map<String, String>): String {
+    internal fun literal(text: String, constants: Map<String, String>): String {
         val trimmed = text.trim()
         constants[trimmed]?.let { return it }
         val match = STRING.matchEntire(trimmed) ?: return "?"
@@ -158,7 +159,7 @@ object PythonRouteFinder {
     }
 
     /** Keeps the path as written (a trailing slash stays), without double slashes. */
-    private fun join(prefix: String, path: String): String {
+    internal fun join(prefix: String, path: String): String {
         if (prefix == "?" || path == "?") return "?"
         val rest = path.trimStart('/')
         val head = if (rest.isEmpty()) prefix.trimStart('/') else prefix.trim('/')
