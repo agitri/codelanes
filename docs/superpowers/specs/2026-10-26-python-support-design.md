@@ -102,7 +102,10 @@ sorted by path. The entry's method is the block key, so picking it opens the fil
   `post`, `put`, `patch`, `delete`) labelled with that verb and key `SomeView.<verb>`. `include("app.urls")` is
   followed with its prefix; a `urls.py` that some other `urls.py` includes is only listed through that include. The
   path is shown as written, with a leading `/`.
-- Paths that aren't string literals (or constants of this module) show as `?`.
+- The app/router/blueprint object may also be imported from another project module (`from shop import app`); the
+  import is followed one step to its assignment (amended 2026-10-26 during the build).
+- Paths are shown as written (a trailing `/` stays). Paths that aren't string literals (or constants of this module)
+  show as `?`.
 - Out of scope: Django REST Framework routers, FastAPI `include_router` prefixes across modules, Flask
   `add_url_rule`, Starlette `Route(...)` lists.
 
