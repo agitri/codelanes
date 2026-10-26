@@ -27,7 +27,8 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 PREFIXES = ("com/intellij/", "com/jetbrains/", "org/jetbrains/")
-CLASS_ENTRY = re.compile(r"= Class\s+(\S+)")
+# `#25 = Class   #24   // com/intellij/openapi/vfs/VirtualFile`; arrays read `// "[Lcom/...;"`.
+CLASS_ENTRY = re.compile(r"= Class\s+#\d+\s+//\s*(\S+)")
 DESCRIPTOR_TYPE = re.compile(r"L((?:com|org)/(?:intellij|jetbrains)/[\w/$]+);")
 
 
@@ -89,6 +90,8 @@ class Ide:
         self.locations = {}  # class → [(kind, owner)], kind: core | core-module | plugin | plugin-module
         self.plugin_ids = {"com.intellij"}
         self.plugin_dirs = {}  # plugin id → the plugins/ dir holding its main jars
+        self.module_names = set()  # content modules: lib/modules jars and modules declared in plugins' <content>
+        self.unreadable = []
         self._index_dir(os.path.join(home, "lib"), "core", None, home)
         self._index_dir(os.path.join(home, "lib", "modules"), "core-module", None, home)
         plugin_roots = [os.path.join(home, "plugins", p) for p in sorted(os.listdir(os.path.join(home, "plugins")))]
@@ -112,9 +115,15 @@ class Ide:
                         for plugin_id in ids:
                             self.plugin_ids.add(plugin_id)
                             self.plugin_dirs.setdefault(plugin_id, owner)
-            except (zipfile.BadZipFile, OSError):
+                        # Embedded modules (e.g. PythonCore 2025.2) have no jar of their own: read <content>.
+                        for content in re.findall(r"<content\b.*?</content>", re.sub(r"<!\[CDATA\[.*?\]\]>", "", text, flags=re.S), re.S):
+                            self.module_names.update(re.findall(r'<module\s+name="([^"]+)"', content))
+            except (zipfile.BadZipFile, OSError) as error:
+                self.unreadable.append(f"{os.path.relpath(path, base)}: {error}")
                 continue
             module = jar[:-4] if kind.endswith("module") else None
+            if module:
+                self.module_names.add(module)
             for n in names:
                 if n.endswith(".class"):
                     self.locations.setdefault(n[:-6], []).append((kind, owner, module, os.path.relpath(path, base)))
@@ -193,12 +202,18 @@ def main():
     for spec in ide_specs:
         ide = Ide(spec)
         print(ide.name)
+        for jar in ide.unreadable:
+            print(f"  warning: unreadable jar, not indexed: {jar}")
         for label, refs, required, optional, modules in jars:
             absent = sorted(p for p in required if not ide.has_plugin(p))
             if absent:
                 print(f"  {label}: skipped ({', '.join(absent)} not in this IDE)")
                 continue
             problems, missing = check(refs, own, required | optional, modules, ide)
+            absent_modules = sorted(m for m in modules if m not in ide.module_names)
+            if absent_modules:
+                # The IDE won't load this content module at all: no crash, but the language silently goes missing.
+                problems["module dependencies not in this IDE (the module won't load): " + ", ".join(absent_modules)] = []
             print(f"  {label}: " + ("ok" if not problems else "FAIL") + f" ({len(refs)} classes)")
             failed = failed or bool(problems)
             for where, classes in problems.items():
