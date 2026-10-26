@@ -75,12 +75,17 @@ object FlowResolver {
         return "callee:${target.declaringFqn}::$key".also { added += it.removePrefix("callee:") }
     }
 
-    /** The first language that finds the reference wins; if none finds it, the first one's reason is reported. */
+    /**
+     * The first language that finds the reference wins; if none finds it, the reason of one that knows the class or
+     * module (but not the member) is reported, else the first one's.
+     */
     private fun find(project: Project, reference: String): FlowLookup {
         val trimmed = reference.trim()
         if ("::" !in trimmed) return FlowLookup.Missing("$trimmed (not a Class::method reference)")
         val answers = LanguageSupports.all().mapNotNull { it.findFlowTarget(project, trimmed) }
-        return answers.firstOrNull { it is FlowLookup.Found } ?: answers.firstOrNull()
+        return answers.firstOrNull { it is FlowLookup.Found }
+            ?: answers.firstOrNull { it is FlowLookup.Missing && it.ownerFound }
+            ?: answers.firstOrNull()
             ?: FlowLookup.Missing("${trimmed.trimStart('\\')} (not a Class::method reference)")
     }
 }

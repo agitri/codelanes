@@ -43,9 +43,9 @@ class PythonLanguageSupport : LanguageSupport {
 
     override fun routes(project: Project): List<EntryPoint> = PythonRouteFinder.find(project)
 
-    override fun findFlowTarget(project: Project, reference: String): FlowLookup? = null
+    override fun findFlowTarget(project: Project, reference: String): FlowLookup? = PythonFlowLookup.find(project, reference, this)
 
-    override fun proves(kind: String, from: FlowTarget, to: FlowTarget): Boolean = false
+    override fun proves(kind: String, from: FlowTarget, to: FlowTarget): Boolean = PythonFlowLookup.proves(kind, from, to)
 
     override fun newMethodText(name: String, indent: String, inInterface: Boolean): String =
         "${indent}def $name(self):\n$indent    pass\n"

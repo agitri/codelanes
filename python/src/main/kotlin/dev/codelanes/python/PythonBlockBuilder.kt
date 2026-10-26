@@ -1,5 +1,6 @@
 package dev.codelanes.python
 
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -214,7 +215,7 @@ object PythonBlockBuilder {
             .distinct()
     }
 
-    private fun annotationOf(element: PsiElement): PyExpression? {
+    internal fun annotationOf(element: PsiElement): PyExpression? {
         val annotation = PsiTreeUtil.getChildOfType(element, PyAnnotation::class.java)
             ?: element.children.firstNotNullOfOrNull { PsiTreeUtil.getChildOfType(it, PyAnnotation::class.java) }
             ?: return null
@@ -228,7 +229,7 @@ object PythonBlockBuilder {
         cls.superClassExpressions.any { it.text.substringBefore('[').substringAfterLast('.') in setOf("BaseModel", "BaseSettings") }
 
     /** The classes an annotation names: `Optional[X]`, `X | None`, `list[X]` and `Annotated[X, ...]` all name X. */
-    private fun annotatedClasses(expression: PyExpression, context: TypeEvalContext): List<PyClass> = when (expression) {
+    internal fun annotatedClasses(expression: PyExpression, context: TypeEvalContext): List<PyClass> = when (expression) {
         is PySubscriptionExpression -> {
             val operand = expression.operand
             val index = expression.indexExpression
@@ -383,7 +384,7 @@ object PythonBlockBuilder {
 
         /** `shop.repo::Repo.save` / `shop.mail::notify` → that function, or null if it no longer exists. */
         private fun functionByKey(key: String): PyFunction? {
-            val module = moduleByName(key.substringBefore("::")) ?: return null
+            val module = moduleByName(file.project, key.substringBefore("::")) ?: return null
             val name = key.substringAfter("::")
             val function = if ('.' in name) {
                 val cls = topLevelClasses(module).firstOrNull { it.name == name.substringBefore('.') } ?: return null
@@ -395,25 +396,24 @@ object PythonBlockBuilder {
         }
 
         private fun classByQualifiedName(qualifiedName: String): PyClass? {
-            val module = moduleByName(qualifiedName.substringBeforeLast('.', "")) ?: return null
+            val module = moduleByName(file.project, qualifiedName.substringBeforeLast('.', "")) ?: return null
             return topLevelClasses(module).firstOrNull { it.name == qualifiedName.substringAfterLast('.') }
         }
 
-        /** The project module with dotted name [name]: `shop/mail.py` or `shop/mail/__init__.py` for `shop.mail`. */
-        private fun moduleByName(name: String): PyFile? {
-            if (name.isEmpty()) return null
-            val project = file.project
-            val scope = GlobalSearchScope.projectScope(project)
-            val last = name.substringAfterLast('.')
-            val candidates = FilenameIndex.getVirtualFilesByName("$last.py", scope) +
-                FilenameIndex.getVirtualFilesByName("__init__.py", scope).filter { it.parent?.name == last }
-            val psiManager = PsiManager.getInstance(project)
-            return candidates.asSequence()
-                .mapNotNull { psiManager.findFile(it) as? PyFile }
-                .firstOrNull { inProject(it) && moduleName(it) == name }
-        }
-
         private fun topLevelClasses(module: PyFile): List<PyClass> = module.statements.filterIsInstance<PyClass>()
+    }
+
+    /** The project module with dotted name [name]: `shop/mail.py` or `shop/mail/__init__.py` for `shop.mail`. */
+    fun moduleByName(project: Project, name: String): PyFile? {
+        if (name.isEmpty()) return null
+        val scope = GlobalSearchScope.projectScope(project)
+        val last = name.substringAfterLast('.')
+        val candidates = FilenameIndex.getVirtualFilesByName("$last.py", scope) +
+            FilenameIndex.getVirtualFilesByName("__init__.py", scope).filter { it.parent?.name == last }
+        val psiManager = PsiManager.getInstance(project)
+        return candidates.asSequence()
+            .mapNotNull { psiManager.findFile(it) as? PyFile }
+            .firstOrNull { inProject(it) && moduleName(it) == name }
     }
 
     private fun calleeId(function: PyFunction): String = "callee:${moduleName(function.containingFile)}::${keyOf(function)}"
@@ -422,7 +422,7 @@ object PythonBlockBuilder {
      * A function that can be a block elsewhere: a module function or a method of a top-level class, in a project `.py`
      * file (not a library, not a stub).
      */
-    private fun isCallee(function: PyFunction): Boolean {
+    internal fun isCallee(function: PyFunction): Boolean {
         val owner = function.parent
         val addressable = owner is PyFile || owner?.parent.let { it is PyClass && it.parent is PyFile }
         return addressable && isProjectSource(function)
@@ -486,12 +486,12 @@ object PythonBlockBuilder {
         return links
     }
 
-    private fun decoratorNames(owner: PsiElement): List<String> =
+    internal fun decoratorNames(owner: PsiElement): List<String> =
         PsiTreeUtil.getChildOfType(owner, PyDecoratorList::class.java)
             ?.let { PsiTreeUtil.getChildrenOfTypeAsList(it, PyDecorator::class.java) }.orEmpty()
             .map { it.text.removePrefix("@").substringBefore('(').trim().substringAfterLast('.') }
 
-    private fun ownMethods(cls: PyClass): List<PyFunction> = cls.statementList.statements.filterIsInstance<PyFunction>()
+    internal fun ownMethods(cls: PyClass): List<PyFunction> = cls.statementList.statements.filterIsInstance<PyFunction>()
 
     /** Project code, not a library (site-packages, the standard library). */
     private fun inProject(element: PsiElement): Boolean {
