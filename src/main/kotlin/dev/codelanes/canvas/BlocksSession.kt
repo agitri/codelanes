@@ -584,7 +584,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         (if (id in followedCalls) "− calls" else "+ calls") to { toggleCalls(id) }
 
     private fun actionsFor(block: Block): Pair<List<Pair<String, () -> Unit>>, List<Pair<String, () -> Unit>>> = when (block.kind) {
-        BlockKind.CLASS -> listOf<Pair<String, () -> Unit>>("+ method" to { addMethod() }) to emptyList()
+        BlockKind.CLASS, BlockKind.MODULE -> listOf<Pair<String, () -> Unit>>("+ method" to { addMethod() }) to emptyList()
         BlockKind.METHOD -> listOf(followAction(block.id)) to listOf<Pair<String, () -> Unit>>("Delete method" to { deleteMethod(block.id) })
         // A class-level block (an event named as `Fqn::class`) has no calls of its own to follow.
         BlockKind.CALLEE -> (if (block.id.endsWith("::class")) emptyList() else listOf(followAction(block.id))) to
