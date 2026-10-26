@@ -1,0 +1,15 @@
+<!-- Content module: loaded only when the Python plugin is there (PyCharm, or IntelliJ IDEA with Python). -->
+<!-- From 2025.3 PythonCore keeps its PSI in content modules (lib/modules/), which a plugin dependency alone can't
+     see: depend on each module whose classes we use (scripts/check-module-classes.py checks this).
+     In 2025.2 the same modules exist, embedded in PythonCore's main jar. -->
+<idea-plugin package="dev.codelanes.python">
+    <dependencies>
+        <plugin id="PythonCore"/>
+        <module name="intellij.python.parser"/>
+        <module name="intellij.python.psi"/>
+        <module name="intellij.python.psi.impl"/>
+    </dependencies>
+    <extensions defaultExtensionNs="dev.codelanes">
+        <languageSupport implementation="dev.codelanes.python.PythonLanguageSupport"/>
+    </extensions>
+</idea-plugin>

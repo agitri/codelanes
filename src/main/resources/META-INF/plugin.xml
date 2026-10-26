@@ -33,6 +33,7 @@
     <content>
         <module name="codelanes.php"/>
         <module name="codelanes.java"/>
+        <module name="codelanes.python"/>
     </content>
 
     <extensionPoints>
