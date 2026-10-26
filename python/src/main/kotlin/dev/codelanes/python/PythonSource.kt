@@ -68,6 +68,14 @@ internal object PythonSource {
         return null
     }
 
+    /** The statement on the header line after a header ending at [headerEnd] (`pass` in `class E: pass`), up to [end]; null if none. */
+    fun oneLineBody(text: CharSequence, headerEnd: Int, end: Int): String? {
+        if (headerEnd >= end) return null
+        val rest = text.subSequence(headerEnd, end).toString()
+        if ('\n' in rest) return null
+        return rest.trim().takeIf { it.isNotEmpty() && !it.startsWith("#") }
+    }
+
     /** The indent of the first statement after a header ending at [headerEnd]; null for a one-line body or none. */
     fun bodyIndent(text: CharSequence, headerEnd: Int, to: Int): String? {
         var i = headerEnd

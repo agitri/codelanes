@@ -125,4 +125,36 @@ class DjangoRoutesTest : PythonTestCase() {
         assertEquals(l.toString(), 1, l.count { it.startsWith("ANY /a/ ") })
         assertTrue(l.toString(), l.any { it.startsWith("GET /b/x/") })
     }
+
+    fun testTupleIncludeWithANamespace() {
+        shopUrls()
+        siteUrls("include((\"shop.urls\", \"shop\"), namespace=\"shop\")")
+        assertTrue(labels().toString(), labels().contains("ANY /shop/orders/ → views::create_order"))
+        assertTrue(labels().none { it.startsWith("ANY /orders/") })
+    }
+
+    fun testTupleIncludeOfAModuleReference() {
+        shopUrls()
+        addModule(
+            "site/urls.py",
+            """
+            from django.urls import path, include
+            from shop import urls as shop_urls
+            urlpatterns = [path("shop/", include((shop_urls, "shop")))]
+            """,
+        )
+        assertTrue(labels().toString(), labels().contains("ANY /shop/orders/ → views::create_order"))
+        assertTrue(labels().none { it.startsWith("ANY /orders/") })
+    }
+
+    fun testTupleIncludeOfAnInlineList() {
+        addModule("site/urls.py", "from django.urls import path, include\nfrom shop import views\nurlpatterns = [path('api/', include(([path('a/', views.create_order)], 'api')))]")
+        assertEquals(listOf("ANY /api/a/ → views::create_order"), labels())
+    }
+
+    fun testOwnVerbsOfARedefinedClassUseItsKey() {
+        addModule("shop/cbv.py", "from django.views import View\n\nclass OrderList(View): ...\n\nclass OrderList(View):\n    def get(self, request): ...")
+        urlsWith("cbv.OrderList.as_view()")
+        assertEquals(listOf("GET /orders/ → cbv::OrderList#2.get"), labels())
+    }
 }

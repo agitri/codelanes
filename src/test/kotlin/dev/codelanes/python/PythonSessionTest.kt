@@ -139,6 +139,27 @@ class PythonSessionTest : PythonTestCase() {
         assertTrue(session.blockIds().contains("method:C.new_method"))
     }
 
+    fun testPlusMethodOnAOneLineClassMovesTheBodyDown() {
+        val session = openSession("svc.py", "class E(Exception): pass\n\n\nclass F: ...\n\n\nclass G: x = 1\n")
+        session.addMethod("class:svc.E")
+        session.addMethod("class:svc.F")
+        session.addMethod("class:svc.G")
+        assertEquals(
+            "class E(Exception):\n    def new_method(self):\n        pass\n\n\n" +
+                "class F:\n    def new_method(self):\n        pass\n\n\n" +
+                "class G:\n    x = 1\n\n    def new_method(self):\n        pass\n",
+            text(),
+        )
+        assertTrue(session.blockIds().containsAll(listOf("method:E.new_method", "method:F.new_method", "method:G.new_method")))
+        assertEquals("new_method", session.sliceEditor("method:G.new_method")!!.editor.selectionModel.selectedText)
+    }
+
+    fun testFollowingARouteToAClassWithoutThatMethodRevealsTheClass() {
+        val session = openSession("cbv.py", "def helper():\n    pass\n\n\nclass Base:\n    pass\n\n\nclass OrderList(Base):\n    model = None\n")
+        session.followChain("method:OrderList", 3)
+        assertEquals("class:cbv.OrderList", session.canvas.focusedId)
+    }
+
     fun testPlusMethodOnTheModuleGoesAboveTheMainGuard() {
         val session = openSession("svc.py", "def a():\n    pass\n\n\nif __name__ == \"__main__\":\n    a()\n")
         session.addMethod("module:svc")

@@ -545,10 +545,11 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val insertion = language.methodInsertion(document.charsSequence, owner, range, methodIds, indent)
             ?: braceInsertion(language, owner, range, methodIds, indent)
             ?: return@withModelAccess
-        WriteCommandAction.runWriteCommandAction(project, "Add Method", null, { document.insertString(insertion.offset, insertion.text) })
+        WriteCommandAction.runWriteCommandAction(project, "Add Method", null, { document.replaceString(insertion.offset, insertion.offset + insertion.replaced, insertion.text) })
         focusMovedTo(null)
         rebuildNow()
-        val nameOffset = insertion.offset + insertion.text.indexOf(insertion.name)
+        // The last occurrence: a body moved down ahead of the new method may mention the name.
+        val nameOffset = insertion.offset + insertion.text.lastIndexOf(insertion.name)
         reveal(nameOffset)
         slices[insertion.blockId]?.editor?.selectionModel?.setSelection(nameOffset, nameOffset + insertion.name.length)
     }
@@ -719,9 +720,23 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     /**
      * Follows the calls of [from] automatically, [depth] levels deep (also into the implementations of interface
      * methods), then focuses [from]. Replaces whatever was followed before. Used for "Follow a Request…".
+     * A route to a class that has no block of that method (a Django generic view: `method:OrderList`, the verbs
+     * inherited) reveals the class block (`class:<…>.OrderList`) instead.
      */
     fun followChain(from: String, depth: Int) = withModelAccess {
         clearFlow()
+        val current = model
+        if (current != null && from.startsWith("method:") && current.blocks.none { it.id == from }) {
+            val key = from.removePrefix("method:")
+            val cls = current.blocks.firstOrNull { it.kind == BlockKind.CLASS && it.filePath == file.path && it.id.endsWith(".$key") }
+            if (cls != null) {
+                followedCalls.clear()
+                focusMovedTo(null)
+                rebuildNow()
+                tracked[cls.id]?.current()?.let { (range, _) -> reveal(range.start) }
+                return@withModelAccess
+            }
+        }
         followFrom(setOf(from), depth, from, "request")
     }
 

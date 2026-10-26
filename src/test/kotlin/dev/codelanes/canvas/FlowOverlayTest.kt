@@ -94,4 +94,19 @@ class FlowOverlayTest {
         assertFalse(result.links.any { it.from == "dependency:\\App\\Service" })
         assertTrue("dependency:\\App\\Other" in ids)
     }
+
+    @Test
+    fun aPythonClassWhoseMethodIsOnTheFlowIsNotShownTwice() {
+        val view = "method:create_order"
+        val place = "callee:shop.service::OrderService.place"
+        val model = BlockModel(
+            listOf(block("module:shop.views", BlockKind.MODULE), block(view, BlockKind.METHOD), block(place),
+                block("dependency:shop.service.OrderService", BlockKind.DEPENDENCY), block("dependency:shop.service.Other", BlockKind.DEPENDENCY)),
+            emptyList(),
+        )
+        val result = FlowOverlay("POST /orders", view, listOf(ResolvedHop(view, place, "calls", true)), emptyList()).applyTo(model, "/views.py")
+        val ids = result.blocks.map { it.id }
+        assertFalse(ids.toString(), "dependency:shop.service.OrderService" in ids)
+        assertTrue("dependency:shop.service.Other" in ids)
+    }
 }

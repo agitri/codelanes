@@ -80,13 +80,21 @@ class PythonLanguageSupport : LanguageSupport {
                 val classKey = owner.id.substringAfterLast('.')
                 val name = freeName("new_method") { "method:$classKey.$it" in taken }
                 val classIndent = PythonSource.indentOfLine(text, ownerRange.start)
-                val methodIndent = PythonSource.headerEnd(text, ownerRange.start, limit)
+                val header = PythonSource.headerEnd(text, ownerRange.start, limit)
+                val end = PythonSource.trimmedEnd(text, ownerRange.start, limit)
+                val def = { at: String -> "${at}def $name(self):\n$at${at.removePrefix(classIndent).ifEmpty { indent }}pass" }
+                // `class E(Exception): pass`: the body goes to a line of its own (a lone `pass` / `...` is dropped).
+                val oneLine = header?.let { PythonSource.oneLineBody(text, it, end) }
+                if (header != null && oneLine != null) {
+                    val at = "$classIndent$indent"
+                    val body = if (oneLine in setOf("pass", "...")) "" else "\n$at$oneLine\n"
+                    return MethodInsertion(header, "$body\n${def(at)}", name, "method:$classKey.$name", replaced = end - header)
+                }
+                val methodIndent = header
                     ?.let { PythonSource.bodyIndent(text, it, limit) }
                     ?.takeIf { it.length > classIndent.length && it.startsWith(classIndent) }
                     ?: "$classIndent$indent"
-                val unit = methodIndent.removePrefix(classIndent)
-                val end = PythonSource.trimmedEnd(text, ownerRange.start, limit)
-                MethodInsertion(end, "\n\n${methodIndent}def $name(self):\n$methodIndent${unit}pass", name, "method:$classKey.$name")
+                MethodInsertion(end, "\n\n${def(methodIndent)}", name, "method:$classKey.$name")
             }
             else -> null
         }

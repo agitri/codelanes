@@ -52,8 +52,11 @@ interface LanguageSupport {
     fun blockIdOf(target: FlowTarget, openFqn: String): String? = null
 }
 
-/** "+ method": insert [text] at [offset]; the new method is called [name] and gets block [blockId]. */
-data class MethodInsertion(val offset: Int, val text: String, val name: String, val blockId: String)
+/**
+ * "+ method": replace the [replaced] characters at [offset] (usually none) with [text]; the new method is called [name]
+ * and gets block [blockId].
+ */
+data class MethodInsertion(val offset: Int, val text: String, val name: String, val blockId: String, val replaced: Int = 0)
 
 object LanguageSupports {
     private val EP_NAME = ExtensionPointName.create<LanguageSupport>("dev.codelanes.languageSupport")

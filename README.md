@@ -176,7 +176,8 @@ the middle holds the module and its classes, stacked:
 |---|---|
 | base classes (`class OrderService(BaseService)`) | parent |
 | injected types: the typed parameters of `__init__`, and the annotated fields of a `@dataclass` or a pydantic-style class (`BaseModel`, `BaseSettings`) | dependency |
-| the module: its docstring and every top-level statement that isn't an import, `def` or `class` | middle |
+| the imports at the top of the file | header, folded |
+| the module: its docstring and every other top-level statement that isn't a `def` or `class` (an import further down stays here) | middle |
 | each top-level class, with its decorators and docstring, below the module | middle |
 | each top-level function, and each method of a class | functions, on the right |
 
@@ -189,7 +190,8 @@ the middle holds the module and its classes, stacked:
   implement it, and `+ calls` on a call to an abstract method shows the implementations too.
 - `+ method` on the module adds a function at the end of the file, on a class a method at the end of the class.
 - Methods get their class in their id (`OrderService.place`). Two definitions with the same name in one class (a
-  property and its setter) are told apart with `#2`, as in `Order.total#2`.
+  property and its setter) are told apart with `#2`, as in `Order.total#2`. So renaming a class also resets the
+  review marks and dragged positions of its methods.
 - AI flows use dotted module names: `shop.orders.service::OrderService.place` for a method,
   `shop.orders.views::create_order` for a function, `shop.orders.service::OrderService` for a class and
   `::OrderService.__init__` for its constructor. `calls`, `binds` (a method that overrides another), Django signals
@@ -201,10 +203,10 @@ the middle holds the module and its classes, stacked:
     methods=[…])` on a `FastAPI()` or `APIRouter()`, with the router's `prefix=`;
   - **Flask**: `@app.route("/path", methods=[…])` (GET by default) and `@bp.get/post/…("/path")` on a `Flask()` or
     `Blueprint()`, with the blueprint's `url_prefix=`;
-  - **Django**: `urlpatterns` with `path()` and `re_path()`, following `include("blog.urls")` and inline
-    `include([...])` with their prefix. A function view is `ANY /path`; a class-based view (`PostDetail.as_view()`)
+  - **Django**: `urlpatterns` with `path()` and `re_path()`, following `include("blog.urls")` (also as
+    `include(("blog.urls", "blog"))`) and inline `include([...])` with their prefix. A function view is `ANY /path`; a class-based view (`PostDetail.as_view()`)
     gives one route per HTTP method it defines (`GET /blog/posts/<int:pk>/ → views::PostDetail.get`). A generic view
-    that only inherits its handlers is listed with the class.
+    that only inherits its handlers is listed with the class, and following it shows the class.
 
   The app, router or blueprint may be imported from another module of the project (`from shop import app`). Paths
   are shown as written, with a trailing `/` if it has one; a path that isn't a string (or a constant in the same
@@ -250,7 +252,7 @@ python3 scripts/check-module-classes.py build/distributions/codelanes-0.3.0.zip 
 CI runs on every push to `main` and every pull request:
 - the tests and the plugin build;
 - the plugin verifier against PhpStorm, IntelliJ IDEA and PyCharm 2025.2, 2025.3, 2026.1 and 2026.2, one job per
-  IDE (locally `./gradlew verifyPlugin` checks all of them; `-Pverify.ides=PyCharm` only the PyCharms);
+  IDE family (locally `./gradlew verifyPlugin` checks all of them; `-Pverify.ides=PyCharm` only the PyCharms);
 - [Qodana](https://www.jetbrains.com/qodana/), JetBrains' inspections over the whole project.
 
 Qodana fails on any problem that isn't in `qodana.sarif.json`, the problems already there when CI was added. To run

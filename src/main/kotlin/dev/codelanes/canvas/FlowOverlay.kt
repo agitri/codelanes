@@ -31,7 +31,12 @@ data class FlowOverlay(val title: String, val entryId: String, val hops: List<Re
         // The class-to-method line of a method on the flow only crosses the flow; the flow already places it.
         val onFlow = links.flatMap { listOf(it.from, it.to) }.toSet()
         // An injected class whose method is on the flow would show up twice, once folded up as a dependency.
-        val shownClasses = onFlow.filter { it.startsWith("callee:") }.map { it.removePrefix("callee:").substringBefore("::") }.toSet()
+        // `callee:<class>::<method>`, or for a Python method `callee:<module>::<Class>.<method>` (the class `<module>.<Class>`).
+        val shownClasses = onFlow.filter { it.startsWith("callee:") }.flatMap {
+            val owner = it.removePrefix("callee:").substringBefore("::")
+            val key = it.substringAfter("::", "")
+            if ('.' in key) listOf(owner, "$owner.${key.substringBefore('.').substringBefore('#')}") else listOf(owner)
+        }.toSet()
         val doubled = blocks.filter { it.kind == BlockKind.DEPENDENCY && it.id.removePrefix("dependency:") in shownClasses }.map { it.id }.toSet()
         val kept = model.links.filterNot {
             (it.kind == LinkKind.CALLS_INTO || it.kind == LinkKind.IMPLEMENTED_BY) && (it.from to it.to) in hopPairs ||

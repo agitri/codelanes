@@ -8,7 +8,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
-import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiSearchHelper
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyAssignmentStatement
@@ -18,14 +17,16 @@ import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.PyExpression
 import com.jetbrains.python.psi.PyFile
 import com.jetbrains.python.psi.PyFunction
+import com.jetbrains.python.psi.PyParenthesizedExpression
 import com.jetbrains.python.psi.PyReferenceExpression
+import com.jetbrains.python.psi.PyTupleExpression
 import dev.codelanes.lang.EntryPoint
 
 /**
  * Django `urlpatterns`: `path()` / `re_path()` (matched by name) to a function view (`ANY`) or `SomeView.as_view()`
- * (one route per HTTP method the class defines). `include("app.urls")` / `include(urls_module)` is followed with its
- * prefix; a urls module that another one includes is only listed through that include. Views resolve through imports;
- * one that doesn't is skipped. Paths are shown as written.
+ * (one route per HTTP method the class defines). `include("app.urls")` / `include(urls_module)`, also as the first
+ * element of a `(module, app_name)` tuple, is followed with its prefix; a urls module that another one includes is only
+ * listed through that include. Views resolve through imports; one that doesn't is skipped. Paths are shown as written.
  */
 internal object DjangoUrls {
     private val CLASS_VERBS = listOf("get", "post", "put", "patch", "delete")
@@ -40,7 +41,7 @@ internal object DjangoUrls {
     /** Pairs of (path, entry point), unsorted. */
     fun find(project: Project, index: ProjectFileIndex): List<Pair<String, EntryPoint>> {
         val files = linkedSetOf<PyFile>()
-        PsiSearchHelper.getInstance(project).processAllFilesWithWord("urlpatterns", GlobalSearchScope.projectScope(project), {
+        PsiSearchHelper.getInstance(project).processAllFilesWithWord("urlpatterns", PythonRouteFinder.searchScope(project), {
             val file = it as? PyFile
             val virtualFile = file?.virtualFile
             if (file != null && virtualFile != null && virtualFile.extension == "py" && !index.isInLibrary(virtualFile)) files += file
@@ -114,7 +115,9 @@ internal object DjangoUrls {
             val view = positional[1]
             val include = view as? PyCallExpression
             if (include != null && calleeName(include) == "include") {
-                val target = PythonRouteFinder.argumentsOf(include).firstOrNull() ?: continue
+                val argument = PythonRouteFinder.argumentsOf(include).firstOrNull() ?: continue
+                // `include(("blog.urls", "blog"))`: the module is the tuple's first element (the second is the app name).
+                val target = if (argument.text.trim().startsWith("(")) firstElementOf(argument) ?: argument else argument
                 val text = target.text.trim()
                 if (text.startsWith("[") || text.startsWith("(")) {
                     result += Entry.Inline(path, routesIn(target, call, constants, byModule, all))
@@ -128,6 +131,13 @@ internal object DjangoUrls {
             }
         }
         return result
+    }
+
+    /** The first element of a (parenthesized) tuple expression, or null if [expression] isn't one. */
+    private fun firstElementOf(expression: PyExpression): PyExpression? {
+        val inner = (expression as? PyParenthesizedExpression)?.let { PsiTreeUtil.getChildOfType(it, PyExpression::class.java) } ?: expression
+        val tuple = inner as? PyTupleExpression ?: return null
+        return PsiTreeUtil.getChildOfType(tuple, PyExpression::class.java)
     }
 
     private fun calleeName(call: PyCallExpression): String =
@@ -155,7 +165,7 @@ internal object DjangoUrls {
                 when {
                     own.isEmpty() && inherited.isEmpty() -> listOf(Target("ANY", classKey, file))
                     else -> CLASS_VERBS.filter { it in own || it in inherited }.map {
-                        if (it in own) Target(it.uppercase(), "${target.name}.$it", file) else Target(it.uppercase(), classKey, file)
+                        if (it in own) Target(it.uppercase(), "$classKey.$it", file) else Target(it.uppercase(), classKey, file)
                     }
                 }
             }

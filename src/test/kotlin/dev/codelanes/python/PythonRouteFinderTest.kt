@@ -151,4 +151,36 @@ class PythonRouteFinderTest : PythonTestCase() {
         )
         assertEquals(listOf("? /x → web::x"), labels())
     }
+
+    fun testOnlyPythonFilesAreSearched() {
+        val python = addModule("shop/api.py", "from fastapi import FastAPI\napp = FastAPI()\n@app.get('/a')\ndef a(): ...")
+        val text = addModule("notes.txt", "get route FastAPI urlpatterns")
+        val java = addModule("Get.java", "class Get { void get() {} }")
+        val scope = PythonRouteFinder.searchScope(project)
+        assertTrue(scope.contains(python.virtualFile))
+        assertFalse(scope.contains(text.virtualFile))
+        assertFalse(scope.contains(java.virtualFile))
+        assertEquals(listOf("GET /a → api::a"), labels())
+    }
+
+    fun testOtherDecoratorsAreNotResolved() {
+        addModule("pytest.py", "class _Mark:\n    def parametrize(self, *a): ...\nmark = _Mark()")
+        addModule(
+            "test_api.py",
+            """
+            import pytest
+            from fastapi import FastAPI
+            app = FastAPI()
+
+            @app.get("/a")
+            def a(): ...
+
+            @pytest.mark.parametrize("x", [1, 2])
+            def test_x(x): ...
+            """,
+        )
+        PythonRouteFinder.importedLookups = 0
+        assertEquals(listOf("GET /a → test_api::a"), labels())
+        assertEquals(0, PythonRouteFinder.importedLookups)
+    }
 }

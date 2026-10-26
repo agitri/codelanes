@@ -7,6 +7,7 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiSearchHelper
 import com.intellij.psi.util.PsiTreeUtil
+import com.jetbrains.python.PythonFileType
 import com.jetbrains.python.psi.PyArgumentList
 import com.jetbrains.python.psi.PyAssignmentStatement
 import com.jetbrains.python.psi.PyCallExpression
@@ -32,6 +33,19 @@ object PythonRouteFinder {
     private val APP_CLASSES = mapOf("FastAPI" to "prefix", "APIRouter" to "prefix", "Flask" to null, "Blueprint" to "url_prefix")
     private val STRING = Regex("""^([rRbBuU]?)("{3}|'{3}|"|')(.*)\2$""", RegexOption.DOT_MATCHES_ALL)
 
+    /** How often a decorator's receiver was resolved through imports (tests check that only route decorators are). */
+    @Volatile var importedLookups = 0
+
+    /** Where route and urls modules are looked for: the project's Python files. */
+    fun searchScope(project: Project): GlobalSearchScope =
+        GlobalSearchScope.getScopeRestrictedByFileTypes(GlobalSearchScope.projectScope(project), PythonFileType.INSTANCE)
+
+    /** One find()'s module-level reads, so a module imported by many route files is read once. */
+    private class Cache {
+        val apps = HashMap<PyFile, Map<String, String>>()
+        val constants = HashMap<PyFile, Map<String, String>>()
+    }
+
     /** Needs indexes and a read action; checks for cancellation. Sorted by path, then label. */
     fun find(project: Project): List<EntryPoint> {
         val files = ProjectFileIndex.getInstance(project)
@@ -39,21 +53,23 @@ object PythonRouteFinder {
         // Only files that mention a route decorator or a framework class: no need to parse the rest of the project.
         val search = PsiSearchHelper.getInstance(project)
         val words = VERBS + ROUTE_METHODS + "route" + APP_CLASSES.keys
+        val scope = searchScope(project)
         for (word in words) {
-            search.processAllFilesWithWord(word, GlobalSearchScope.projectScope(project), { candidates += it; true }, true)
+            search.processAllFilesWithWord(word, scope, { candidates += it; true }, true)
         }
+        val cache = Cache()
         val found = mutableListOf<Pair<String, EntryPoint>>()
         for (candidate in candidates) {
             ProgressManager.checkCanceled()
             val file = candidate as? PyFile ?: continue
             val virtualFile = file.virtualFile ?: continue
             if (virtualFile.extension != "py" || files.isInLibrary(virtualFile)) continue
-            val apps = appsOf(file)
-            val constants = constantsOf(file)
+            val apps = appsOf(file, cache)
+            val constants = constantsOf(file, cache)
             val short = PythonBlockBuilder.moduleName(file).substringAfterLast('.')
             for (function in PythonBlockBuilder.canvasFunctions(file)) {
                 for (decorator in decoratorsOf(function)) {
-                    val route = routeOf(decorator, apps, constants, files) ?: continue
+                    val route = routeOf(decorator, apps, constants, files, cache) ?: continue
                     val key = PythonBlockBuilder.keyOf(function)
                     found += route.second to EntryPoint("${route.first} ${route.second} → $short::$key", virtualFile.path, key)
                 }
@@ -80,9 +96,9 @@ object PythonRouteFinder {
     private fun callOf(expression: PyExpression?): PyCallExpression? = expression as? PyCallExpression
 
     /** Module-level `name = FastAPI(...)` etc. → name to its route prefix ("" or "?"). */
-    private fun appsOf(file: PyFile): Map<String, String> {
+    private fun appsOf(file: PyFile, cache: Cache): Map<String, String> = cache.apps.getOrPut(file) {
         val apps = mutableMapOf<String, String>()
-        val constants = constantsOf(file)
+        val constants = constantsOf(file, cache)
         for (statement in file.statements.filterIsInstance<PyAssignmentStatement>()) {
             val parts = PsiTreeUtil.getChildrenOfTypeAsList(statement, PyExpression::class.java)
             if (parts.size < 2) continue
@@ -94,8 +110,10 @@ object PythonRouteFinder {
                 ?.let { literal(it.second, constants) } ?: ""
             apps[parts[0].text] = prefix
         }
-        return apps
+        apps
     }
+
+    private fun constantsOf(file: PyFile, cache: Cache): Map<String, String> = cache.constants.getOrPut(file) { constantsOf(file) }
 
     /** Module-level `NAME = "literal"` assignments. */
     internal fun constantsOf(file: PyFile): Map<String, String> {
@@ -119,12 +137,16 @@ object PythonRouteFinder {
     }
 
     /** (verbs joined by `|`, full path) for a route decorator, or null. */
-    private fun routeOf(decorator: PyDecorator, apps: Map<String, String>, constants: Map<String, String>, files: ProjectFileIndex): Pair<String, String>? {
+    private fun routeOf(
+        decorator: PyDecorator, apps: Map<String, String>, constants: Map<String, String>, files: ProjectFileIndex, cache: Cache,
+    ): Pair<String, String>? {
         val call = PsiTreeUtil.getChildOfType(decorator, PyCallExpression::class.java) ?: return null
         val callee = PsiTreeUtil.getChildOfType(call, PyReferenceExpression::class.java) ?: return null
         val name = callee.text.substringAfterLast('.')
+        // Cheap name check first: `@pytest.mark.parametrize(...)` and the like never resolve anything.
+        if (name !in VERBS && name !in ROUTE_METHODS) return null
         val receiver = callee.text.substringBeforeLast('.', "")
-        val prefix = apps[receiver] ?: importedPrefix(callee, receiver, files) ?: return null
+        val prefix = apps[receiver] ?: importedPrefix(callee, receiver, files, cache) ?: return null
         val arguments = argumentsOf(call)
         val positional = arguments.filter { keyword(it) == null }
         val pathText = positional.firstOrNull()?.text
@@ -148,14 +170,15 @@ object PythonRouteFinder {
     }
 
     /** The receiver `name` of `name.get(...)` imported from another project module: its assignment there, one hop. */
-    private fun importedPrefix(callee: PyReferenceExpression, receiver: String, files: ProjectFileIndex): String? {
+    private fun importedPrefix(callee: PyReferenceExpression, receiver: String, files: ProjectFileIndex, cache: Cache): String? {
         if (receiver.isEmpty()) return null
+        importedLookups++
         val qualifier = PsiTreeUtil.getChildOfType(callee, PyReferenceExpression::class.java) ?: return null
         val target = qualifier.reference?.resolve() as? PyTargetExpression ?: return null
         val file = target.containingFile as? PyFile ?: return null
         val virtualFile = file.virtualFile ?: return null
         if (!files.isInContent(virtualFile) || files.isInLibrary(virtualFile)) return null
-        return appsOf(file)[target.text]
+        return appsOf(file, cache)[target.text]
     }
 
     /** Keeps the path as written (a trailing slash stays), without double slashes. */
