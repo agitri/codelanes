@@ -8,6 +8,12 @@
 line-by-line editor with a canvas of real, editable code blocks laid out in lanes: what a class builds on on the left,
 the class in the middle, its methods on the right, connected by colour-coded lines. It reads PHP, Java and Python.
 
+| Language | IDE | Frameworks (routes in Follow a Request) |
+|---|---|---|
+| PHP | PhpStorm | Symfony; Laravel through your AI assistant |
+| Java | IntelliJ IDEA | Spring |
+| Python | PyCharm, or IntelliJ IDEA with the Python plugin | Django, FastAPI, Flask |
+
 ![A class with its parent, interfaces, trait and dependencies on the left and its methods on the right](docs/images/canvas-expanded.png)
 
 ## Why

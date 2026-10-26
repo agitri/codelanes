@@ -14,12 +14,14 @@
           <li><b>Follow a Request</b>: pick a route (PHP <code>#[Route]</code> or <code>config/routes</code> YAML/XML,
               Spring <code>@GetMapping</code>, <code>@RequestMapping</code>, …, FastAPI, Flask and Django routes) and see the whole
               chain of code it runs, through interfaces into their implementations.</li>
+          <li><b>Frameworks</b>: Symfony (PHP), Spring (Java), and Django, FastAPI and Flask (Python). Laravel
+              requests can be shown through your AI assistant.</li>
           <li><b>+ calls</b>, <b>Add method…</b> and <b>+ parents</b>: follow the flow across files.</li>
           <li><b>Review marks and notes</b> shared with your team in <code>.codelanes/</code>, and
               <b>working sets</b> to save and reopen the canvases of a review.</li>
           <li><b>Java and Spring</b> in IntelliJ IDEA: injected beans (also through Lombok), overloads, and AI flows that
               prove Spring's bindings, events and listeners.</li>
-          <li><b>Python</b> in PyCharm: a module with its classes and functions, base classes and injected types
+          <li><b>Python</b> in PyCharm (new in 0.3.0): a module with its classes and functions, base classes and injected types
               (typed <code>__init__</code> parameters, dataclass fields), and AI flows that prove overrides, Django
               signals and event classes.</li>
           <li>Lanes, Column and Tree layouts; usage highlighting; Cmd+click stays on the canvas.</li>
