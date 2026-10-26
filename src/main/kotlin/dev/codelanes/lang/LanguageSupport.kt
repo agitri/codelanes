@@ -4,7 +4,9 @@ import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
+import dev.codelanes.model.Block
 import dev.codelanes.model.BuildResult
+import dev.codelanes.model.SourceRange
 
 /**
  * Everything CodeLanes needs to know about one language. Registered from a content module
@@ -33,7 +35,19 @@ interface LanguageSupport {
 
     /** Text of an empty method called [name], indented by [indent], ending in a newline, for "+ method". */
     fun newMethodText(name: String, indent: String, inInterface: Boolean): String
+
+    /**
+     * What "+ method" inserts into [owner] (a CLASS or MODULE block, currently spanning [ownerRange] of [text]), or null
+     * to use the brace rule with [newMethodText]. [taken]: ids of the METHOD blocks on the canvas. [indent]: one level.
+     */
+    fun methodInsertion(text: CharSequence, owner: Block, ownerRange: SourceRange, taken: Set<String>, indent: String): MethodInsertion? = null
+
+    /** The block id [target] gets on a canvas opened on [openFqn], or null for the default rule. */
+    fun blockIdOf(target: FlowTarget, openFqn: String): String? = null
 }
+
+/** "+ method": insert [text] at [offset]; the new method is called [name] and gets block [blockId]. */
+data class MethodInsertion(val offset: Int, val text: String, val name: String, val blockId: String)
 
 object LanguageSupports {
     private val EP_NAME = ExtensionPointName.create<LanguageSupport>("dev.codelanes.languageSupport")

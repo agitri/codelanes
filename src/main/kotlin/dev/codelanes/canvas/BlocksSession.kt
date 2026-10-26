@@ -525,15 +525,14 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     }
 
     /**
-     * "+ method": adds an empty method (a signature in an interface) at the end of the class with a free name,
-     * shows it as its own block and selects the name so you can type over it.
+     * "+ method": adds an empty method (a signature in an interface) to [ownerId] (a class or module block; null: the
+     * first centre block) with a free name, shows it as its own block and selects the name so you can type over it.
      */
-    fun addMethod() = withModelAccess {
+    fun addMethod(ownerId: String? = null) = withModelAccess {
         val current = model ?: return@withModelAccess
-        val cls = current.ofKind(BlockKind.CLASS).firstOrNull() ?: return@withModelAccess
-        val (range, _) = tracked[cls.id]?.current() ?: return@withModelAccess
-        val taken = current.ofKind(BlockKind.METHOD).map { it.id.removePrefix("method:").lowercase() }.toSet()
-        val name = generateSequence(1) { it + 1 }.map { if (it == 1) "newMethod" else "newMethod$it" }.first { it.lowercase() !in taken }
+        val centre = current.ofKind(BlockKind.MODULE) + current.ofKind(BlockKind.CLASS)
+        val owner = (if (ownerId == null) centre.firstOrNull() else centre.firstOrNull { it.id == ownerId }) ?: return@withModelAccess
+        val (range, _) = tracked[owner.id]?.current() ?: return@withModelAccess
         val psiFile = PsiDocumentManager.getInstance(project).getPsiFile(document)
         val indentOptions = psiFile?.let { com.intellij.application.options.CodeStyle.getIndentOptions(it) }
         val indent = when {
@@ -542,20 +541,32 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             else -> " ".repeat(indentOptions.INDENT_SIZE)
         }
         val language = LanguageSupports.forFile(file) ?: return@withModelAccess
+        val methodIds = current.ofKind(BlockKind.METHOD).map { it.id }.toSet()
+        val insertion = language.methodInsertion(document.charsSequence, owner, range, methodIds, indent)
+            ?: braceInsertion(language, owner, range, methodIds, indent)
+            ?: return@withModelAccess
+        WriteCommandAction.runWriteCommandAction(project, "Add Method", null, { document.insertString(insertion.offset, insertion.text) })
+        focusMovedTo(null)
+        rebuildNow()
+        val nameOffset = insertion.offset + insertion.text.indexOf(insertion.name)
+        reveal(nameOffset)
+        slices[insertion.blockId]?.editor?.selectionModel?.setSelection(nameOffset, nameOffset + insertion.name.length)
+    }
+
+    /** "+ method" in a language with braces: [LanguageSupport.newMethodText] just before the class's closing brace. */
+    private fun braceInsertion(
+        language: dev.codelanes.lang.LanguageSupport, cls: Block, range: SourceRange, methodIds: Set<String>, indent: String,
+    ): dev.codelanes.lang.MethodInsertion? {
+        val taken = methodIds.map { it.removePrefix("method:").lowercase() }.toSet()
+        val name = generateSequence(1) { it + 1 }.map { if (it == 1) "newMethod" else "newMethod$it" }.first { it.lowercase() !in taken }
         val inInterface = cls.title.startsWith("interface") || cls.title.startsWith("@interface")
         val method = language.newMethodText(name, indent, inInterface)
         // The class range can have grown past its brace (text typed after it): find the brace itself.
         val closingBrace = document.charsSequence.lastIndexOf('}', range.end - 1)
-        if (closingBrace < range.start) return@withModelAccess
+        if (closingBrace < range.start) return null
         val lineStart = dev.codelanes.editor.SliceRanges.lineStartOf(document.charsSequence, closingBrace)
         val insertAt = if (lineStart < closingBrace && document.charsSequence.subSequence(lineStart, closingBrace).isBlank()) lineStart else closingBrace
-        val text = "\n" + method
-        WriteCommandAction.runWriteCommandAction(project, "Add Method", null, { document.insertString(insertAt, text) })
-        focusMovedTo(null)
-        rebuildNow()
-        val nameOffset = insertAt + text.indexOf(name)
-        reveal(nameOffset)
-        slices["method:$name"]?.editor?.selectionModel?.setSelection(nameOffset, nameOffset + name.length)
+        return dev.codelanes.lang.MethodInsertion(insertAt, "\n" + method, name, "method:$name")
     }
 
     /** Deletes method block [id] (its whole lines) after [confirm] says yes (asked before taking any lock). */
@@ -566,10 +577,13 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     private fun deleteLines(id: String) {
         val current = model ?: return
-        val cls = current.ofKind(BlockKind.CLASS).firstOrNull() ?: return
-        val (classRange, _) = tracked[cls.id]?.current() ?: return
+        // The class or module that owns the method bounds what is deleted (the blank lines above it, its newline).
+        val ownerId = current.links.firstOrNull { it.kind == LinkKind.OWNS && it.to == id }?.from
+        val owner = current.blocks.firstOrNull { it.id == ownerId && (it.kind == BlockKind.CLASS || it.kind == BlockKind.MODULE) }
+            ?: current.ofKind(BlockKind.CLASS).firstOrNull() ?: return
+        val (ownerRange, _) = tracked[owner.id]?.current() ?: return
         val (range, _) = tracked[id]?.current() ?: return
-        val lines = dev.codelanes.editor.SliceRanges.wholeLines(document.charsSequence, classRange, range)
+        val lines = dev.codelanes.editor.SliceRanges.wholeLines(document.charsSequence, ownerRange, range)
         WriteCommandAction.runWriteCommandAction(project, "Delete Method", null, { document.deleteString(lines.start, lines.end) })
         focusMovedTo(null)
         rebuildNow()
@@ -584,7 +598,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         (if (id in followedCalls) "− calls" else "+ calls") to { toggleCalls(id) }
 
     private fun actionsFor(block: Block): Pair<List<Pair<String, () -> Unit>>, List<Pair<String, () -> Unit>>> = when (block.kind) {
-        BlockKind.CLASS, BlockKind.MODULE -> listOf<Pair<String, () -> Unit>>("+ method" to { addMethod() }) to emptyList()
+        BlockKind.CLASS, BlockKind.MODULE -> listOf<Pair<String, () -> Unit>>("+ method" to { addMethod(block.id) }) to emptyList()
         BlockKind.METHOD -> listOf(followAction(block.id)) to listOf<Pair<String, () -> Unit>>("Delete method" to { deleteMethod(block.id) })
         // A class-level block (an event named as `Fqn::class`) has no calls of its own to follow.
         BlockKind.CALLEE -> (if (block.id.endsWith("::class")) emptyList() else listOf(followAction(block.id))) to
@@ -759,9 +773,9 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
 
     /** Drops method [method] of [classFqn] (found with search) on this canvas, centred and focused. */
     fun addToCanvas(classFqn: String, method: String) = withModelAccess {
-        // A method of the open class already has its own block: just go there.
+        // A method of the open class (or Python module) already has its own block: just go there.
         val own = model?.blocks?.firstOrNull { it.id == "method:$method" }
-        if (own != null && model?.blocks?.any { it.id == "class:$classFqn" } == true) {
+        if (own != null && model?.blocks?.any { it.id == "class:$classFqn" || it.id == "module:$classFqn" } == true) {
             tracked[own.id]?.current()?.let { (range, _) -> reveal(range.start) }
             return@withModelAccess
         }

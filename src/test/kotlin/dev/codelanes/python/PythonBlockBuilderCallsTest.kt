@@ -279,7 +279,7 @@ class PythonBlockBuilderCallsTest : PythonTestCase() {
         assertTrue(model.links.contains(Link(LinkKind.EXTENDS, "class:shop.views.A", "parent:shop.other.X")))
     }
 
-    private companion object {
+    companion object {
         /** A library root (outside the project's content): `extlib` (site-packages) and `abc` (standard library). */
         val LIBRARY_DESCRIPTOR = object : DefaultLightProjectDescriptor() {
             override fun configureModule(module: Module, model: ModifiableRootModel, contentEntry: ContentEntry) {

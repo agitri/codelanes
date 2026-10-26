@@ -297,11 +297,15 @@ object PythonBlockBuilder {
             for (key in added) {
                 if (key.endsWith("::class")) {
                     val target = classByQualifiedName(key.removeSuffix("::class")) ?: continue
+                    // A class of the open module is already a block of its own.
+                    if (target.containingFile == file) continue
                     val id = "callee:$key"
                     blocks.getOrPut(id) { laneBlock(id, BlockKind.CALLEE, target).let { it.copy(collapsed = it.sourceless) } }
                     continue
                 }
                 val function = functionByKey(key) ?: continue
+                // A function of the open module already has a block of its own (Add method… just focuses it).
+                if (function.containingFile == file) continue
                 val id = calleeId(function)
                 blocks.getOrPut(id) { calleeBlock(id, function) }
                 if (id in followed) queue += id to function
@@ -518,6 +522,12 @@ object PythonBlockBuilder {
         val virtualFile = file.virtualFile ?: file.originalFile.virtualFile
         val name = virtualFile?.let { QualifiedNameFinder.findShortestImportableName(file, it) }
         return if (name.isNullOrEmpty()) file.name.removeSuffix(".py") else name
+    }
+
+    /** The key of a top-level class in its block id `class:<module>.<key>`: its name, `#n` when redefined. */
+    fun classKeyOf(cls: PyClass): String {
+        val module = cls.containingFile as? PyFile ?: return cls.name.orEmpty()
+        return suffixed(module.statements.filterIsInstance<PyClass>()) { it.name.orEmpty() }[cls] ?: cls.name.orEmpty()
     }
 
     /** `name` for a module-level function, `Class.name` for a method. */
