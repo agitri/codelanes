@@ -113,4 +113,42 @@ class PythonRouteFinderTest : PythonTestCase() {
         addModule("shop/orders.py", "from fastapi import FastAPI\napp = FastAPI()\n@app.delete('/o')\ndef drop(): ...")
         assertEquals(listOf("DELETE /o → orders::drop"), labels())
     }
+
+    fun testImportedAppAndRouter() {
+        addModule("shop/__init__.py", "")
+        addModule("shop/core.py", "from flask import Flask\napp = Flask(__name__)")
+        addModule("shop/api.py", "from fastapi import APIRouter\nrouter = APIRouter(prefix='/v1')")
+        addModule("shop/views.py", "from shop.core import app\nfrom shop.api import router\n@app.route('/')\ndef home(): ...\n@router.get('/u')\ndef u(): ...")
+        assertEquals(listOf("GET / → views::home", "GET /v1/u → views::u"), labels())
+    }
+
+    fun testPathsAsWrittenAndPrefixConstants() {
+        addModule(
+            "api.py",
+            """
+            from fastapi import APIRouter
+            PREFIX = "/shop"
+            router = APIRouter(prefix=PREFIX)
+
+            @router.get("/orders/")
+            def a(): ...
+            """,
+        )
+        assertEquals(listOf("GET /shop/orders/ → api::a"), labels())
+    }
+
+    fun testNonLiteralMethodsAndAnnotatedApp() {
+        addModule(
+            "web.py",
+            """
+            from flask import Flask
+            METHODS = ["GET"]
+            app: Flask = Flask(__name__)
+
+            @app.route("/x", methods=METHODS)
+            def x(): ...
+            """,
+        )
+        assertEquals(listOf("? /x → web::x"), labels())
+    }
 }

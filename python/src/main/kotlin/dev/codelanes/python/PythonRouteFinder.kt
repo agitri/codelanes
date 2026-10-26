@@ -16,6 +16,7 @@ import com.jetbrains.python.psi.PyExpression
 import com.jetbrains.python.psi.PyFile
 import com.jetbrains.python.psi.PyFunction
 import com.jetbrains.python.psi.PyReferenceExpression
+import com.jetbrains.python.psi.PyTargetExpression
 import dev.codelanes.lang.EntryPoint
 
 /**
@@ -48,12 +49,11 @@ object PythonRouteFinder {
             val virtualFile = file.virtualFile ?: continue
             if (virtualFile.extension != "py" || files.isInLibrary(virtualFile)) continue
             val apps = appsOf(file)
-            if (apps.isEmpty()) continue
             val constants = constantsOf(file)
             val short = PythonBlockBuilder.moduleName(file).substringAfterLast('.')
             for (function in PythonBlockBuilder.canvasFunctions(file)) {
                 for (decorator in decoratorsOf(function)) {
-                    val route = routeOf(decorator, apps, constants) ?: continue
+                    val route = routeOf(decorator, apps, constants, files) ?: continue
                     val key = PythonBlockBuilder.keyOf(function)
                     found += route.second to EntryPoint("${route.first} ${route.second} → $short::$key", virtualFile.path, key)
                 }
@@ -81,15 +81,16 @@ object PythonRouteFinder {
     /** Module-level `name = FastAPI(...)` etc. → name to its route prefix ("" or "?"). */
     private fun appsOf(file: PyFile): Map<String, String> {
         val apps = mutableMapOf<String, String>()
+        val constants = constantsOf(file)
         for (statement in file.statements.filterIsInstance<PyAssignmentStatement>()) {
             val parts = PsiTreeUtil.getChildrenOfTypeAsList(statement, PyExpression::class.java)
-            if (parts.size != 2) continue
-            val call = callOf(parts[1]) ?: continue
+            if (parts.size < 2) continue
+            val call = callOf(parts.last()) ?: continue
             val className = call.firstChild.text.substringAfterLast('.').trim()
             if (className !in APP_CLASSES) continue
             val prefixKeyword = APP_CLASSES[className]
             val prefix = argumentsOf(call).firstNotNullOfOrNull { arg -> keyword(arg)?.takeIf { it.first == prefixKeyword } }
-                ?.let { literal(it.second, emptyMap()) } ?: ""
+                ?.let { literal(it.second, constants) } ?: ""
             apps[parts[0].text] = prefix
         }
         return apps
@@ -117,12 +118,12 @@ object PythonRouteFinder {
     }
 
     /** (verbs joined by `|`, full path) for a route decorator, or null. */
-    private fun routeOf(decorator: PyDecorator, apps: Map<String, String>, constants: Map<String, String>): Pair<String, String>? {
+    private fun routeOf(decorator: PyDecorator, apps: Map<String, String>, constants: Map<String, String>, files: ProjectFileIndex): Pair<String, String>? {
         val call = PsiTreeUtil.getChildOfType(decorator, PyCallExpression::class.java) ?: return null
         val callee = PsiTreeUtil.getChildOfType(call, PyReferenceExpression::class.java) ?: return null
         val name = callee.text.substringAfterLast('.')
         val receiver = callee.text.substringBeforeLast('.', "")
-        val prefix = apps[receiver] ?: return null
+        val prefix = apps[receiver] ?: importedPrefix(callee, receiver, files) ?: return null
         val arguments = argumentsOf(call)
         val positional = arguments.filter { keyword(it) == null }
         val pathText = positional.firstOrNull()?.text
@@ -133,15 +134,34 @@ object PythonRouteFinder {
             name in ROUTE_METHODS -> {
                 val methods = arguments.firstNotNullOfOrNull { arg -> keyword(arg)?.takeIf { it.first == "methods" }?.second }
                 val listed = methods?.let { Regex("""["']([A-Za-z]+)["']""").findAll(it).map { m -> m.groupValues[1].uppercase() }.toList() }
-                if (listed.isNullOrEmpty()) "GET" else listed.joinToString("|")
+                when {
+                    methods == null -> "GET"
+                    methods.trim().firstOrNull() !in listOf('[', '(', '{') -> "?"
+                    listed.isNullOrEmpty() -> "GET"
+                    else -> listed.joinToString("|")
+                }
             }
             else -> return null
         }
         return verbs to join(prefix, path)
     }
 
+    /** The receiver `name` of `name.get(...)` imported from another project module: its assignment there, one hop. */
+    private fun importedPrefix(callee: PyReferenceExpression, receiver: String, files: ProjectFileIndex): String? {
+        if (receiver.isEmpty()) return null
+        val qualifier = PsiTreeUtil.getChildOfType(callee, PyReferenceExpression::class.java) ?: return null
+        val target = qualifier.reference?.resolve() as? PyTargetExpression ?: return null
+        val file = target.containingFile as? PyFile ?: return null
+        val virtualFile = file.virtualFile ?: return null
+        if (!files.isInContent(virtualFile) || files.isInLibrary(virtualFile)) return null
+        return appsOf(file)[target.text]
+    }
+
+    /** Keeps the path as written (a trailing slash stays), without double slashes. */
     private fun join(prefix: String, path: String): String {
         if (prefix == "?" || path == "?") return "?"
-        return "/" + listOf(prefix, path).map { it.trim('/') }.filter { it.isNotEmpty() }.joinToString("/")
+        val rest = path.trimStart('/')
+        val head = if (rest.isEmpty()) prefix.trimStart('/') else prefix.trim('/')
+        return "/" + listOf(head, rest).filter { it.isNotEmpty() }.joinToString("/")
     }
 }
