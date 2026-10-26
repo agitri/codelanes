@@ -131,4 +131,48 @@ class PythonSessionTest : PythonTestCase() {
         assertFalse(labels.toString(), labels.any { "helper  extlib" in it || "views" in it || "typed" in it })
         assertEquals(labels.sorted(), labels)
     }
+
+    fun testPlusMethodFollowsTheClassBodysOwnIndent() {
+        val session = openSession("svc.py", "class C:\n  def a(self):\n    pass\n")
+        session.addMethod("class:svc.C")
+        assertEquals("class C:\n  def a(self):\n    pass\n\n  def new_method(self):\n    pass\n", text())
+        assertTrue(session.blockIds().contains("method:C.new_method"))
+    }
+
+    fun testPlusMethodOnTheModuleGoesAboveTheMainGuard() {
+        val session = openSession("svc.py", "def a():\n    pass\n\n\nif __name__ == \"__main__\":\n    a()\n")
+        session.addMethod("module:svc")
+        assertEquals("def a():\n    pass\n\n\ndef new_function():\n    pass\n\n\nif __name__ == \"__main__\":\n    a()\n", text())
+        assertTrue(session.blockIds().contains("method:new_function"))
+    }
+
+    fun testPlusMethodAboveAMainGuardWithOneBlankLineKeepsTwo() {
+        val session = openSession("svc.py", "def a():\n    pass\n\nif __name__ == '__main__':\n    a()\n")
+        session.addMethod("module:svc")
+        assertEquals("def a():\n    pass\n\n\ndef new_function():\n    pass\n\n\nif __name__ == '__main__':\n    a()\n", text())
+    }
+
+    fun testDeletingTheOnlyMethodOfAClassLeavesPass() {
+        val session = openSession("svc.py", "class C:\n    def a(self):\n        pass\n")
+        session.deleteMethod("method:C.a") { true }
+        assertEquals("class C:\n    pass\n", text())
+        assertTrue(session.blockIds().contains("class:svc.C"))
+    }
+
+    fun testDeletingOneOfTwoMethodsAddsNoPass() {
+        val session = openSession("svc.py", "class C:\n    x = 1\n\n    def a(self):\n        pass\n")
+        session.deleteMethod("method:C.a") { true }
+        assertEquals("class C:\n    x = 1\n\n", text())
+    }
+
+    fun testMethodFinderListsExactlyTheCanvasMethods() {
+        addModule("shop/__init__.py", "")
+        val source = "import sys\n\nclass Repo:\n    if sys:\n        def hidden(self):\n            pass\n\n    def save(self):\n        def inner():\n            pass\n\n\nif sys:\n    def also_hidden():\n        pass\n\n\ndef helper():\n    pass\n"
+        val file = addModule("shop/repo.py", source) as PyFile
+        val model = (PythonBlockBuilder.build(file, emptySet(), emptySet(), emptySet()) as BuildResult.Supported).model
+        val canvas = model.ofKind(BlockKind.METHOD).map { it.id.removePrefix("method:") }.sorted()
+        val found = PythonMethodFinder.find(project).filter { it.classFqn == "shop.repo" }.map { it.method }.sorted()
+        assertEquals(listOf("Repo.save", "helper"), canvas)
+        assertEquals(canvas, found)
+    }
 }

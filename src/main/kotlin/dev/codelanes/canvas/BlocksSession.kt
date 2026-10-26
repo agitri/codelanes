@@ -584,7 +584,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         val (ownerRange, _) = tracked[owner.id]?.current() ?: return
         val (range, _) = tracked[id]?.current() ?: return
         val lines = dev.codelanes.editor.SliceRanges.wholeLines(document.charsSequence, ownerRange, range)
-        WriteCommandAction.runWriteCommandAction(project, "Delete Method", null, { document.deleteString(lines.start, lines.end) })
+        val replacement = LanguageSupports.forFile(file)
+            ?.replacementForDeletedMethod(document.charsSequence, owner, ownerRange, range, lines).orEmpty()
+        WriteCommandAction.runWriteCommandAction(project, "Delete Method", null, {
+            if (replacement.isEmpty()) document.deleteString(lines.start, lines.end)
+            else document.replaceString(lines.start, lines.end, replacement)
+        })
         focusMovedTo(null)
         rebuildNow()
     }

@@ -42,6 +42,12 @@ interface LanguageSupport {
      */
     fun methodInsertion(text: CharSequence, owner: Block, ownerRange: SourceRange, taken: Set<String>, indent: String): MethodInsertion? = null
 
+    /**
+     * What replaces [lines] (the whole lines of the method at [methodRange], about to be deleted from [owner]) so the
+     * code stays valid, e.g. `pass` for a Python class left empty. Empty: just delete them.
+     */
+    fun replacementForDeletedMethod(text: CharSequence, owner: Block, ownerRange: SourceRange, methodRange: SourceRange, lines: SourceRange): String = ""
+
     /** The block id [target] gets on a canvas opened on [openFqn], or null for the default rule. */
     fun blockIdOf(target: FlowTarget, openFqn: String): String? = null
 }

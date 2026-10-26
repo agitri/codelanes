@@ -524,6 +524,10 @@ object PythonBlockBuilder {
         return if (name.isNullOrEmpty()) file.name.removeSuffix(".py") else name
     }
 
+    /** The functions that get a METHOD block of their own: module-level defs, then each top-level class's own methods. */
+    fun canvasFunctions(file: PyFile): List<PyFunction> =
+        file.statements.filterIsInstance<PyFunction>() + file.statements.filterIsInstance<PyClass>().flatMap(::ownMethods)
+
     /** The key of a top-level class in its block id `class:<module>.<key>`: its name, `#n` when redefined. */
     fun classKeyOf(cls: PyClass): String {
         val module = cls.containingFile as? PyFile ?: return cls.name.orEmpty()

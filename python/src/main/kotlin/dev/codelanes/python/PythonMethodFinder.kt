@@ -7,9 +7,7 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.jetbrains.python.PythonFileType
-import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.PyFile
-import com.jetbrains.python.psi.PyFunction
 import dev.codelanes.lang.MethodRef
 
 /** Every module function and every method of a top-level class in the project's own `.py` files, for Add method… */
@@ -25,9 +23,7 @@ object PythonMethodFinder {
             val file = psiManager.findFile(virtualFile) as? PyFile ?: continue
             val module = PythonBlockBuilder.moduleName(file)
             val short = module.substringAfterLast('.')
-            val functions = file.statements.filterIsInstance<PyFunction>() +
-                file.statements.filterIsInstance<PyClass>().flatMap { cls -> cls.statementList.statements.filterIsInstance<PyFunction>() }
-            for (function in functions) {
+            for (function in PythonBlockBuilder.canvasFunctions(file)) {
                 val key = PythonBlockBuilder.keyOf(function)
                 result += MethodRef("$short::$key  $module", module, key)
             }

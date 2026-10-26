@@ -51,28 +51,56 @@ class PythonLanguageSupport : LanguageSupport {
         "${indent}def $name(self):\n$indent    pass\n"
 
     /**
-     * No closing brace to insert before: a module gets `def new_function():` after its last line (two blank lines
-     * above, PEP 8), a class `def new_method(self):` after its last statement, one level deeper than the class.
+     * No closing brace to insert before: a module gets `def new_function():` after its last line, or above a closing
+     * `if __name__ == "__main__":` block (two blank lines around it, PEP 8); a class gets `def new_method(self):` after
+     * its last statement, at the indent its body already uses.
      */
     override fun methodInsertion(text: CharSequence, owner: Block, ownerRange: SourceRange, taken: Set<String>, indent: String): MethodInsertion? {
-        var end = minOf(ownerRange.end, text.length)
-        while (end > ownerRange.start && text[end - 1].isWhitespace()) end--
+        val limit = minOf(ownerRange.end, text.length)
         return when (owner.kind) {
             BlockKind.MODULE -> {
                 val name = freeName("new_function") { "method:$it" in taken }
                 val def = "def $name():\n${indent}pass"
-                MethodInsertion(end, if (end == 0) "$def\n" else "\n\n\n$def", name, "method:$name")
+                val guard = PythonSource.mainGuardStart(text, ownerRange.start, limit)
+                val end = PythonSource.trimmedEnd(text, ownerRange.start, guard ?: limit)
+                when {
+                    end == 0 && guard != null -> MethodInsertion(0, "$def\n\n\n", name, "method:$name")
+                    end == 0 -> MethodInsertion(0, "$def\n", name, "method:$name")
+                    guard != null -> {
+                        val newlines = (end until guard).count { text[it] == '\n' }
+                        MethodInsertion(end, "\n\n\n$def" + "\n".repeat(maxOf(0, 3 - newlines)), name, "method:$name")
+                    }
+                    else -> MethodInsertion(end, "\n\n\n$def", name, "method:$name")
+                }
             }
             BlockKind.CLASS -> {
                 val classKey = owner.id.substringAfterLast('.')
                 val name = freeName("new_method") { "method:$classKey.$it" in taken }
-                val lineStart = text.lastIndexOf('\n', ownerRange.start - 1) + 1
-                val classIndent = text.subSequence(lineStart, ownerRange.start).takeWhile { it == ' ' || it == '\t' }
-                val methodIndent = "$classIndent$indent"
-                MethodInsertion(end, "\n\n${methodIndent}def $name(self):\n$methodIndent${indent}pass", name, "method:$classKey.$name")
+                val classIndent = PythonSource.indentOfLine(text, ownerRange.start)
+                val methodIndent = PythonSource.headerEnd(text, ownerRange.start, limit)
+                    ?.let { PythonSource.bodyIndent(text, it, limit) }
+                    ?.takeIf { it.length > classIndent.length && it.startsWith(classIndent) }
+                    ?: "$classIndent$indent"
+                val unit = methodIndent.removePrefix(classIndent)
+                val end = PythonSource.trimmedEnd(text, ownerRange.start, limit)
+                MethodInsertion(end, "\n\n${methodIndent}def $name(self):\n$methodIndent${unit}pass", name, "method:$classKey.$name")
             }
             else -> null
         }
+    }
+
+    /** A class whose last statement is deleted keeps a body: `pass` at the deleted method's indent. */
+    override fun replacementForDeletedMethod(
+        text: CharSequence, owner: Block, ownerRange: SourceRange, methodRange: SourceRange, lines: SourceRange,
+    ): String {
+        if (owner.kind != BlockKind.CLASS) return ""
+        val limit = minOf(ownerRange.end, text.length)
+        val header = PythonSource.headerEnd(text, ownerRange.start, limit) ?: return ""
+        if (header > lines.start) return ""
+        val rest = text.subSequence(header, lines.start).toString() + text.subSequence(lines.end, limit)
+        if (rest.lines().any { it.substringBefore('#').isNotBlank() }) return ""
+        val newline = if (lines.end > lines.start && text[lines.end - 1] == '\n') "\n" else ""
+        return PythonSource.indentOfLine(text, methodRange.start) + "pass" + newline
     }
 
     private fun freeName(base: String, taken: (String) -> Boolean): String =
