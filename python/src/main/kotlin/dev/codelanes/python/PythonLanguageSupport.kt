@@ -6,6 +6,7 @@ import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
 import com.jetbrains.python.PythonFileType
+import com.jetbrains.python.psi.PyFile
 import dev.codelanes.lang.EntryPoint
 import dev.codelanes.lang.FlowLookup
 import dev.codelanes.lang.FlowTarget
@@ -27,8 +28,11 @@ class PythonLanguageSupport : LanguageSupport {
         }
     }
 
-    override fun build(file: PsiFile, revealed: Set<String>, followedCalls: Set<String>, added: Set<String>): BuildResult =
-        BuildResult.Unsupported("Not built yet")
+    override fun build(file: PsiFile, revealed: Set<String>, followedCalls: Set<String>, added: Set<String>): BuildResult {
+        unsupportedReason(file)?.let { return BuildResult.Unsupported(it) }
+        val pyFile = file as? PyFile ?: return BuildResult.Unsupported("Not a Python file")
+        return PythonBlockBuilder.build(pyFile, revealed, followedCalls, added)
+    }
 
     override fun methods(project: Project): List<MethodRef> = emptyList()
 
