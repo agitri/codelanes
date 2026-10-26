@@ -38,7 +38,7 @@ object PythonBlockBuilder {
         val header = if (imports.isEmpty()) null else
             Block(HEADER_ID, BlockKind.HEADER, "${imports.size} imports", path,
                 SourceRange(imports.first().textRange.startOffset, imports.last().textRange.endOffset), collapsed = true)
-        val functionIds = ids(functions)
+        val functionIds = ids(functions, null)
         val moduleExcluded = listOfNotNull(header?.range) + (classes + functions).map(::rangeOf)
         blocks += Block(moduleId, BlockKind.MODULE, "module $module", path, SourceRange(0, file.textLength),
             excluded = moduleExcluded.sortedBy { it.start })
@@ -48,10 +48,12 @@ object PythonBlockBuilder {
             blocks += Block(id, BlockKind.METHOD, functionTitle(function), path, rangeOf(function))
             links += Link(LinkKind.OWNS, moduleId, id)
         }
+        val classKeys = suffixed(classes) { it.name.orEmpty() }
         classes.forEach { cls ->
-            val classId = "class:${cls.qualifiedName ?: "$module.${cls.name}"}"
+            val classKey = classKeys.getValue(cls)
+            val classId = "class:$module.$classKey"
             val methods = cls.statementList.statements.filterIsInstance<PyFunction>()
-            val methodIds = ids(methods)
+            val methodIds = ids(methods, classKey)
             blocks += Block(classId, BlockKind.CLASS, classTitle(cls), path, rangeOf(cls), excluded = methods.map(::rangeOf))
             methods.forEach { method ->
                 val id = methodIds.getValue(method)
@@ -63,17 +65,21 @@ object PythonBlockBuilder {
     }
 
     /**
-     * `method:<key>` per function. Python allows redefining a name (a property and its setter, `@overload`s): the
-     * second and later definitions get `#2`, `#3`, ... so every definition keeps its own block.
+     * Python allows redefining a name (a property and its setter, `@overload`s, a class defined twice): the second and
+     * later definitions get `#2`, `#3`, ... so every definition keeps its own block.
      */
-    private fun ids(functions: List<PyFunction>): Map<PyFunction, String> {
+    private fun <T : Any> suffixed(elements: List<T>, key: (T) -> String): Map<T, String> {
         val seen = mutableMapOf<String, Int>()
-        return functions.associateWith { function ->
-            val key = keyOf(function)
-            val n = seen.merge(key, 1, Int::plus)!!
-            if (n == 1) "method:$key" else "method:$key#$n"
+        return elements.associateWith { element ->
+            val k = key(element)
+            val n = seen.merge(k, 1, Int::plus)!!
+            if (n == 1) k else "$k#$n"
         }
     }
+
+    /** `method:<name>` per module function, `method:<classKey>.<name>` per method ([classKey] carries the class's suffix). */
+    private fun ids(functions: List<PyFunction>, classKey: String?): Map<PyFunction, String> =
+        suffixed(functions) { f -> classKey?.let { "$it.${f.name}" } ?: f.name.orEmpty() }.mapValues { "method:${it.value}" }
 
     /** The dotted name of [file] from its source root (`shop/orders/views.py` → `shop.orders.views`, `__init__.py` → its package). */
     fun moduleName(file: PsiFile): String {

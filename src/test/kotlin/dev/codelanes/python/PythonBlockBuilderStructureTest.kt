@@ -210,4 +210,19 @@ class PythonBlockBuilderStructureTest : PythonTestCase() {
         val result = PythonLanguageSupport().build(file, emptySet(), emptySet(), emptySet())
         assertTrue(result is BuildResult.Supported)
     }
+
+    /** A class defined twice at top level: both keep a block, and their methods' ids carry the class's suffix. */
+    fun testRedefinedClassesGetDistinctIds() {
+        val model = model("shop/m.py", """
+            class Foo:
+                def x(self):
+                    pass
+
+            class Foo:
+                def x(self):
+                    pass
+        """)
+        assertSameElements(model.blocks.map { it.id }, "module:shop.m", "class:shop.m.Foo", "class:shop.m.Foo#2", "method:Foo.x", "method:Foo#2.x")
+        assertTrue(model.links.contains(Link(LinkKind.OWNS, "class:shop.m.Foo#2", "method:Foo#2.x")))
+    }
 }
