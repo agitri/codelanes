@@ -3,6 +3,10 @@ package dev.codelanes.python
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiManager
+import com.intellij.psi.search.FilenameIndex
+import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.search.searches.DefinitionsScopedSearch
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyAnnotation
 import com.jetbrains.python.psi.PyAssignmentStatement
@@ -37,11 +41,17 @@ import dev.codelanes.model.SourceRange
  * each top-level class (CLASS, minus its methods) and each top-level function and method (METHOD).
  * Only direct children become blocks: nested defs and classes, and defs inside `if`/`try` blocks, stay in their parent.
  * Left of the classes: their bases (PARENT) and injected types (DEPENDENCY); lines for overrides and calls.
+ * With + calls: functions in other project modules (CALLEE); for an abstract class, its subclasses (IMPLEMENTER).
  */
 object PythonBlockBuilder {
     const val HEADER_ID = "header"
+    const val MORE_ID = "more:implementers"
+    const val MAX_IMPLEMENTERS = 10
+    const val MAX_CALLEES = 10
+    const val MAX_CHAIN_BLOCKS = 80
+    const val MORE_CHAIN_ID = "more:chain"
+    const val MAX_IMPLEMENTATIONS = 5
 
-    @Suppress("UNUSED_PARAMETER") // followedCalls/added: callees come later.
     fun build(file: PyFile, revealed: Set<String>, followedCalls: Set<String>, added: Set<String>): BuildResult {
         val path = file.virtualFile?.path.orEmpty()
         val module = moduleName(file)
@@ -91,12 +101,27 @@ object PythonBlockBuilder {
         }
         links += lanes.revealDeeper(revealed)
         blocks += lanes.blocks.values
-        links += calls(functionIds + methodIds, context)
+        val canvasIds = functionIds + methodIds
+        links += calls(canvasIds, context)
+        val calls = Calls(file, canvasIds, followedCalls, path, context)
+        calls.follow(added)
+        blocks += calls.blocks.values.filter { block -> blocks.none { it.id == block.id } }
+        links += calls.links
+        val implementers = mutableMapOf<String, Block>()
+        classes.forEach { cls -> links += implementedBy(cls, classIds, methodIds, implementers, path, context) }
+        blocks += implementers.values
         return BuildResult.Supported(BlockModel(blocks, links.distinct()))
     }
 
     /** Base classes that aren't blocks: they say nothing about what a class builds on. */
     private val NOT_PARENTS = setOf("object", "builtins.object", "typing.Generic", "typing.Protocol", "typing_extensions.Protocol")
+
+    /**
+     * The same by how the base is written: with a real SDK, typeshed's `Generic` and `Protocol` are `_SpecialForm`s
+     * whose qualified name isn't `typing.Generic`. `ABC` and `object` only when they aren't the project's own class.
+     */
+    private val NOT_PARENT_NAMES = setOf("Generic", "Protocol")
+    private val LIBRARY_NOT_PARENT_NAMES = setOf("ABC", "object")
 
     /**
      * The left lanes: one block per class the module's classes build on (PARENT) or are given (DEPENDENCY), shared
@@ -106,8 +131,16 @@ object PythonBlockBuilder {
         val blocks = linkedMapOf<String, Block>()
         private val parents = mutableMapOf<String, PyClass>()
 
-        fun bases(cls: PyClass): List<PyClass> =
-            cls.getSuperClasses(context).filter { it != cls && it.qualifiedName !in NOT_PARENTS }.distinct()
+        fun bases(cls: PyClass): List<PyClass> {
+            val noise = cls.superClassExpressions.flatMap { expression ->
+                when (baseName(expression)) {
+                    in NOT_PARENT_NAMES -> classesOf(expression, context)
+                    in LIBRARY_NOT_PARENT_NAMES -> classesOf(expression, context).filterNot(::inProject)
+                    else -> emptyList()
+                }
+            }
+            return cls.getSuperClasses(context).filter { it != cls && it.qualifiedName !in NOT_PARENTS && it !in noise }.distinct()
+        }
 
         fun idOf(cls: PyClass, kind: BlockKind): String {
             classIds[cls]?.let { return it }
@@ -125,7 +158,8 @@ object PythonBlockBuilder {
             while (queue.isNotEmpty()) {
                 val id = queue.removeFirst()
                 if (!seen.add(id)) continue
-                for (base in bases(parents.getValue(id))) {
+                val parent = parents[id] ?: continue // a class of this module, reached through a parent elsewhere
+                for (base in bases(parent)) {
                     val baseId = idOf(base, BlockKind.PARENT)
                     links += Link(LinkKind.EXTENDS, baseId, id)
                     if (baseId in revealed) queue += baseId
@@ -187,12 +221,8 @@ object PythonBlockBuilder {
         return PsiTreeUtil.getChildOfType(annotation, PyExpression::class.java)
     }
 
-    private fun isDataclass(cls: PyClass): Boolean =
-        // Not `cls.decoratorList` / `tuple.elements`: Kotlin binds those to PyAst* types in `intellij.python.ast`.
-        PsiTreeUtil.getChildOfType(cls, PyDecoratorList::class.java)
-            ?.let { PsiTreeUtil.getChildrenOfTypeAsList(it, PyDecorator::class.java) }.orEmpty().any { decorator ->
-            decorator.text.removePrefix("@").substringBefore('(').trim().substringAfterLast('.') == "dataclass"
-        }
+    // Not `cls.decoratorList` / `tuple.elements`: Kotlin binds those to PyAst* types in `intellij.python.ast`.
+    private fun isDataclass(cls: PyClass): Boolean = "dataclass" in decoratorNames(cls)
 
     private fun isModel(cls: PyClass): Boolean =
         cls.superClassExpressions.any { it.text.substringBefore('[').substringAfterLast('.') in setOf("BaseModel", "BaseSettings") }
@@ -232,6 +262,230 @@ object PythonBlockBuilder {
                 .map { Link(LinkKind.CALLS, callerId, it) }
         }
     }
+
+    /** `Generic` for `typing.Generic[T]`: the name a base is written with. */
+    private fun baseName(expression: PyExpression): String =
+        expression.text.substringBefore('[').trim().substringAfterLast('.')
+
+    /** The class a base expression names (`Generic[T]` → Generic), or the class of the object it names. */
+    private fun classesOf(expression: PyExpression, context: TypeEvalContext): List<PyClass> {
+        val target = (expression as? PySubscriptionExpression)?.operand ?: expression
+        return listOfNotNull((context.getType(target) as? PyClassType)?.pyClass)
+    }
+
+    /**
+     * "+ calls", as in JavaBlockBuilder.followCalls: calls into other project modules become CALLEE blocks
+     * (`callee:<module>::<key>`), followed as deep as [followed] says, capped at [MAX_CALLEES] per function and
+     * [MAX_CHAIN_BLOCKS] in all. A call to an abstract method also shows its project implementations.
+     */
+    private class Calls(
+        private val file: PyFile,
+        private val canvasIds: Map<PyFunction, String>,
+        private val followed: Set<String>,
+        private val path: String,
+        private val context: TypeEvalContext,
+    ) {
+        val blocks = linkedMapOf<String, Block>()
+        val links = mutableListOf<Link>()
+
+        fun follow(added: Set<String>) {
+            if (followed.isEmpty() && added.isEmpty()) return
+            val queue = ArrayDeque(canvasIds.entries.filter { it.value in followed }.map { it.value to it.key })
+            val firstRoot = queue.firstOrNull()?.first
+            val seen = mutableSetOf<String>()
+            var truncated = false
+            for (key in added) {
+                if (key.endsWith("::class")) {
+                    val target = classByQualifiedName(key.removeSuffix("::class")) ?: continue
+                    val id = "callee:$key"
+                    blocks.getOrPut(id) { laneBlock(id, BlockKind.CALLEE, target).let { it.copy(collapsed = it.sourceless) } }
+                    continue
+                }
+                val function = functionByKey(key) ?: continue
+                val id = calleeId(function)
+                blocks.getOrPut(id) { calleeBlock(id, function) }
+                if (id in followed) queue += id to function
+            }
+            while (queue.isNotEmpty()) {
+                val (id, caller) = queue.removeFirst()
+                if (!seen.add(id)) continue
+                if (blocks.size >= MAX_CHAIN_BLOCKS) {
+                    truncated = true
+                    break
+                }
+                val allCallees = calledFunctions(caller).filter { it.containingFile != file && isCallee(it) }.distinct()
+                val callees = allCallees.take(MAX_CALLEES)
+                if (allCallees.size > MAX_CALLEES) {
+                    val moreId = "more:calls:$id"
+                    blocks[moreId] = Block(moreId, BlockKind.MORE, "and ${allCallees.size - MAX_CALLEES} more calls", path, SourceRange(0, 0), collapsed = true)
+                    links += Link(LinkKind.CALLS_INTO, id, moreId)
+                }
+                for (callee in callees) {
+                    if (blocks.size >= MAX_CHAIN_BLOCKS) {
+                        truncated = true
+                        break
+                    }
+                    val calleeId = calleeId(callee)
+                    blocks.getOrPut(calleeId) { calleeBlock(calleeId, callee) }
+                    links += Link(LinkKind.CALLS_INTO, id, calleeId)
+                    if (calleeId in followed) queue += calleeId to callee
+                    // A call into an abstract method: the real work happens in its implementations.
+                    if (isAbstract(callee)) {
+                        for (implementation in implementationsOf(callee)) {
+                            val own = canvasIds[implementation]
+                            if (own != null) {
+                                links += Link(LinkKind.IMPLEMENTED_BY, calleeId, own)
+                                continue
+                            }
+                            val implId = calleeId(implementation)
+                            blocks.getOrPut(implId) { calleeBlock(implId, implementation) }
+                            links += Link(LinkKind.IMPLEMENTED_BY, calleeId, implId)
+                            if (implId in followed) queue += implId to implementation
+                        }
+                    }
+                }
+            }
+            if (truncated && firstRoot != null) {
+                blocks[MORE_CHAIN_ID] = Block(
+                    MORE_CHAIN_ID, BlockKind.MORE, "chain cut off at $MAX_CHAIN_BLOCKS blocks — use + calls on a block to go further",
+                    path, SourceRange(0, 0), collapsed = true,
+                )
+                links += Link(LinkKind.CALLS_INTO, firstRoot, MORE_CHAIN_ID)
+            }
+        }
+
+        private fun calledFunctions(caller: PyFunction): List<PyFunction> {
+            val resolveContext = PyResolveContext.defaultContext(context)
+            return PsiTreeUtil.findChildrenOfType(caller, PyCallExpression::class.java)
+                .filter { it !is PyDecorator }
+                .flatMap { it.multiResolveCalleeFunction(resolveContext) }
+                .filterIsInstance<PyFunction>()
+        }
+
+        /** Project implementations of an abstract [method] (at most [MAX_IMPLEMENTATIONS]), as Go to Implementation finds them. */
+        private fun implementationsOf(method: PyFunction): List<PyFunction> =
+            DefinitionsScopedSearch.search(method, GlobalSearchScope.projectScope(method.project)).findAll().asSequence()
+                .filterIsInstance<PyFunction>()
+                .filter { it != method && !isAbstract(it) && isCallee(it) }
+                .sortedBy(::calleeId)
+                .distinctBy(::calleeId)
+                .take(MAX_IMPLEMENTATIONS)
+                .toList()
+
+        private fun calleeBlock(id: String, function: PyFunction): Block {
+            val owner = function.containingClass?.name ?: moduleName(function.containingFile)
+            return Block(id, BlockKind.CALLEE, "$owner::${functionTitle(function)}", function.containingFile.virtualFile?.path.orEmpty(), rangeOf(function))
+        }
+
+        /** `shop.repo::Repo.save` / `shop.mail::notify` → that function, or null if it no longer exists. */
+        private fun functionByKey(key: String): PyFunction? {
+            val module = moduleByName(key.substringBefore("::")) ?: return null
+            val name = key.substringAfter("::")
+            val function = if ('.' in name) {
+                val cls = topLevelClasses(module).firstOrNull { it.name == name.substringBefore('.') } ?: return null
+                ownMethods(cls).firstOrNull { it.name == name.substringAfter('.') }
+            } else {
+                module.statements.filterIsInstance<PyFunction>().firstOrNull { it.name == name }
+            }
+            return function?.takeIf(::isCallee)
+        }
+
+        private fun classByQualifiedName(qualifiedName: String): PyClass? {
+            val module = moduleByName(qualifiedName.substringBeforeLast('.', "")) ?: return null
+            return topLevelClasses(module).firstOrNull { it.name == qualifiedName.substringAfterLast('.') }
+        }
+
+        /** The project module with dotted name [name]: `shop/mail.py` or `shop/mail/__init__.py` for `shop.mail`. */
+        private fun moduleByName(name: String): PyFile? {
+            if (name.isEmpty()) return null
+            val project = file.project
+            val scope = GlobalSearchScope.projectScope(project)
+            val last = name.substringAfterLast('.')
+            val candidates = FilenameIndex.getVirtualFilesByName("$last.py", scope) +
+                FilenameIndex.getVirtualFilesByName("__init__.py", scope).filter { it.parent?.name == last }
+            val psiManager = PsiManager.getInstance(project)
+            return candidates.asSequence()
+                .mapNotNull { psiManager.findFile(it) as? PyFile }
+                .firstOrNull { inProject(it) && moduleName(it) == name }
+        }
+
+        private fun topLevelClasses(module: PyFile): List<PyClass> = module.statements.filterIsInstance<PyClass>()
+    }
+
+    private fun calleeId(function: PyFunction): String = "callee:${moduleName(function.containingFile)}::${keyOf(function)}"
+
+    /**
+     * A function that can be a block elsewhere: a module function or a method of a top-level class, in a project `.py`
+     * file (not a library, not a stub).
+     */
+    private fun isCallee(function: PyFunction): Boolean {
+        val owner = function.parent
+        val addressable = owner is PyFile || owner?.parent.let { it is PyClass && it.parent is PyFile }
+        return addressable && isProjectSource(function)
+    }
+
+    private fun isProjectSource(element: PsiElement): Boolean =
+        inProject(element) && element.containingFile?.virtualFile?.extension == "py"
+
+    /** `@abstractmethod` (and `abc.abstractproperty` & co.), or any method of a Protocol. */
+    private fun isAbstract(function: PyFunction): Boolean =
+        decoratorNames(function).any { it.startsWith("abstract") } ||
+            function.containingClass?.let { cls -> cls.superClassExpressions.any { baseName(it) == "Protocol" } } == true
+
+    /** A class that is meant to be subclassed: an `ABC` or `Protocol` base, `metaclass=ABCMeta`, or an abstract method. */
+    private fun isAbstractClass(cls: PyClass): Boolean =
+        cls.superClassExpressions.any { baseName(it) in setOf("ABC", "Protocol") || it.text.replace(" ", "").endsWith("=ABCMeta") } ||
+            ownMethods(cls).any(::isAbstract)
+
+    /**
+     * For an abstract class: its direct project subclasses (as JavaBlockBuilder.implementedBy, at most [MAX_IMPLEMENTERS],
+     * alphabetical, plus a "more" block), each with the methods that override one of the class's. A subclass in this
+     * module is already a class block: it is linked class to class.
+     */
+    private fun implementedBy(
+        cls: PyClass, classIds: Map<PyClass, String>, methodIds: Map<PyFunction, String>,
+        blocks: MutableMap<String, Block>, path: String, context: TypeEvalContext,
+    ): List<Link> {
+        if (!isAbstractClass(cls)) return emptyList()
+        val classId = classIds.getValue(cls)
+        val links = mutableListOf<Link>()
+        val subclasses = DefinitionsScopedSearch.search(cls, GlobalSearchScope.projectScope(cls.project)).findAll()
+            .filterIsInstance<PyClass>()
+            .filter { it != cls && it.parent is PyFile && isProjectSource(it) && cls in it.getSuperClasses(context) }
+            .distinctBy { it.qualifiedName ?: it.name }
+        subclasses.mapNotNull { classIds[it] }.forEach { links += Link(LinkKind.IMPLEMENTED_BY, classId, it) }
+        val candidates = subclasses.filter { it !in classIds }.sortedWith(compareBy({ it.name }, { it.qualifiedName }))
+        val methods = ownMethods(cls)
+        for (implementer in candidates.take(MAX_IMPLEMENTERS)) {
+            val implemented = methods.mapNotNull { method -> implementer.findMethodByName(method.name ?: return@mapNotNull null, false, context) }
+            val block = laneBlock("implementer:${implementer.qualifiedName ?: implementer.name}", BlockKind.IMPLEMENTER, implementer)
+                .copy(summary = implemented.distinct().map(::functionTitle))
+            blocks.getOrPut(block.id) { block }
+            links += Link(LinkKind.IMPLEMENTED_BY, classId, block.id)
+            for (method in methods) {
+                val implementation = implementer.findMethodByName(method.name ?: continue, false, context) ?: continue
+                val id = "implementation:${moduleName(implementation.containingFile)}::${keyOf(implementation)}"
+                blocks.getOrPut(id) {
+                    Block(id, BlockKind.IMPLEMENTATION, "${implementer.name}::${functionTitle(implementation)}",
+                        implementation.containingFile.virtualFile?.path.orEmpty(), rangeOf(implementation), collapsed = true)
+                }
+                links += Link(LinkKind.OWNS, block.id, id)
+                links += Link(LinkKind.OVERRIDES, id, methodIds.getValue(method), rangeOf(method))
+            }
+        }
+        val rest = candidates.drop(MAX_IMPLEMENTERS)
+        if (rest.isNotEmpty()) {
+            val moreId = if (MORE_ID in blocks) "$MORE_ID:$classId" else MORE_ID
+            blocks[moreId] = Block(moreId, BlockKind.MORE, "and ${rest.size} more", path, SourceRange(0, 0), collapsed = true, summary = rest.mapNotNull { it.name })
+            links += Link(LinkKind.IMPLEMENTED_BY, classId, moreId)
+        }
+        return links
+    }
+
+    private fun decoratorNames(owner: PsiElement): List<String> =
+        PsiTreeUtil.getChildOfType(owner, PyDecoratorList::class.java)
+            ?.let { PsiTreeUtil.getChildrenOfTypeAsList(it, PyDecorator::class.java) }.orEmpty()
+            .map { it.text.removePrefix("@").substringBefore('(').trim().substringAfterLast('.') }
 
     private fun ownMethods(cls: PyClass): List<PyFunction> = cls.statementList.statements.filterIsInstance<PyFunction>()
 
