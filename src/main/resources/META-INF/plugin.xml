@@ -16,7 +16,12 @@
               chain of code it runs, through interfaces into their implementations.</li>
           <li><b>Frameworks</b>: Symfony (PHP), Spring (Java), and Django, FastAPI and Flask (Python). Laravel
               requests can be shown through your AI assistant.</li>
-          <li><b>+ calls</b>, <b>Add method…</b> and <b>+ parents</b>: follow the flow across files.</li>
+          <li><b>Flows from your AI assistant (MCP)</b>: through the IDE's built-in MCP Server, Claude Code, Junie,
+      GitHub Copilot or any MCP client can show a request flow on the canvas (Laravel routes, middleware, events,
+      listeners, container bindings). CodeLanes checks every step against the real code: steps the code proves are drawn
+      solid, the AI's other claims as dotted red lines, and references that don't exist are reported back instead of drawn. Flows are saved
+      in <code>.codelanes/flows/</code> to reopen later.</li>
+  <li><b>+ calls</b>, <b>Add method…</b> and <b>+ parents</b>: follow the flow across files.</li>
           <li><b>Review marks and notes</b> shared with your team in <code>.codelanes/</code>, and
               <b>working sets</b> to save and reopen the canvases of a review.</li>
           <li><b>Java and Spring</b> in IntelliJ IDEA: injected beans (also through Lombok), overloads, and AI flows that
