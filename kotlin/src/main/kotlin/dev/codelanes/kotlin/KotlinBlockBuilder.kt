@@ -476,7 +476,8 @@ object KotlinBlockBuilder {
     }
 
     /** The id and block of a callee (Kotlin function or Java method) in project code, or null. */
-    private fun calleeFor(target: PsiElement): Pair<String, Block>? {
+    private fun calleeFor(element: PsiElement): Pair<String, Block>? {
+        val target = kotlinSource(element)
         if (!inProject(target)) return null
         return when (target) {
             is KtNamedFunction -> calleeKey(target)?.let { "callee:$it" }?.let { it to kotlinCalleeBlock(it, target) }
@@ -496,9 +497,16 @@ object KotlinBlockBuilder {
                 PsiTreeUtil.findChildrenOfType(element, KtCallableReferenceExpression::class.java).map { it.callableReference }
             references.mapNotNull { e -> e.references.firstNotNullOfOrNull { it.resolve() } }.filter { it is KtNamedFunction || it is PsiMethod }
         }
-        is PsiMethod -> JavaBlockBuilder.calledMethods(element)
+        is PsiMethod -> JavaBlockBuilder.calledMethods(element).map(::kotlinSource)
         else -> emptyList()
     }
+
+    /**
+     * A Java call into Kotlin resolves to a light method (a LightElement); its Kotlin function is what gets the block
+     * and what following goes on from. Anything else stays as it is.
+     */
+    private fun kotlinSource(element: PsiElement): PsiElement =
+        (element as? PsiMethod)?.navigationElement as? KtNamedFunction ?: element
 
     /** "Go to Implementation" over project code (DefinitionsScopedSearch, as Java does). Needs a background read action: K2 refuses it on the EDT. */
     private fun definitions(element: PsiElement): List<PsiElement> =

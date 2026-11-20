@@ -77,6 +77,20 @@ class KotlinBlockBuilderCallsTest : KotlinTestCase() {
         assertTrue(callee.filePath.endsWith("acme/JavaRepo.java"))
     }
 
+    /** Kotlin → Java → Kotlin: Java resolves the call into Kotlin to a light method; the chain goes on into the Kotlin function. */
+    fun testChainGoesThroughJavaBackIntoKotlin() {
+        addFile("acme/Stock.kt", "package acme\n\nclass Stock {\n    fun reserve() { log() }\n    fun log() {}\n}")
+        addFile("acme/JavaOrders.java", "package acme;\npublic class JavaOrders {\n    public void place(Stock s) { s.reserve(); }\n}")
+        val model = model("acme/Ctl.kt", "package acme\n\nfun create(o: JavaOrders) { o.place(Stock()) }",
+            followed = setOf("method:create", "callee:acme.JavaOrders::place", "callee:acme.Stock::reserve"))
+        assertTrue(Link(LinkKind.CALLS_INTO, "method:create", "callee:acme.JavaOrders::place") in model.links)
+        assertTrue(Link(LinkKind.CALLS_INTO, "callee:acme.JavaOrders::place", "callee:acme.Stock::reserve") in model.links)
+        assertEquals("Stock::fun reserve()", model.block("callee:acme.Stock::reserve").title)
+        assertTrue(model.block("callee:acme.Stock::reserve").filePath.endsWith("acme/Stock.kt"))
+        // Followed on, the Kotlin function's own calls show up.
+        assertTrue(Link(LinkKind.CALLS_INTO, "callee:acme.Stock::reserve", "callee:acme.Stock::log") in model.links)
+    }
+
     fun testInterfaceCallShowsImplementations() {
         addFile("acme/Store.kt", "package acme\n\ninterface Store { fun put() }")
         addFile("acme/DbStore.kt", "package acme\n\nclass DbStore : Store { override fun put() {} }")
