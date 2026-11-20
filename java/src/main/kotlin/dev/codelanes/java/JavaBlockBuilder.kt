@@ -91,7 +91,7 @@ object JavaBlockBuilder {
         "javax.annotation.Resource", "jakarta.annotation.Resource",
     )
 
-    internal fun externalBlock(kind: BlockKind, target: PsiClass): Block {
+    fun externalBlock(kind: BlockKind, target: PsiClass): Block {
         val sourceless = isSourceless(target)
         val source = if (sourceless) target else (target.navigationElement as? PsiClass ?: target)
         return Block(
@@ -108,7 +108,7 @@ object JavaBlockBuilder {
 
     private fun isAbstract(method: PsiMethod) = method.hasModifierProperty(PsiModifier.ABSTRACT)
 
-    private fun calleeBlock(id: String, method: PsiMethod): Block {
+    fun calleeBlock(id: String, method: PsiMethod): Block {
         val owner = method.containingClass!!
         if (isSourceless(owner)) {
             return Block(id, BlockKind.CALLEE, "${owner.name}::${methodTitle(method)}", owner.containingFile?.virtualFile?.path.orEmpty(),
@@ -447,7 +447,7 @@ object JavaBlockBuilder {
     }
 
     /** True when [cls] only exists as compiled code, so there is nothing to show but its name and members. */
-    internal fun isSourceless(cls: PsiClass): Boolean {
+    fun isSourceless(cls: PsiClass): Boolean {
         val source = cls.navigationElement
         return source is PsiCompiledElement || source.containingFile?.virtualFile == null
     }
