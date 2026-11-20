@@ -195,4 +195,14 @@ class KotlinFlowLookupTest : KotlinTestCase() {
         assertEquals("Over.save(String)", found("acme.Over::save(String)").methodKey)
         assertTrue(find("acme.Over::save(Long)") is FlowLookup.Missing)
     }
+
+    fun testASignatureOnANonOverloadedFunctionStillResolves() {
+        assertEquals("Repo.save", found("acme.Repo::save(Note)").methodKey)
+        assertEquals("Repo.load", found("acme.Repo::load()").methodKey)
+        assertEquals("NoteScreen", found("acme.notes.NoteScreen::NoteScreen()").methodKey)
+    }
+
+    fun testAWrongSignatureOnAnOverloadedFunctionIsMissing() {
+        assertTrue(find("acme.Over::save(Long)") is FlowLookup.Missing)
+    }
 }

@@ -66,9 +66,18 @@ object KotlinFlowLookup {
 
     private fun topLevel(files: List<KtFile>, name: String): Pair<KtFile, KtNamedFunction>? =
         files.firstNotNullOfOrNull { file ->
-            KotlinBlockBuilder.canvasFunctions(file).filter { it.parent is KtFile }
-                .firstOrNull { matches(it, name) }?.let { file to it }
+            pick(KotlinBlockBuilder.canvasFunctions(file).filter { it.parent is KtFile }, name)?.let { file to it }
         }
+
+    /**
+     * The function [name] means among [functions] of one owner. With parentheses the full key wins (an overload); failing
+     * that, the bare name when exactly one function has it (`store(Note)` for a function that isn't overloaded).
+     */
+    private fun pick(functions: List<KtNamedFunction>, name: String): KtNamedFunction? {
+        functions.firstOrNull { matches(it, name) }?.let { return it }
+        if ('(' !in name) return null
+        return functions.filter { it.name == name.substringBefore('(').trim() }.singleOrNull()
+    }
 
     private fun squash(text: String) = text.filterNot { it.isWhitespace() }
 
@@ -93,7 +102,7 @@ object KotlinFlowLookup {
             val next = queue.removeFirst()
             if (!seen.add(next)) continue
             val declared = KotlinBlockBuilder.declaredFunctions(next)
-            declared.firstOrNull { matches(it, name) }?.let { return next to it }
+            pick(declared, name)?.let { return next to it }
             queue += next.toLightClass()?.supers.orEmpty().mapNotNull { it.navigationElement as? KtClassOrObject }
         }
         return null
