@@ -70,12 +70,19 @@ object KotlinFlowLookup {
                 .firstOrNull { matches(it, name) }?.let { file to it }
         }
 
-    /** `save`, `Companion.create` or `save(Note)`-less name of a function: its key, else its plain name. */
+    private fun squash(text: String) = text.filterNot { it.isWhitespace() }
+
+    /**
+     * `save`, `Companion.create`, or an overload `save(Int)`: with parentheses the whole key (class chain left off)
+     * must match, else the first function of that name does.
+     */
     private fun matches(function: KtNamedFunction, name: String): Boolean {
-        val bare = name.substringBefore('(')
-        return KotlinBlockBuilder.functionKey(function).substringAfterLast("::") == bare ||
-            KotlinBlockBuilder.functionKey(function).substringAfter('.', "").ifEmpty { KotlinBlockBuilder.functionKey(function) } == bare ||
-            function.name == bare
+        val key = squash(KotlinBlockBuilder.functionKey(function))
+        if ('(' in name) {
+            val wanted = squash(name)
+            return key == wanted || key.endsWith(".$wanted")
+        }
+        return key.substringAfterLast("::") == name || key.substringAfter('.', "").ifEmpty { key } == name || function.name == name
     }
 
     /** The function of [cls] (or of the nearest Kotlin supertype that declares it) with its declaring class. */
@@ -86,8 +93,7 @@ object KotlinFlowLookup {
             val next = queue.removeFirst()
             if (!seen.add(next)) continue
             val declared = KotlinBlockBuilder.declaredFunctions(next)
-            (declared.firstOrNull { KotlinBlockBuilder.functionKey(it).substringAfter('.') == name.substringBefore('(') } ?: declared.firstOrNull { matches(it, name) })
-                ?.let { return next to it }
+            declared.firstOrNull { matches(it, name) }?.let { return next to it }
             queue += next.toLightClass()?.supers.orEmpty().mapNotNull { it.navigationElement as? KtClassOrObject }
         }
         return null

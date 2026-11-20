@@ -42,6 +42,10 @@ class KotlinFlowLookupTest : KotlinTestCase() {
             fun helper() {}
         """)
         addFile("acme/NoteListener.kt", "package acme\n\nclass NoteListener { fun on(event: NoteSaved) {} fun nope(n: Note) {} }")
+        addFile("acme/JavaEvent.java", "package acme;\npublic class JavaEvent {}")
+        addFile("acme/JavaListener.java", "package acme;\npublic class JavaListener { public void on(NoteSaved e) {} public void nope(Note n) {} }")
+        addFile("acme/KotlinListener.kt", "package acme\n\nclass KotlinListener { fun on(event: JavaEvent) {} fun nope(n: Note) {} }")
+        addFile("acme/Over.kt", "package acme\n\nclass Over { fun save(n: Int) {} fun save(s: String) {} }")
         addFile("acme/NoteService.java", "package acme;\npublic class NoteService { public void store(Note n) {} public void done() {} }")
         addFile("acme/NoteController.kt", """
             package acme
@@ -174,5 +178,21 @@ class KotlinFlowLookupTest : KotlinTestCase() {
         assertNull(inBackground { java.findFlowTarget(project, "acme.Repo::load") })
         assertNull(inBackground { java.findFlowTarget(project, "acme.Repo::class") })
         assertTrue(inBackground { java.findFlowTarget(project, "acme.NoteService::store") } is FlowLookup.Found)
+    }
+
+    fun testListensFromAJavaEventToAKotlinListenerIsProven() {
+        assertTrue(proven("acme.JavaEvent::class", "acme.KotlinListener::on", "listens", entry = "acme.KotlinListener::on"))
+        assertFalse(proven("acme.JavaEvent::class", "acme.KotlinListener::nope", "listens", entry = "acme.KotlinListener::on"))
+    }
+
+    fun testListensFromAKotlinEventToAJavaListenerIsProven() {
+        assertTrue(proven("acme.NoteSaved::class", "acme.JavaListener::on", "listens", entry = "acme.JavaListener::on"))
+        assertFalse(proven("acme.NoteSaved::class", "acme.JavaListener::nope", "listens", entry = "acme.JavaListener::on"))
+    }
+
+    fun testAnOverloadIsPickedBySignature() {
+        assertEquals("Over.save(Int)", found("acme.Over::save(Int)").methodKey)
+        assertEquals("Over.save(String)", found("acme.Over::save(String)").methodKey)
+        assertTrue(find("acme.Over::save(Long)") is FlowLookup.Missing)
     }
 }

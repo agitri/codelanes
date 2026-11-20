@@ -87,11 +87,19 @@ object JavaFlowLookup {
                 else -> false
             }
             "listens" -> {
-                val event = (toMethod?.parameterList?.parameters?.firstOrNull()?.type as? PsiClassType)?.resolve()
+                val listener = toMethod ?: lightMethodOf(to)
+                val event = (listener?.parameterList?.parameters?.firstOrNull()?.type as? PsiClassType)?.resolve()
                 event != null && JavaBlockBuilder.fqn(event) == from.classFqn
             }
             else -> false // "routes": nothing in a method proves a route
         }
+    }
+
+    /** The Java view of a Kotlin member function: the light method of its class whose navigation element is that function. */
+    private fun lightMethodOf(to: FlowTarget): PsiMethod? {
+        val source = to.methodElement?.navigationElement ?: return null
+        val cls = JavaPsiFacade.getInstance(to.file.project).findClass(to.declaringFqn, GlobalSearchScope.allScope(to.file.project)) ?: return null
+        return cls.methods.firstOrNull { it.navigationElement == source }
     }
 
     /**

@@ -7,7 +7,7 @@ import com.intellij.psi.PsiFile
  * What a flow reference points at. [classFqn]: the class that was named, spelled as block ids spell it
  * (`\App\Foo`, `com.acme.Foo`). [declaringFqn]: the class that declares the method (differs for inherited ones).
  * [methodKey]: the method part of its block id, or null for the class as a whole. [file]: the declaring class's file.
- * [classElement] and [methodElement] are for [LanguageSupport.proves] of the same [support] only.
+ * [classElement] and [methodElement] are for [LanguageSupport.proves] of the same proof family ([LanguageSupport.proofFamily]) only.
  */
 data class FlowTarget(
     val classFqn: String,
