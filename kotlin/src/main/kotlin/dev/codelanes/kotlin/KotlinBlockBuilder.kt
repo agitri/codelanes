@@ -1,7 +1,14 @@
 package dev.codelanes.kotlin
 
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.roots.ProjectFileIndex
+import com.intellij.psi.PsiAnonymousClass
 import com.intellij.psi.PsiClass
+import com.intellij.psi.PsiModifier
+import com.intellij.psi.impl.light.LightElement
+import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.search.searches.DefinitionsScopedSearch
 import com.intellij.psi.PsiCompiledElement
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiMethod
@@ -104,6 +111,22 @@ object KotlinBlockBuilder {
         val callables = methodIds.keys.toList()
         callables.forEach { caller ->
             links += calls(caller, methodIds.getValue(caller), methodIds, classIds)
+        }
+        val classBlockIds = classIds.values.toSet()
+        revealDeeper(classes.flatMap(::relatedTypes), revealed, file, classBlockIds, blocks).let { (deeperBlocks, deeperLinks) ->
+            blocks += deeperBlocks
+            links += deeperLinks
+        }
+        followCalls(file, callables.filter { methodIds.getValue(it) in followedCalls }.map { methodIds.getValue(it) to it }, followedCalls, path)
+            .let { (calleeBlocks, calleeLinks) ->
+                blocks += calleeBlocks
+                links += calleeLinks
+            }
+        classes.forEach { cls ->
+            implementedBy(cls, classIds.getValue(cls), classIds, methodIds, path).let { (implBlocks, implLinks) ->
+                implBlocks.forEach { b -> if (blocks.none { it.id == b.id }) blocks += b }
+                links += implLinks
+            }
         }
         return BuildResult.Supported(BlockModel(blocks, links.distinct()))
     }
@@ -359,11 +382,7 @@ object KotlinBlockBuilder {
         val name = function.name ?: return emptyList()
         val types = function.valueParameters.map { squash(it.typeReference?.text.orEmpty()) }
         return related.mapNotNull { r ->
-            val declared: List<PsiElement> = when (val type = r.type) {
-                is KtClassOrObject -> type.declarations.filterIsInstance<KtNamedFunction>().filter { it.name == name && it.valueParameters.size == types.size }
-                is PsiClass -> type.findMethodsByName(name, false).filter { it.parameterList.parametersCount == types.size }
-                else -> emptyList()
-            }
+            val declared = declaredMatching(r.type, name, types.size)
             val overridden = declared.firstOrNull { parameterTypesOf(it) == types } ?: declared.firstOrNull() ?: return@mapNotNull null
             val landing = when (overridden) {
                 is PsiMethod -> (overridden.navigationElement as? PsiMethod ?: overridden).takeUnless { r.block.sourceless }
@@ -371,6 +390,13 @@ object KotlinBlockBuilder {
             }
             Link(LinkKind.OVERRIDES, id, r.block.id, landing?.let(::rangeOf))
         }
+    }
+
+    /** Functions of [type]'s own PSI (Kotlin or Java) with this name and parameter count. */
+    private fun declaredMatching(type: PsiElement, name: String, count: Int): List<PsiElement> = when (type) {
+        is KtClassOrObject -> type.declarations.filterIsInstance<KtNamedFunction>().filter { it.name == name && it.valueParameters.size == count }
+        is PsiClass -> type.findMethodsByName(name, false).filter { it.parameterList.parametersCount == count }
+        else -> emptyList()
     }
 
     private fun parameterTypesOf(function: PsiElement): List<String> = when (function) {
@@ -394,6 +420,259 @@ object KotlinBlockBuilder {
                 else -> null
             }
         }.filter { it != callerId }.distinct().map { Link(LinkKind.CALLS, callerId, it) }
+    }
+
+    private fun isAbstract(function: PsiElement): Boolean = when (function) {
+        is KtNamedFunction -> function.hasModifier(KtTokens.ABSTRACT_KEYWORD)
+        is PsiMethod -> function.hasModifierProperty(PsiModifier.ABSTRACT)
+        else -> false
+    }
+
+    private fun outermostClass(function: KtNamedFunction): KtClassOrObject? =
+        generateSequence(ownerOf(function)) { it.parent?.parent as? KtClassOrObject }.lastOrNull()
+
+    /**
+     * `acme.Repo::save`, `acme.Repo::Companion.create`, `acme.Audit::audit` (top-level functions are owned by their
+     * module fqn): the part of a callee id after `callee:`. Null for local functions and members of anonymous objects.
+     */
+    private fun calleeKey(function: KtNamedFunction): String? {
+        val key = functionKey(function)
+        val outer = outermostClass(function)
+        if (outer == null) {
+            val file = function.parent as? KtFile ?: return null
+            return "${moduleFqn(file)}::$key"
+        }
+        val fqn = outer.fqName?.asString() ?: return null
+        return "$fqn::${key.removePrefix(outer.name + ".")}"
+    }
+
+    private fun ownerName(function: KtNamedFunction): String =
+        outermostClass(function)?.name ?: (function.parent as? KtFile)?.let(::moduleFqn).orEmpty()
+
+    private fun kotlinCalleeBlock(id: String, function: KtNamedFunction): Block =
+        Block(id, BlockKind.CALLEE, "${ownerName(function)}::${functionTitle(function)}", function.containingFile.virtualFile.path, rangeOf(function))
+
+    /** The id and block of a callee (Kotlin function or Java method) in project code, or null. */
+    private fun calleeFor(target: PsiElement): Pair<String, Block>? {
+        if (!inProject(target)) return null
+        return when (target) {
+            is KtNamedFunction -> calleeKey(target)?.let { "callee:$it" }?.let { it to kotlinCalleeBlock(it, target) }
+            is PsiMethod -> {
+                if (target.isConstructor || target is LightElement || target.containingClass == null) return null
+                val id = "callee:${JavaBlockBuilder.fqn(target.containingClass!!)}::${JavaBlockBuilder.methodKey(target)}"
+                id to JavaBlockBuilder.calleeBlock(id, target)
+            }
+            else -> null
+        }
+    }
+
+    /** Functions and methods [element] calls or refers to (lambdas included); constructors and unresolved calls left out. */
+    private fun calledTargets(element: PsiElement): List<PsiElement> = when (element) {
+        is KtNamedFunction -> {
+            val references = PsiTreeUtil.findChildrenOfType(element, KtCallExpression::class.java).mapNotNull { it.calleeExpression } +
+                PsiTreeUtil.findChildrenOfType(element, KtCallableReferenceExpression::class.java).map { it.callableReference }
+            references.mapNotNull { e -> e.references.firstNotNullOfOrNull { it.resolve() } }.filter { it is KtNamedFunction || it is PsiMethod }
+        }
+        is PsiMethod -> JavaBlockBuilder.calledMethods(element)
+        else -> emptyList()
+    }
+
+    /**
+     * Project implementations of an interface/abstract [function] (at most [MAX_IMPLEMENTATIONS]). Goes through the
+     * platform's DefinitionsScopedSearch ("Go to Implementation"), as Java does; needs a background thread under K2.
+     */
+    /**
+     * "Go to Implementation" over project code. K2 refuses this analysis on the EDT (ProhibitedAnalysisException), and
+     * the session's synchronous rebuild (on open) runs there, so on the EDT the search moves to a pooled thread.
+     */
+    private fun definitions(element: PsiElement): List<PsiElement> {
+        val search = { DefinitionsScopedSearch.search(element, GlobalSearchScope.projectScope(element.project)).findAll().toList() }
+        val application = ApplicationManager.getApplication()
+        return if (application.isDispatchThread) {
+            application.executeOnPooledThread<List<PsiElement>> { ReadAction.compute<List<PsiElement>, RuntimeException>(search) }.get()
+        } else {
+            search()
+        }
+    }
+
+    private fun implementationsOf(function: PsiElement): List<Pair<String, PsiElement>> =
+        definitions(function).asSequence()
+            .filter { it != function && (it is KtNamedFunction || it is PsiMethod) && !isAbstract(it) }
+            .filterNot { (it as? KtNamedFunction)?.let(::inAnonymousObject) == true || (it as? PsiMethod)?.containingClass is PsiAnonymousClass }
+            .mapNotNull { impl -> calleeFor(impl)?.let { it.first to impl } }
+            .sortedBy { it.first }
+            .distinctBy { it.first }
+            .take(MAX_IMPLEMENTATIONS)
+            .toList()
+
+    private fun inAnonymousObject(function: KtNamedFunction): Boolean = (ownerOf(function) as? KtObjectDeclaration)?.isObjectLiteral() == true
+
+    private fun isInterfaceMember(function: PsiElement): Boolean = when (function) {
+        is KtNamedFunction -> (ownerOf(function) as? KtClass)?.isInterface() == true
+        is PsiMethod -> function.containingClass?.isInterface == true
+        else -> false
+    }
+
+    /** Parents of revealed blocks, as deep as revealed (as Java's revealDeeper); Java supertypes are followed too. */
+    private fun revealDeeper(related: List<Related>, revealed: Set<String>, file: KtFile, ownClassBlocks: Set<String>, shown: List<Block>): Pair<List<Block>, List<Link>> {
+        val known = related.associateBy { it.block.id }.toMutableMap()
+        val queue = ArrayDeque(revealed.filter { it in known })
+        val seen = mutableSetOf<String>()
+        val ownFqns = file.declarations.filterIsInstance<KtClassOrObject>().mapNotNull { it.fqName?.asString() }.toSet()
+        val blocks = mutableListOf<Block>()
+        val links = mutableListOf<Link>()
+        while (queue.isNotEmpty()) {
+            val id = queue.removeFirst()
+            if (!seen.add(id)) continue
+            for (deeper in parentsOf(known.getValue(id).type)) {
+                val deeperId = deeper.block.id
+                if (fqnOf(deeper.type) in ownFqns) continue
+                if (deeperId !in known) {
+                    known[deeperId] = deeper
+                    if (shown.none { it.id == deeperId }) blocks += deeper.block
+                }
+                links += Link(deeper.linkKind, deeperId, id)
+                if (deeperId in revealed) queue += deeperId
+            }
+        }
+        return blocks to links.distinct()
+    }
+
+    private fun parentsOf(type: PsiElement): List<Related> = when (type) {
+        is KtClassOrObject -> relatedTypes(type)
+        is PsiClass -> {
+            val parentKind = if (type.isInterface) BlockKind.INTERFACE else BlockKind.PARENT
+            val implemented = type.implementsList?.referenceElements.orEmpty().mapNotNull { it.resolve() as? PsiClass }
+                .map { Related(JavaBlockBuilder.externalBlock(BlockKind.INTERFACE, it), LinkKind.IMPLEMENTS, it) }
+            val extended = type.extendsList?.referenceElements.orEmpty().mapNotNull { it.resolve() as? PsiClass }
+                .map { Related(JavaBlockBuilder.externalBlock(parentKind, it), LinkKind.EXTENDS, it) }
+            (implemented + extended).distinctBy { it.block.id }
+        }
+        else -> emptyList()
+    }
+
+    /**
+     * For an interface, abstract class or sealed class: the project classes that implement / extend it (at most
+     * [MAX_IMPLEMENTERS], alphabetical, plus a "more" block), and per class the functions that implement or override
+     * one of this type's. Implementers in the same file are linked class to class.
+     */
+    private fun implementedBy(cls: KtClassOrObject, classId: String, classIds: Map<KtClassOrObject, String>, methodIds: Map<KtNamedFunction, String>, path: String): Pair<List<Block>, List<Link>> {
+        val kt = cls as? KtClass ?: return emptyList<Block>() to emptyList()
+        if (!kt.isInterface() && !kt.hasModifier(KtTokens.ABSTRACT_KEYWORD) && !kt.isSealed()) return emptyList<Block>() to emptyList()
+        val own = fqnOf(cls)
+        val candidates = definitions(cls)
+            .filter { (it is KtClassOrObject && !(it is KtObjectDeclaration && it.isObjectLiteral())) || (it is PsiClass && it !is PsiAnonymousClass && it !is PsiTypeParameter) }
+            .filter { fqnOf(it) != own && !isInterface(it) && inProject(it) && fqnOf(it).isNotEmpty() }
+            .distinctBy(::fqnOf)
+            .sortedWith(compareBy({ (it as? KtClassOrObject)?.name ?: (it as PsiClass).name }, { fqnOf(it) }))
+        val blocks = mutableListOf<Block>()
+        val links = mutableListOf<Link>()
+        val methods = memberFunctions(cls).filter { it.owner === cls }.map { it.function }
+        val external = mutableListOf<PsiElement>()
+        for (implementer in candidates) {
+            val sameFile = classIds.entries.firstOrNull { it.key === implementer }
+            if (sameFile != null) {
+                links += Link(LinkKind.IMPLEMENTED_BY, classId, sameFile.value)
+            } else if (implementer.containingFile != cls.containingFile) {
+                external += implementer
+            }
+        }
+        for (implementer in external.take(MAX_IMPLEMENTERS)) {
+            val implementations = methods.mapNotNull { method -> implementationOf(implementer, method)?.let { method to it } }
+            val block = typeBlock(BlockKind.IMPLEMENTER, implementer).copy(summary = implementations.map { titleOf(it.second) }.distinct())
+            blocks += block
+            links += Link(LinkKind.IMPLEMENTED_BY, classId, block.id)
+            for ((method, implementation) in implementations) {
+                val key = when (implementation) {
+                    is KtNamedFunction -> calleeKey(implementation)
+                    is PsiMethod -> "${JavaBlockBuilder.fqn(implementation.containingClass!!)}::${JavaBlockBuilder.methodKey(implementation)}"
+                    else -> null
+                } ?: continue
+                val id = "implementation:$key"
+                val range = when (implementation) {
+                    is PsiMethod -> JavaBlockBuilder.rangeOf(implementation.navigationElement as? PsiMethod ?: implementation)
+                    else -> rangeOf(implementation)
+                }
+                if (blocks.none { it.id == id }) blocks += Block(id, BlockKind.IMPLEMENTATION, "${(implementer as? KtClassOrObject)?.name ?: (implementer as PsiClass).name}::${titleOf(implementation)}",
+                    implementation.containingFile.virtualFile.path, range, collapsed = true)
+                links += Link(LinkKind.OWNS, block.id, id)
+                links += Link(LinkKind.OVERRIDES, id, methodIds.getValue(method), rangeOf(method))
+            }
+        }
+        val rest = external.drop(MAX_IMPLEMENTERS)
+        if (rest.isNotEmpty()) {
+            blocks += Block(MORE_ID, BlockKind.MORE, "and ${rest.size} more", path, SourceRange(0, 0), collapsed = true,
+                summary = rest.map { (it as? KtClassOrObject)?.name ?: (it as PsiClass).name.orEmpty() })
+            links += Link(LinkKind.IMPLEMENTED_BY, classId, MORE_ID)
+        }
+        return blocks to links.distinct()
+    }
+
+    private fun titleOf(function: PsiElement): String = when (function) {
+        is KtNamedFunction -> functionTitle(function)
+        is PsiMethod -> JavaBlockBuilder.methodTitle(function)
+        else -> ""
+    }
+
+    /** The function of [implementer] that implements [method]: same name and parameter count, identical parameter types preferred. */
+    private fun implementationOf(implementer: PsiElement, method: KtNamedFunction): PsiElement? {
+        val name = method.name ?: return null
+        val types = method.valueParameters.map { squash(it.typeReference?.text.orEmpty()) }
+        val declared = declaredMatching(implementer, name, types.size)
+        return declared.firstOrNull { parameterTypesOf(it) == types } ?: declared.firstOrNull()
+    }
+
+    /** "+ calls": callees in other project files become editable blocks, as in Java and Python. */
+    private fun followCalls(file: KtFile, roots: List<Pair<String, KtNamedFunction>>, followed: Set<String>, path: String): Pair<List<Block>, List<Link>> {
+        if (roots.isEmpty()) return emptyList<Block>() to emptyList()
+        val queue = ArrayDeque<Pair<String, PsiElement>>(roots)
+        val seen = mutableSetOf<String>()
+        val blocks = linkedMapOf<String, Block>()
+        val links = mutableListOf<Link>()
+        var truncated = false
+        val firstRoot = roots.first().first
+        while (queue.isNotEmpty()) {
+            val (id, caller) = queue.removeFirst()
+            if (!seen.add(id)) continue
+            if (blocks.size >= MAX_CHAIN_BLOCKS) {
+                truncated = true
+                break
+            }
+            val allCallees = calledTargets(caller).filter { it.containingFile != file }.mapNotNull { target -> calleeFor(target)?.let { it to target } }
+                .distinctBy { it.first.first }
+            val callees = allCallees.take(MAX_CALLEES)
+            if (allCallees.size > MAX_CALLEES) {
+                val moreId = "more:calls:$id"
+                blocks[moreId] = Block(moreId, BlockKind.MORE, "and ${allCallees.size - MAX_CALLEES} more calls", path, SourceRange(0, 0), collapsed = true)
+                links += Link(LinkKind.CALLS_INTO, id, moreId)
+            }
+            for ((callee, target) in callees) {
+                if (blocks.size >= MAX_CHAIN_BLOCKS) {
+                    truncated = true
+                    break
+                }
+                val (calleeId, block) = callee
+                blocks.getOrPut(calleeId) { block }
+                links += Link(LinkKind.CALLS_INTO, id, calleeId)
+                if (calleeId in followed) queue += calleeId to target
+                if (isInterfaceMember(target) || isAbstract(target)) {
+                    for ((implId, implementation) in implementationsOf(target)) {
+                        val implBlock = calleeFor(implementation) ?: continue
+                        blocks.getOrPut(implId) { implBlock.second }
+                        links += Link(LinkKind.IMPLEMENTED_BY, calleeId, implId)
+                        if (implId in followed) queue += implId to implementation
+                    }
+                }
+            }
+        }
+        if (truncated) {
+            blocks[MORE_CHAIN_ID] = Block(
+                MORE_CHAIN_ID, BlockKind.MORE, "chain cut off at $MAX_CHAIN_BLOCKS blocks — use + calls on a block to go further",
+                path, SourceRange(0, 0), collapsed = true,
+            )
+            links += Link(LinkKind.CALLS_INTO, firstRoot, MORE_CHAIN_ID)
+        }
+        return blocks.values.toList() to links.distinct()
     }
 
     /** Kotlin PSI ranges of a declaration include its KDoc and annotations. */

@@ -424,7 +424,7 @@ object JavaBlockBuilder {
     fun rangeOf(element: PsiElement): SourceRange = SourceRange(element.textRange.startOffset, element.textRange.endOffset)
 
     /** Methods [element] calls or refers to (`this::toDto`), constructors excluded. */
-    internal fun calledMethods(element: PsiElement): List<PsiMethod> =
+    fun calledMethods(element: PsiElement): List<PsiMethod> =
         (PsiTreeUtil.findChildrenOfType(element, PsiMethodCallExpression::class.java).mapNotNull { it.resolveMethod() } +
             PsiTreeUtil.findChildrenOfType(element, PsiMethodReferenceExpression::class.java).mapNotNull { it.resolve() as? PsiMethod })
             .filter { !it.isConstructor }
