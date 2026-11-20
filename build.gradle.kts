@@ -27,18 +27,26 @@ dependencies {
         bundledPlugin("com.intellij.java") // the tests need Java; the product loads it via the :java content module
         compatiblePlugin("com.jetbrains.php") // the tests need PHP; the product loads it via the :php content module
         compatiblePlugin("PythonCore") // the tests need Python; the product loads it via the :python content module
+        bundledPlugin("org.jetbrains.kotlin") // the tests need Kotlin; the product loads it via the :kotlin content module
         bundledPlugin("com.intellij.mcpServer") // optional at runtime, see codelanes-mcp.xml
         pluginModule(project(":php"))
         pluginModule(project(":java"))
         pluginModule(project(":python"))
+        pluginModule(project(":kotlin"))
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.Plugin.Java)
     }
     testImplementation(project(":php"))
     testImplementation(project(":java"))
     testImplementation(project(":python"))
+    testImplementation(project(":kotlin"))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.opentest4j:opentest4j:1.3.0")
+}
+
+tasks.test {
+    // Kotlin runs in K2 mode, like the IDE default.
+    systemProperty("idea.kotlin.plugin.use.k2", "true")
 }
 
 intellijPlatform {

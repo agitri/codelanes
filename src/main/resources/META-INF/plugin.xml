@@ -45,6 +45,7 @@
         <module name="codelanes.php"/>
         <module name="codelanes.java"/>
         <module name="codelanes.python"/>
+        <module name="codelanes.kotlin"/>
     </content>
 
     <extensionPoints>
