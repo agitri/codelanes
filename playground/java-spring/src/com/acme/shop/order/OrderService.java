@@ -1,5 +1,6 @@
 package com.acme.shop.order;
 
+import com.acme.shop.stock.StockRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -9,9 +10,11 @@ import org.springframework.stereotype.Service;
 public class OrderService {
     private final OrderRepository repository;
     private final ApplicationEventPublisher events;
+    private final StockRepository stock;
 
     public Order place(String customer, int items) {
         check(items);
+        if (!stock.reserve(items)) throw new IllegalStateException("Out of stock");
         Order order = repository.save(new Order(0, customer, items));
         events.publishEvent(new OrderPlaced(order));
         return order;

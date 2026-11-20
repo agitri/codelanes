@@ -1,6 +1,7 @@
 <!-- Content module: loaded only where the Kotlin plugin is (IntelliJ IDEA, Android Studio). -->
 <idea-plugin package="dev.codelanes.kotlin">
     <dependencies>
+        <plugin id="com.intellij.java"/> <!-- the module uses PsiClass, PsiMethod, … -->
         <plugin id="org.jetbrains.kotlin"/>
         <module name="codelanes.java"/>
     </dependencies>

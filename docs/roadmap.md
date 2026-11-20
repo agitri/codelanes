@@ -25,7 +25,10 @@
 
 ## Next
 
-1. **Routes from YAML/XML** (built on `feat/route-files`, needs an IDE check): `config/routes` files in Follow a Request.
+1. **Android entry points (Part B of `docs/superpowers/specs/2026-11-20-kotlin-android-support-design.md`)**: Compose
+   taps, navigation destinations and deep links in Follow a Request; `playground/android`. Kotlin itself (Part A) is
+   done in 0.4.0 on `feat/kotlin-support`, with Android Studio in the plugin verifier.
+2. **Routes from YAML/XML** (built on `feat/route-files`, needs an IDE check): `config/routes` files in Follow a Request.
 
 ## Later (in order)
 
@@ -33,7 +36,8 @@
 2. **JetBrains Marketplace release 0.1.0**: icon, description, change notes, signing and publishing config are ready and `verifyPlugin` passes on PhpStorm 2025.2 to 2026.2. Live since 2026-10-22: https://plugins.jetbrains.com/plugin/35151-codelanes
 3. **Fresh screenshots** for the README and the Marketplace page.
 4. **Java** (done in 0.2.0, `docs/superpowers/specs/2026-10-22-java-support-design.md`, with Spring routes in Follow a
-   Request); next: JAX-RS/Micronaut routes, then Kotlin.
+   Request); next: JAX-RS/Micronaut routes. **Kotlin** (done in 0.4.0, `docs/superpowers/specs/2026-11-20-kotlin-android-support-design.md`
+   Part A): canvases in IntelliJ IDEA and Android Studio, Spring routes in Kotlin, AI flows, Java and Kotlin together.
    **Python** (done in 0.3.0 on `feat/python-support`, `docs/superpowers/specs/2026-10-26-python-support-design.md`):
    module canvases in PyCharm, FastAPI/Flask/Django routes in Follow a Request, AI flows with Django signals. Left
    for later: FastAPI `include_router` and Flask `register_blueprint` prefixes, Django REST Framework routers, Flask

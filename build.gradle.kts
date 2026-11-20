@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "dev.codelanes"
-version = "0.3.0"
+version = "0.4.0"
 
 kotlin {
     jvmToolchain(21)
@@ -68,11 +68,11 @@ intellijPlatform {
         token = providers.environmentVariable("PUBLISH_TOKEN")
     }
 
-    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm, IntelliJ IDEA and PyCharm versions.
-    // `-Pverify.ides=PhpStorm,IntelliJ,PyCharm` picks IDE families (default: all); CI runs one family per job.
+    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm, IntelliJ IDEA, PyCharm and Android Studio versions.
+    // `-Pverify.ides=PhpStorm,IntelliJ,PyCharm,AndroidStudio` picks IDE families (default: all); CI runs one family per job.
     pluginVerification {
         val families = providers.gradleProperty("verify.ides").orNull?.split(',')?.map { it.trim() }?.toSet()
-            ?: setOf("PhpStorm", "IntelliJ", "PyCharm")
+            ?: setOf("PhpStorm", "IntelliJ", "PyCharm", "AndroidStudio")
         ides {
             if ("PhpStorm" in families) {
                 create(IntelliJPlatformType.PhpStorm, "2025.2")
@@ -93,12 +93,19 @@ intellijPlatform {
                 create(IntelliJPlatformType.PyCharm, "2026.1")
                 create(IntelliJPlatformType.PyCharm, "2026.2")
             }
+            if ("AndroidStudio" in families) {
+                create(IntelliJPlatformType.AndroidStudio, "2025.2.3.9") // Otter 3 Feature Drop
+                create(IntelliJPlatformType.AndroidStudio, "2025.3.4.6") // Panda 4
+                create(IntelliJPlatformType.AndroidStudio, "2026.1.4.7") // Quail 4
+                create(IntelliJPlatformType.AndroidStudio, "2026.2.2.8") // Rabbit 2
+            }
         }
     }
 }
 
 // `./gradlew runIde` starts IntelliJ IDEA with Java and Python (its PHP plugin needs an Ultimate licence, which the
-// sandbox lacks). `./gradlew runPhpStorm` starts PhpStorm, to try the PHP side; `./gradlew runPyCharm` starts PyCharm.
+// sandbox lacks). `./gradlew runPhpStorm` starts PhpStorm, to try the PHP side; `./gradlew runPyCharm` starts PyCharm;
+// `./gradlew runAndroidStudio` starts Android Studio, to try Kotlin there.
 intellijPlatformTesting {
     runIde {
         register("runPhpStorm") {
@@ -108,6 +115,10 @@ intellijPlatformTesting {
         register("runPyCharm") {
             type = IntelliJPlatformType.PyCharm
             version = "2026.1"
+        }
+        register("runAndroidStudio") {
+            type = IntelliJPlatformType.AndroidStudio
+            version = "2026.2.2.8"
         }
     }
 }

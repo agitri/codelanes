@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.0
+
+Kotlin in IntelliJ IDEA and Android Studio. For PhpStorm, IntelliJ IDEA, PyCharm and Android Studio 2025.2 and newer.
+
+- **Kotlin files as a canvas**: every `.kt` file opens as blocks, in IntelliJ IDEA and Android Studio. Classes,
+  objects and companions sit in the middle; top-level functions (also `@Composable` ones) and member functions on the
+  right; superclasses, interfaces and injected types (constructor parameters, `@Inject` properties, `by inject()`,
+  `by viewModel()`) on the left. A file with only a top-level function or property gets a file block; a file with one
+  class looks like a Java canvas.
+- **Calls, overrides, + calls, + parents, Add method…**, implementers of interfaces and abstract classes, `+ method`,
+  delete, review marks, notes and working sets all work for Kotlin. Calls inside lambdas count.
+- **Java and Kotlin together**: a Kotlin function can follow a call into Java and back, and a Java canvas shows the
+  Kotlin code it calls as Kotlin.
+- **Follow a Request for Kotlin**: Spring routes in `@RestController` classes written in Kotlin.
+- **AI flows for Kotlin**: references like `com.acme.NoteViewModel::save`, or `com.acme.notes.NoteScreen::NoteScreen`
+  for a top-level function; calls, overrides, events and listeners are proven from the code, also across Java and Kotlin.
+- **Android Studio** Otter (2025.2) and newer is supported and checked by the plugin verifier.
+- Kotlin canvases build in the background, with a progress you can cancel.
+- Nothing changes for PHP, Java and Python.
+
 ## 0.3.0
 
 Python in PyCharm. For PhpStorm, IntelliJ IDEA and PyCharm 2025.2 and newer.
