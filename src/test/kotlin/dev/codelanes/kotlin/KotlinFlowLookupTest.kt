@@ -205,4 +205,13 @@ class KotlinFlowLookupTest : KotlinTestCase() {
     fun testAWrongSignatureOnAnOverloadedFunctionIsMissing() {
         assertTrue(find("acme.Over::save(Long)") is FlowLookup.Missing)
     }
+
+    fun testAnInheritedOverloadIsFoundByFullKeyBeforeTheBareNameFallback() {
+        addFile("acme/Base.kt", "package acme\n\nopen class Base { fun save(s: String) {} }")
+        addFile("acme/Derived.kt", "package acme\n\nclass Derived : Base() { fun save(n: Int) {} }")
+        val target = found("acme.Derived::save(String)")
+        assertEquals("acme.Base", target.declaringFqn)
+        assertEquals("Base.save", target.methodKey)
+        assertEquals("Derived.save", found("acme.Derived::save(Int)").methodKey)
+    }
 }

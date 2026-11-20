@@ -89,21 +89,37 @@ object KotlinFlowLookup {
         val key = squash(KotlinBlockBuilder.functionKey(function))
         if ('(' in name) {
             val wanted = squash(name)
-            return key == wanted || key.endsWith(".$wanted")
+            if (key == wanted || key.endsWith(".$wanted")) return true
+            // A signature on a function whose key doesn't carry one: name and parameter types must agree.
+            val bare = squash(name.substringBefore('('))
+            val types = squash(name.substringAfter('(').substringBeforeLast(')'))
+            val own = function.valueParameters.joinToString(",") { squash(it.typeReference?.text.orEmpty()) }
+            return function.name == bare && own == types
         }
         return key.substringAfterLast("::") == name || key.substringAfter('.', "").ifEmpty { key } == name || function.name == name
     }
 
-    /** The function of [cls] (or of the nearest Kotlin supertype that declares it) with its declaring class. */
+    /**
+     * The function [name] of [cls] or of the nearest Kotlin supertype that declares it, with its declaring class. The
+     * full key is matched across the whole hierarchy first; only if nothing matches, a reference with parentheses falls
+     * back to the nearest class declaring that bare name, when it declares it once (an override doesn't make it ambiguous).
+     */
     private fun memberOf(cls: KtClassOrObject, name: String): Pair<KtClassOrObject, KtNamedFunction>? {
+        val hierarchy = mutableListOf<Pair<KtClassOrObject, List<KtNamedFunction>>>()
         val seen = mutableSetOf<KtClassOrObject>()
         val queue = ArrayDeque(listOf(cls))
         while (queue.isNotEmpty()) {
             val next = queue.removeFirst()
             if (!seen.add(next)) continue
-            val declared = KotlinBlockBuilder.declaredFunctions(next)
-            pick(declared, name)?.let { return next to it }
+            hierarchy += next to KotlinBlockBuilder.declaredFunctions(next)
             queue += next.toLightClass()?.supers.orEmpty().mapNotNull { it.navigationElement as? KtClassOrObject }
+        }
+        for ((owner, declared) in hierarchy) declared.firstOrNull { matches(it, name) }?.let { return owner to it }
+        if ('(' !in name) return null
+        val bare = name.substringBefore('(').trim()
+        for ((owner, declared) in hierarchy) {
+            val named = declared.filter { it.name == bare }
+            if (named.isNotEmpty()) return named.singleOrNull()?.let { owner to it }
         }
         return null
     }
