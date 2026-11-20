@@ -1,6 +1,9 @@
 package dev.codelanes.kotlin
 
 import com.intellij.openapi.roots.ProjectFileIndex
+import com.intellij.psi.JavaPsiFacade
+import com.intellij.psi.PsiManager
+import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.PsiAnonymousClass
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiModifier
@@ -115,7 +118,7 @@ object KotlinBlockBuilder {
             blocks += deeperBlocks
             links += deeperLinks
         }
-        followCalls(file, callables.filter { methodIds.getValue(it) in followedCalls }.map { methodIds.getValue(it) to it }, followedCalls, path)
+        followCalls(file, callables.filter { methodIds.getValue(it) in followedCalls }.map { methodIds.getValue(it) to it }, followedCalls, added, path)
             .let { (calleeBlocks, calleeLinks) ->
                 blocks += calleeBlocks
                 links += calleeLinks
@@ -433,7 +436,7 @@ object KotlinBlockBuilder {
      * `acme.Repo::save`, `acme.Repo::Companion.create`, `acme.Audit::audit` (top-level functions are owned by their
      * module fqn): the part of a callee id after `callee:`. Null for local functions and members of anonymous objects.
      */
-    private fun calleeKey(function: KtNamedFunction): String? {
+    fun calleeKey(function: KtNamedFunction): String? {
         val key = functionKey(function)
         val outer = outermostClass(function)
         if (outer == null) {
@@ -443,6 +446,11 @@ object KotlinBlockBuilder {
         val fqn = outer.fqName?.asString() ?: return null
         return "$fqn::${key.removePrefix(outer.name + ".")}"
     }
+
+    /** The named functions of [file] that get a METHOD block: top-level ones, then members of top-level classes and their companions. */
+    fun canvasFunctions(file: KtFile): List<KtNamedFunction> =
+        file.declarations.filterIsInstance<KtNamedFunction>().filter { it.name != null } +
+            file.declarations.filterIsInstance<KtClassOrObject>().flatMap { cls -> memberFunctions(cls).map { it.function } }
 
     private fun ownerName(function: KtNamedFunction): String =
         outermostClass(function)?.name ?: (function.parent as? KtFile)?.let(::moduleFqn).orEmpty()
@@ -609,14 +617,30 @@ object KotlinBlockBuilder {
     }
 
     /** "+ calls": callees in other project files become editable blocks, as in Java and Python. */
-    private fun followCalls(file: KtFile, roots: List<Pair<String, KtNamedFunction>>, followed: Set<String>, path: String): Pair<List<Block>, List<Link>> {
-        if (roots.isEmpty()) return emptyList<Block>() to emptyList()
+    private fun followCalls(file: KtFile, roots: List<Pair<String, KtNamedFunction>>, followed: Set<String>, added: Set<String>, path: String): Pair<List<Block>, List<Link>> {
+        if (roots.isEmpty() && added.isEmpty()) return emptyList<Block>() to emptyList()
         val queue = ArrayDeque<Pair<String, PsiElement>>(roots)
         val seen = mutableSetOf<String>()
         val blocks = linkedMapOf<String, Block>()
         val links = mutableListOf<Link>()
         var truncated = false
-        val firstRoot = roots.first().first
+        val firstRoot = roots.firstOrNull()?.first
+        // Add method… and AI flows: each added key is a CALLEE block of its own, as a followed call would make it.
+        for (key in added) {
+            if (key.endsWith("::class")) {
+                val target = classByFqn(file, key.removeSuffix("::class")) ?: continue
+                if (target.containingFile == file || !inProject(target)) continue
+                val id = "callee:$key"
+                blocks.getOrPut(id) { typeBlock(BlockKind.CALLEE, target).let { it.copy(id = id, collapsed = it.sourceless) } }
+                continue
+            }
+            val function = functionByKey(file, key) ?: continue
+            // A function of the open file already has a block of its own (Add method… just focuses it).
+            if (function.containingFile == file) continue
+            val (id, block) = calleeFor(function) ?: continue
+            blocks.getOrPut(id) { block }
+            if (id in followed) queue += id to function
+        }
         while (queue.isNotEmpty()) {
             val (id, caller) = queue.removeFirst()
             if (!seen.add(id)) continue
@@ -651,7 +675,7 @@ object KotlinBlockBuilder {
                 }
             }
         }
-        if (truncated) {
+        if (truncated && firstRoot != null) {
             blocks[MORE_CHAIN_ID] = Block(
                 MORE_CHAIN_ID, BlockKind.MORE, "chain cut off at $MAX_CHAIN_BLOCKS blocks — use + calls on a block to go further",
                 path, SourceRange(0, 0), collapsed = true,
@@ -659,6 +683,28 @@ object KotlinBlockBuilder {
             links += Link(LinkKind.CALLS_INTO, firstRoot, MORE_CHAIN_ID)
         }
         return blocks.values.toList() to links.distinct()
+    }
+
+    /** The Kotlin or Java class with this fqn, from the project's own sources. */
+    private fun classByFqn(context: PsiElement, fqn: String): PsiElement? {
+        val cls = JavaPsiFacade.getInstance(context.project).findClass(fqn, GlobalSearchScope.projectScope(context.project)) ?: return null
+        return (cls.navigationElement as? KtClassOrObject) ?: cls
+    }
+
+    /** `Owner::key` (owner = class fqn or module fqn, key without the class prefix) to that function or method, or null. */
+    private fun functionByKey(context: KtFile, key: String): PsiElement? {
+        val owner = key.substringBefore("::")
+        val short = key.substringAfter("::")
+        when (val cls = classByFqn(context, owner)) {
+            is KtClassOrObject -> memberFunctions(cls).map { it.function }.firstOrNull { calleeKey(it) == key }?.let { return it }
+            is PsiClass -> JavaBlockBuilder.findOwnMethod(cls, short)?.let { return it.navigationElement as? PsiMethod ?: it }
+        }
+        val module = owner.substringAfterLast('.')
+        return FilenameIndex.getVirtualFilesByName("$module.kt", GlobalSearchScope.projectScope(context.project))
+            .mapNotNull { PsiManager.getInstance(context.project).findFile(it) as? KtFile }
+            .filter { moduleFqn(it) == owner }
+            .flatMap { it.declarations.filterIsInstance<KtNamedFunction>() }
+            .firstOrNull { calleeKey(it) == key }
     }
 
     /** Kotlin PSI ranges of a declaration include its KDoc and annotations. */

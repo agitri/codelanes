@@ -810,7 +810,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     /** Drops method [method] of [classFqn] (found with search) on this canvas, centred and focused. */
     fun addToCanvas(classFqn: String, method: String) = withModelAccess {
         // A method of the open class (or Python module) already has its own block: just go there.
-        val own = model?.blocks?.firstOrNull { it.id == "method:$method" }
+        // Kotlin keys carry no class prefix (`Repo::save`), its block ids do (`method:Repo.save`).
+        val own = model?.blocks?.firstOrNull { it.id == "method:$method" || it.id == "method:${classFqn.substringAfterLast('.')}.$method" }
         if (own != null && model?.blocks?.any { it.id == "class:$classFqn" || it.id == "module:$classFqn" } == true) {
             tracked[own.id]?.current()?.let { (range, _) -> reveal(range.start) }
             return@withModelAccess
