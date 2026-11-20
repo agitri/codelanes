@@ -94,11 +94,12 @@ object JavaBlockBuilder {
     )
 
     fun externalBlock(kind: BlockKind, target: PsiClass): Block {
-        val sourceless = isSourceless(target)
-        if (!sourceless) target.navigationElement.takeIf { it !is PsiClass }?.let { source ->
-            foreign { it.externalBlockFor(source, kind) }?.let { return it }
-        }
-        val source = if (sourceless) target else (target.navigationElement as? PsiClass ?: target)
+        // One navigationElement lookup, as isSourceless + the source lookup did before (a library class's attached source).
+        val navigation = target.navigationElement
+        val sourceless = navigation is PsiCompiledElement || navigation.containingFile?.virtualFile == null
+        // Not Java source (a Kotlin light class): the language that owns it draws the block.
+        if (!sourceless && navigation !is PsiClass) foreign { it.externalBlockFor(navigation, kind) }?.let { return it }
+        val source = if (sourceless) target else (navigation as? PsiClass ?: target)
         return Block(
             id = "${kind.name.lowercase()}:${fqn(target)}",
             kind = kind,
@@ -129,10 +130,12 @@ object JavaBlockBuilder {
         LanguageSupports.all().asSequence().filter { it !is JavaLanguageSupport }.firstNotNullOfOrNull(ask)
 
     /**
-     * The source of a method declared in another language (a Kotlin function behind its light method), or null for
-     * Java PSI. Only then are other supports asked, so pure-Java canvases never consult them.
+     * The source of a method declared in another language (a Kotlin function behind its light method), or null.
+     * Only light/generated methods are looked at, so Java source and compiled library methods never pay for a
+     * navigationElement (source mirror) lookup and pure-Java canvases never consult other supports.
      */
-    private fun foreignSource(method: PsiMethod): PsiElement? = method.navigationElement.takeIf { it !is PsiMethod }
+    private fun foreignSource(method: PsiMethod): PsiElement? =
+        if (isGenerated(method)) method.navigationElement.takeIf { it !is PsiMethod } else null
 
     /** The id another language gives [method] (`callee:acme.NoteScreen::format` for `NoteScreenKt.format()`), or null. */
     private fun foreignCalleeId(method: PsiMethod): String? = foreignSource(method)?.let { source -> foreign { it.calleeIdFor(source) } }
@@ -142,7 +145,7 @@ object JavaBlockBuilder {
 
     /** Project code a callee may come from: Java methods as written, or functions of another language in the project. */
     private fun isCallable(method: PsiMethod): Boolean =
-        if (foreignCalleeId(method) != null) inProject(method.navigationElement) else !isGenerated(method) && inProject(method)
+        if (isGenerated(method)) foreignCalleeId(method) != null && inProject(method.navigationElement) else inProject(method)
 
     /** "Fqn::key" → that method of that class, or null if either no longer exists. */
     private fun methodByKey(context: PsiElement, key: String): PsiMethod? {
@@ -182,7 +185,14 @@ object JavaBlockBuilder {
                 blocks.getOrPut(id) { externalBlock(BlockKind.CALLEE, target).let { if (it.sourceless) it.copy(id = id) else it.copy(id = id, collapsed = false) } }
                 continue
             }
-            val method = methodByKey(cls, key) ?: continue
+            val method = methodByKey(cls, key)
+            if (method == null) {
+                // A key of another language's function (Add method…, an AI flow hop into Kotlin): its own block.
+                val id = "callee:$key"
+                val element = foreign { it.elementForKey(cls.project, key) } ?: continue
+                foreign { it.externalBlockFor(element, BlockKind.CALLEE) }?.let { block -> blocks.getOrPut(id) { block.copy(id = id) } }
+                continue
+            }
             val id = calleeId(method)
             blocks.getOrPut(id) { calleeBlock(id, method) }
             if (id in followed) queue += id to method

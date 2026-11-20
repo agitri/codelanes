@@ -1,5 +1,6 @@
 package dev.codelanes.kotlin
 
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiManager
@@ -644,13 +645,13 @@ object KotlinBlockBuilder {
         // Add method… and AI flows: each added key is a CALLEE block of its own, as a followed call would make it.
         for (key in added) {
             if (key.endsWith("::class")) {
-                val target = classByFqn(file, key.removeSuffix("::class")) ?: continue
+                val target = classByFqn(file.project, key.removeSuffix("::class")) ?: continue
                 if (target.containingFile == file || !inProject(target)) continue
                 val id = "callee:$key"
                 blocks.getOrPut(id) { typeBlock(BlockKind.CALLEE, target).let { it.copy(id = id, collapsed = it.sourceless) } }
                 continue
             }
-            val function = functionByKey(file, key) ?: continue
+            val function = functionByKey(file.project, key) ?: continue
             // A function of the open file already has a block of its own (Add method… just focuses it).
             if (function.containingFile == file) continue
             val (id, block) = calleeFor(function) ?: continue
@@ -702,26 +703,34 @@ object KotlinBlockBuilder {
     }
 
     /** The Kotlin or Java class with this fqn, from the project's own sources. */
-    private fun classByFqn(context: PsiElement, fqn: String): PsiElement? {
-        val cls = JavaPsiFacade.getInstance(context.project).findClass(fqn, GlobalSearchScope.projectScope(context.project)) ?: return null
+    private fun classByFqn(project: Project, fqn: String): PsiElement? {
+        val cls = JavaPsiFacade.getInstance(project).findClass(fqn, GlobalSearchScope.projectScope(project)) ?: return null
         return (cls.navigationElement as? KtClassOrObject) ?: cls
     }
 
     /** `Owner::key` (owner = class fqn or module fqn, key without the class prefix) to that function or method, or null. */
-    private fun functionByKey(context: KtFile, key: String): PsiElement? {
+    private fun functionByKey(project: Project, key: String): PsiElement? {
         val owner = key.substringBefore("::")
         val short = key.substringAfter("::")
-        when (val cls = classByFqn(context, owner)) {
+        when (val cls = classByFqn(project, owner)) {
             is KtClassOrObject -> memberFunctions(cls).map { it.function }.firstOrNull { calleeKey(it) == key }?.let { return it }
             is PsiClass -> JavaBlockBuilder.findOwnMethod(cls, short)?.let { return it.navigationElement as? PsiMethod ?: it }
         }
         val module = owner.substringAfterLast('.')
-        return FilenameIndex.getVirtualFilesByName("$module.kt", GlobalSearchScope.projectScope(context.project))
-            .mapNotNull { PsiManager.getInstance(context.project).findFile(it) as? KtFile }
+        return FilenameIndex.getVirtualFilesByName("$module.kt", GlobalSearchScope.projectScope(project))
+            .mapNotNull { PsiManager.getInstance(project).findFile(it) as? KtFile }
             .filter { moduleFqn(it) == owner }
             .flatMap { it.declarations.filterIsInstance<KtNamedFunction>() }
             .firstOrNull { calleeKey(it) == key }
     }
+
+    /**
+     * An added key resolved the way this builder's own `added` handling does, Kotlin declarations only: `Fqn::class` to
+     * a Kotlin class, `Owner::key` to a Kotlin function (members and top-level). For Java canvases.
+     */
+    internal fun kotlinElementForKey(project: Project, key: String): PsiElement? =
+        if (key.endsWith("::class")) classByFqn(project, key.removeSuffix("::class")) as? KtClassOrObject
+        else functionByKey(project, key) as? KtNamedFunction
 
     /** Kotlin PSI ranges of a declaration include its KDoc and annotations. */
     private fun rangeOf(element: PsiElement): SourceRange = SourceRange(element.textRange.startOffset, element.textRange.endOffset)

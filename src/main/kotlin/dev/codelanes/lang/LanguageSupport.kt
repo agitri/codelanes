@@ -71,6 +71,12 @@ interface LanguageSupport {
 
     /** The `callee:` id another language's canvas gives [element], a function or method this support owns; else null. */
     fun calleeIdFor(element: PsiElement): String? = null
+
+    /**
+     * An added key (`acme.Repo::save`, `acme.NoteScreen::format`, `acme.Repo::class`, from Add method… or an AI flow)
+     * to the declaration this support owns, for another language's canvas to show with [externalBlockFor]; else null.
+     */
+    fun elementForKey(project: Project, key: String): PsiElement? = null
 }
 
 /**

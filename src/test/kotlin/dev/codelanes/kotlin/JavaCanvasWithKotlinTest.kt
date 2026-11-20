@@ -4,6 +4,10 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiFile
 import dev.codelanes.canvas.BlocksSession
+import dev.codelanes.flow.Flow
+import dev.codelanes.flow.FlowEntry
+import dev.codelanes.flow.FlowHop
+import dev.codelanes.flow.FlowResolver
 import dev.codelanes.java.JavaBlockBuilder
 import dev.codelanes.model.Block
 import dev.codelanes.model.BlockModel
@@ -118,5 +122,38 @@ class JavaCanvasWithKotlinTest : KotlinTestCase() {
         addFile("acme/DbStore.kt", "package acme\n\nclass DbStore : Store { override fun put() {} }")
         val session = openSession("acme/Store.java", "package acme;\npublic interface Store { void put(); }\n")
         assertTrue(session.blockIds().toString(), session.blockIds().contains("implementer:acme.DbStore"))
+    }
+
+    private fun kotlinTargets() {
+        addFile("acme/Repo.kt", "package acme\n\nclass Repo {\n    fun save() {}\n}")
+        addFile("acme/NoteScreen.kt", "package acme\n\nfun format() {}")
+    }
+
+    /** An AI flow opened on a Java entry with hops into a Kotlin member and a Kotlin top-level function (no calls in the code). */
+    fun testAFlowFromAJavaEntryShowsItsKotlinHops() {
+        kotlinTargets()
+        val session = openSession("acme/Service.java", "package acme;\npublic class Service {\n    public void run() {}\n}\n")
+        val resolved = inBackground {
+            FlowResolver.resolve(project, Flow("f", FlowEntry("f", "acme.Service::run"), listOf(
+                FlowHop("acme.Service::run", "acme.Repo::save", "calls"),
+                FlowHop("acme.Repo::save", "acme.NoteScreen::format", "calls"),
+            )))
+        }
+        assertEquals(setOf("acme.Repo::save", "acme.NoteScreen::format"), resolved.added)
+        session.showFlow(resolved, "f")
+        val ids = session.blockIds()
+        assertTrue(ids.toString(), ids.containsAll(listOf("callee:acme.Repo::save", "callee:acme.NoteScreen::format")))
+        val save = session.model!!.blocks.single { it.id == "callee:acme.Repo::save" }
+        assertTrue(save.filePath.endsWith("Repo.kt"))
+    }
+
+    fun testAddingAKotlinFunctionToAJavaCanvasKeepsItsBlock() {
+        kotlinTargets()
+        val session = openSession("acme/Service.java", "package acme;\npublic class Service {\n    public void run() {}\n}\n")
+        session.addToCanvas("acme.Repo", "save")
+        session.addToCanvas("acme.NoteScreen", "format")
+        val ids = session.blockIds()
+        assertTrue(ids.toString(), ids.containsAll(listOf("callee:acme.Repo::save", "callee:acme.NoteScreen::format")))
+        assertTrue(session.model!!.blocks.single { it.id == "callee:acme.NoteScreen::format" }.filePath.endsWith("NoteScreen.kt"))
     }
 }

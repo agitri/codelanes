@@ -125,6 +125,8 @@ class KotlinLanguageSupport : LanguageSupport {
     override fun calleeIdFor(element: PsiElement): String? =
         (element as? KtNamedFunction)?.let(KotlinBlockBuilder::calleeKey)?.let { "callee:$it" }
 
+    override fun elementForKey(project: Project, key: String): PsiElement? = KotlinBlockBuilder.kotlinElementForKey(project, key)
+
     private companion object {
         val INTERFACE_TITLE = Regex("^(sealed |fun )?interface ")
     }
