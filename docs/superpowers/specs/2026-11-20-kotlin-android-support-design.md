@@ -164,7 +164,7 @@ pure-Java projects; behaviour only changes where a Kotlin declaration is involve
   import Kotlin PSI (it loads without the Kotlin plugin): it asks `LanguageSupports` for a support that claims the
   element (new `LanguageSupport` hook `blockFor(element: PsiElement): ExternalBlock?`, default null) and falls back to
   today's behaviour.
-- **Flows:** `FlowResolver` proves a hop only when both ends share a support. Change: a new hook
+- **Flows:** `FlowResolver` proves a hop only when both ends share a support. Change: a new hook (built as `proofFamily = "jvm"`, see the plan)
   `LanguageSupport.canProveWith(other: LanguageSupport): Boolean` (default `this === other`); Java and Kotlin return
   true for each other, and the `from` target's support does the proving on PSI (both resolve to the same JVM elements,
   so a Kotlin call to a Java method is proven by the Kotlin support, and vice versa). PHP and Python are unaffected.
