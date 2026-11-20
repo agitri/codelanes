@@ -461,6 +461,19 @@ object KotlinBlockBuilder {
     private fun kotlinCalleeBlock(id: String, function: KtNamedFunction): Block =
         Block(id, BlockKind.CALLEE, "${ownerName(function)}::${functionTitle(function)}", function.containingFile.virtualFile.path, rangeOf(function))
 
+    /**
+     * A [kind] block for a Kotlin class or function seen from a Java canvas: a class gets the side-lane type block
+     * (`parent:acme.Base`), a function the callee block under its Kotlin callee key (`callee:acme.NoteScreen::format`,
+     * also when Java calls it through the `NoteScreenKt` facade). Null for anything else.
+     */
+    internal fun foreignBlock(element: PsiElement, kind: BlockKind): Block? = when (element) {
+        is KtClassOrObject -> element.fqName?.let { typeBlock(kind, element) }
+        is KtNamedFunction -> calleeKey(element)?.let { key ->
+            kotlinCalleeBlock("${kind.name.lowercase()}:$key", element).copy(kind = kind)
+        }
+        else -> null
+    }
+
     /** The id and block of a callee (Kotlin function or Java method) in project code, or null. */
     private fun calleeFor(target: PsiElement): Pair<String, Block>? {
         if (!inProject(target)) return null

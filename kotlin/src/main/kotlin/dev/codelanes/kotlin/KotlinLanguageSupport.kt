@@ -4,6 +4,7 @@ import com.intellij.openapi.fileTypes.FileTypeRegistry
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import dev.codelanes.lang.EntryPoint
 import dev.codelanes.lang.FlowLookup
@@ -116,6 +117,13 @@ class KotlinLanguageSupport : LanguageSupport {
             ?: if (target.classElement is KtClassOrObject) key.removePrefix(target.classFqn.substringAfterLast('.') + ".") else key
         return "callee:${target.declaringFqn}::$short"
     }
+
+    /** Kotlin classes and functions on a Java canvas (Java sees their light classes; this gets their Kotlin source). */
+    override fun externalBlockFor(element: PsiElement, kind: BlockKind): Block? = KotlinBlockBuilder.foreignBlock(element, kind)
+
+    /** `callee:acme.Repo::save`; a top-level function, even when called through its `NoteScreenKt` facade: `callee:acme.NoteScreen::format`. */
+    override fun calleeIdFor(element: PsiElement): String? =
+        (element as? KtNamedFunction)?.let(KotlinBlockBuilder::calleeKey)?.let { "callee:$it" }
 
     private companion object {
         val INTERFACE_TITLE = Regex("^(sealed |fun )?interface ")

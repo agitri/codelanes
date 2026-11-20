@@ -3,8 +3,10 @@ package dev.codelanes.lang
 import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import dev.codelanes.model.Block
+import dev.codelanes.model.BlockKind
 import dev.codelanes.model.BuildResult
 import dev.codelanes.model.SourceRange
 
@@ -60,6 +62,15 @@ interface LanguageSupport {
 
     /** The block id [target] gets on a canvas opened on [openFqn], or null for the default rule. */
     fun blockIdOf(target: FlowTarget, openFqn: String): String? = null
+
+    /**
+     * A [kind] block for [element], a declaration this support owns seen from another language's canvas (a Java class
+     * extending a Kotlin class): id, title, range and summary in this language's terms. Null if [element] isn't one.
+     */
+    fun externalBlockFor(element: PsiElement, kind: BlockKind): Block? = null
+
+    /** The `callee:` id another language's canvas gives [element], a function or method this support owns; else null. */
+    fun calleeIdFor(element: PsiElement): String? = null
 }
 
 /**
