@@ -20,7 +20,8 @@
       GitHub Copilot or any MCP client can show a request flow on the canvas (Laravel routes, middleware, events,
       listeners, container bindings). CodeLanes checks every step against the real code: steps the code proves are drawn
       solid, the AI's other claims as dotted red lines, and references that don't exist are reported back instead of drawn. Flows are saved
-      in <code>.codelanes/flows/</code> to reopen later.</li>
+      in <code>.codelanes/flows/</code> to reopen later. Android Studio doesn't bundle the MCP Server plugin: install it
+      from the Marketplace, which lists it as compatible with Android Studio.</li>
   <li><b>+ calls</b>, <b>Add method…</b> and <b>+ parents</b>: follow the flow across files.</li>
           <li><b>Review marks and notes</b> shared with your team in <code>.codelanes/</code>, and
               <b>working sets</b> to save and reopen the canvases of a review.</li>
@@ -35,7 +36,8 @@
           <li>Lanes, Column and Tree layouts; usage highlighting; Cmd+click stays on the canvas.</li>
         </ul>
         <p>Works in PhpStorm (PHP), IntelliJ IDEA (Java, Kotlin), PyCharm (Python, also IntelliJ IDEA with the Python plugin)
-        and Android Studio Otter (2025.2) or newer (Kotlin, Java); other JetBrains IDEs aren't supported yet.</p>
+        and Android Studio Otter (2025.2) or newer (Kotlin, Java; supported and checked by the plugin verifier); other
+        JetBrains IDEs aren't supported yet.</p>
         <p>Toggle between blocks and text with <b>Ctrl+Alt+Shift+B</b>. Source and issues:
         <a href="https://github.com/agitri/codelanes">github.com/agitri/codelanes</a>.</p>
     ]]></description>

@@ -45,7 +45,9 @@ import org.jetbrains.kotlin.psi.KtObjectDeclaration
  * the file's other top-level declarations (MODULE, only when there are any), each top-level class, interface or
  * object (CLASS, minus its member functions) and each top-level and member function (METHOD).
  * Only direct children become blocks: nested classes, local functions, properties and `init` blocks stay in their parent.
- * This builder covers the structure only; parents, dependencies, calls and overrides are layered on by later tasks.
+ * On top of that: supertypes and injected types on the left (with `+ parents`), CALLS and OVERRIDES lines, implementers
+ * of interfaces, abstract and sealed classes, and callees in other files (`+ calls`, Add method…, AI flows), Java ones
+ * included. Uses PSI and reference resolution only; build it off the EDT (K2 refuses analysis there).
  */
 object KotlinBlockBuilder {
     const val HEADER_ID = "header"

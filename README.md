@@ -77,7 +77,8 @@ summaries, everything comes from the real code.
 ## Install
 
 Requirements: **PhpStorm 2025.2 or newer** for PHP, **IntelliJ IDEA 2025.2 or newer** for Java and Kotlin, **PyCharm
-2025.2 or newer** for Python, **Android Studio Otter (2025.2) or newer** for Java and Kotlin. IntelliJ IDEA also does
+2025.2 or newer** for Python, **Android Studio Otter (2025.2) or newer** for Java and Kotlin (supported and checked by
+the plugin verifier on Otter and newer). IntelliJ IDEA also does
 Python with the free **Python Community Edition** plugin installed.
 Works in PhpStorm (PHP), IntelliJ IDEA (Java, Kotlin), PyCharm (Python) and Android Studio (Kotlin, Java); other
 JetBrains IDEs aren't supported yet.
@@ -233,7 +234,7 @@ Python module, a Kotlin file can hold several classes and top-level functions, s
 | In the Kotlin code | Block / lane |
 |---|---|
 | `package` and the imports | header, folded (`package com.acme.notes · 12 imports`) |
-| the file block: top-level properties, `const val`, `typealias`es, file annotations | middle, only when the file has any |
+| the file block: top-level functions (it owns them), properties, `const val`, `typealias`es, file annotations | middle, only when the file has any of these, or no declarations at all |
 | each `class`, `interface`, `object`, `enum class`, `data class`, `sealed` type, `annotation class`, `value class` | middle, in source order |
 | each top-level function (extension and `@Composable` functions too) | functions, on the right |
 | each member function of a class, also the ones in its `companion object` | methods, on the right |
@@ -249,23 +250,27 @@ Python module, a Kotlin file can hold several classes and top-level functions, s
   of your project on the canvas.
 - `+ method` on the file block adds a function at the end of the file, on a class a member function; right-click a
   function's title to delete it.
-- Overloads get their parameter types in their id, as in Java; extension functions get their receiver
-  (`String.slug`).
+- Overloads get their parameter types in their id, as in Java; where a function name repeats, an extension function
+  gets its receiver in its id (`String.slug`) and the parameter types only if that still isn't unique.
 - **Follow a Request** lists Spring routes written in Kotlin (`@RestController` with `@GetMapping`, `@PostMapping`, …)
   like those in Java. Android entry points (Compose taps, navigation) aren't followed yet.
 - **Java and Kotlin in one project** work together in both directions: a Kotlin function calling Java shows the Java
   method with `+ calls`, and a Java canvas shows the Kotlin code it calls (a Kotlin repository, say) as Kotlin,
   including its `fun` and `val`. Calls follow across the language border.
-- The canvas of a Kotlin file builds in the background and shows a small, cancellable progress while it does: Kotlin's
-  analysis may not run on the UI thread.
+- Kotlin's analysis may not run on the UI thread, so a Kotlin canvas builds in the background. Where the canvas needs
+  the result right away (opening the file, Follow a Request, an AI flow, **Add method…**, `+ method`) a "Building
+  blocks" progress shows, which you can cancel: the canvas then stays as it was (a file being opened opens empty and
+  builds in the background). Edits, `+ calls`, `+ parents` and moving between blocks rebuild in the background without
+  a dialog.
 - **AI flows for Kotlin** use `::` like Java, with dots in the package: a member is
   `com.acme.shop.stock.StockRepository::reserve`; a top-level function is the package plus the **file name**,
   `com.acme.notes.NoteScreen::NoteScreen` for `fun NoteScreen` in `NoteScreen.kt`; a signature picks an overload,
   `::save(Int)`. `calls`, `binds`, `dispatches` and `listens` are proven from the code, also from Java to Kotlin and
   back. Set it up as in [Flows from your AI assistant](#flows-from-your-ai-assistant).
-- **Android Studio:** the canvas works in Android Studio Otter (2025.2) and newer. Android Studio doesn't bundle the **MCP Server** plugin: install it from the Marketplace (**Settings → Plugins →
-  Marketplace**, "MCP Server"; it has builds for Otter to Rabbit), restart, then enable **Settings → Tools → MCP
-  Server** to use AI flows. The canvas itself needs nothing extra.
+- **Android Studio:** CodeLanes is supported and checked by the plugin verifier on Android Studio Otter (2025.2) and
+  newer. Android Studio doesn't bundle the **MCP Server** plugin; the Marketplace lists it as compatible with Android
+  Studio, so install it for AI flows (**Settings → Plugins → Marketplace**, "MCP Server"), restart, then enable
+  **Settings → Tools → MCP Server**. The canvas itself needs nothing extra.
 
 Not covered yet:
 - Kotlin scripts (`.kts`); `object` classes as Spring controllers.

@@ -16,9 +16,13 @@ Kotlin in IntelliJ IDEA and Android Studio. For PhpStorm, IntelliJ IDEA, PyCharm
 - **Follow a Request for Kotlin**: Spring routes in `@RestController` classes written in Kotlin.
 - **AI flows for Kotlin**: references like `com.acme.NoteViewModel::save`, or `com.acme.notes.NoteScreen::NoteScreen`
   for a top-level function; calls, overrides, events and listeners are proven from the code, also across Java and Kotlin.
-- **Android Studio** Otter (2025.2) and newer is supported and checked by the plugin verifier.
-- Kotlin canvases build in the background, with a progress you can cancel.
-- Nothing changes for PHP, Java and Python.
+- **Android Studio** Otter (2025.2) and newer is supported and checked by the plugin verifier. AI flows there need the
+  MCP Server plugin, which the Marketplace lists as compatible with Android Studio.
+- Kotlin canvases build in the background. Where the canvas needs the result right away (opening, Follow a Request, an
+  AI flow, Add method…, `+ method`) a "Building blocks" progress shows that you can cancel, leaving the canvas as it
+  was; edits, `+ calls`, `+ parents` and focus changes rebuild without a dialog.
+- Nothing changes for Java-only projects (and PHP, Python); Java canvases in projects with Kotlin show the Kotlin code
+  they use.
 
 ## 0.3.0
 
