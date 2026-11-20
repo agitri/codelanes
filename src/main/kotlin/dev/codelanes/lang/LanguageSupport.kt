@@ -22,6 +22,13 @@ interface LanguageSupport {
     fun build(file: PsiFile, revealed: Set<String>, followedCalls: Set<String>, added: Set<String>): BuildResult
 
     /** Every method in the project's own code, for Add method… Needs a read action and indexes. */
+    /**
+     * True when [build] runs analysis the platform refuses on the EDT (Kotlin K2: DefinitionsScopedSearch throws
+     * ProhibitedAnalysisException there). The session's synchronous rebuild then computes in a cancellable background
+     * read action while the EDT waits in a modal progress.
+     */
+    val buildsInBackground: Boolean get() = false
+
     fun methods(project: Project): List<MethodRef>
 
     /** Routes found without AI, for Follow a Request. */

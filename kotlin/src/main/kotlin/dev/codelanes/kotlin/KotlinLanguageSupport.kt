@@ -28,6 +28,8 @@ class KotlinLanguageSupport : LanguageSupport {
         }
     }
 
+    override val buildsInBackground: Boolean get() = true
+
     override fun build(file: PsiFile, revealed: Set<String>, followedCalls: Set<String>, added: Set<String>): BuildResult =
         (file as? KtFile)?.let { KotlinBlockBuilder.build(it, revealed, followedCalls, added) } ?: BuildResult.Unsupported("Not a Kotlin file")
 

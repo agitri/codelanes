@@ -161,7 +161,8 @@ class KotlinBlockBuilderCallsTest : KotlinTestCase() {
         val calls = (1..12).joinToString("\n") { "    go$it()" }
         val followed = (1..12).map { "callee:acme.C$it::go$it" }.toSet() + "method:run"
         val model = model("acme/Big.kt", "package acme\n\nfun run() {\n$calls\n}", followed = followed)
-        assertTrue(model.blocks.count { it.kind == BlockKind.CALLEE } <= KotlinBlockBuilder.MAX_CHAIN_BLOCKS)
+        // The cap counts callees and their `more:calls` blocks.
+        assertEquals(KotlinBlockBuilder.MAX_CHAIN_BLOCKS, model.blocks.count { it.kind == BlockKind.CALLEE || it.id.startsWith("more:calls:") })
         assertEquals(KotlinBlockBuilder.MORE_CHAIN_ID, model.block(KotlinBlockBuilder.MORE_CHAIN_ID).id)
         assertTrue(Link(LinkKind.CALLS_INTO, "method:run", KotlinBlockBuilder.MORE_CHAIN_ID) in model.links)
     }

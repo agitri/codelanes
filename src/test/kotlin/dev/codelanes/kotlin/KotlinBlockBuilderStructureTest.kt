@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.psi.KtFile
 class KotlinBlockBuilderStructureTest : KotlinTestCase() {
     private fun model(path: String, text: String): BlockModel {
         val file = open(path, text) as KtFile
-        return when (val result = KotlinBlockBuilder.build(file, emptySet(), emptySet(), emptySet())) {
+        return when (val result = inBackground { KotlinBlockBuilder.build(file, emptySet(), emptySet(), emptySet()) }) {
             is BuildResult.Supported -> result.model
             is BuildResult.Unsupported -> error("Expected Supported but got Unsupported(${result.reason})")
         }

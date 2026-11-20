@@ -171,7 +171,23 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             scheduleRebuild()
             return
         }
-        ApplicationManager.getApplication().runReadAction<CanvasUpdate?> { computeUpdate(model, revealed.toSet(), followedCalls.toSet(), added.toSet(), flow) }?.let(::applyUpdate)
+        val previous = model
+        val reveal = revealed.toSet()
+        val follow = followedCalls.toSet()
+        val extra = added.toSet()
+        val overlay = flow
+        val application = ApplicationManager.getApplication()
+        val update = if (application.isDispatchThread && LanguageSupports.forFile(file)?.buildsInBackground == true) {
+            // Analysis the platform refuses on the EDT (Kotlin K2): a cancellable background read action under a modal
+            // progress, so the EDT keeps pumping events and the caller still has the model when this returns.
+            com.intellij.openapi.progress.ProgressManager.getInstance().runProcessWithProgressSynchronously<CanvasUpdate?, RuntimeException>(
+                { ReadAction.nonBlocking<CanvasUpdate?> { computeUpdate(previous, reveal, follow, extra, overlay) }.executeSynchronously() },
+                "Building blocks", true, project,
+            )
+        } else {
+            application.runReadAction<CanvasUpdate?> { computeUpdate(previous, reveal, follow, extra, overlay) }
+        }
+        update?.let(::applyUpdate)
     }
 
     private fun computeUpdate(previous: BlockModel?, reveal: Set<String>, follow: Set<String>, extra: Set<String>, overlay: FlowOverlay?): CanvasUpdate? {

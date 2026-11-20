@@ -1,7 +1,5 @@
 package dev.codelanes.kotlin
 
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.psi.PsiAnonymousClass
 import com.intellij.psi.PsiClass
@@ -477,23 +475,11 @@ object KotlinBlockBuilder {
         else -> emptyList()
     }
 
-    /**
-     * Project implementations of an interface/abstract [function] (at most [MAX_IMPLEMENTATIONS]). Goes through the
-     * platform's DefinitionsScopedSearch ("Go to Implementation"), as Java does; needs a background thread under K2.
-     */
-    /**
-     * "Go to Implementation" over project code. K2 refuses this analysis on the EDT (ProhibitedAnalysisException), and
-     * the session's synchronous rebuild (on open) runs there, so on the EDT the search moves to a pooled thread.
-     */
-    private fun definitions(element: PsiElement): List<PsiElement> {
-        val search = { DefinitionsScopedSearch.search(element, GlobalSearchScope.projectScope(element.project)).findAll().toList() }
-        val application = ApplicationManager.getApplication()
-        return if (application.isDispatchThread) {
-            application.executeOnPooledThread<List<PsiElement>> { ReadAction.compute<List<PsiElement>, RuntimeException>(search) }.get()
-        } else {
-            search()
-        }
-    }
+    /** "Go to Implementation" over project code (DefinitionsScopedSearch, as Java does). Needs a background read action: K2 refuses it on the EDT. */
+    private fun definitions(element: PsiElement): List<PsiElement> =
+        DefinitionsScopedSearch.search(element, GlobalSearchScope.projectScope(element.project)).findAll().toList()
+
+    /** Project implementations of an interface/abstract [function] (at most [MAX_IMPLEMENTATIONS]). */
 
     private fun implementationsOf(function: PsiElement): List<Pair<String, PsiElement>> =
         definitions(function).asSequence()
