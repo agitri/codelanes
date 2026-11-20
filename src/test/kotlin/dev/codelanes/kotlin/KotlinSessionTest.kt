@@ -52,6 +52,51 @@ class KotlinSessionTest : KotlinTestCase() {
         assertTrue(session.blockIds().contains("callee:acme.DbStore::put"))
     }
 
+    private fun <T> cancellingBuilds(block: () -> T): T {
+        BlocksSession.cancelModalBuildsForTests = true
+        try {
+            return block()
+        } finally {
+            BlocksSession.cancelModalBuildsForTests = false
+        }
+    }
+
+    private fun waitFor(what: String, condition: () -> Boolean) {
+        com.intellij.testFramework.PlatformTestUtil.waitWithEventsDispatching(what, condition, 20)
+    }
+
+    /** Cancelling "Building blocks" while the file opens: the canvas still opens, empty with a notice, and builds later. */
+    fun testCancellingTheBuildOnOpenStillOpensTheCanvas() {
+        val session = cancellingBuilds { openSession("acme/Svc.kt", "package acme\n\nfun run() {}") }
+        assertNull(session.model)
+        assertEquals(BlocksSession.OPEN_CANCELLED_NOTICE, session.canvas.notice)
+        waitFor("the background build after a cancelled open") { "method:run" in session.blockIds() }
+    }
+
+    /** Cancelling "Building blocks" in an action leaves the canvas, and what it follows and shows, as it was. */
+    fun testCancellingTheBuildInAnActionPutsTheCanvasBack() {
+        addFile("acme/Repo.kt", "package acme\n\nclass Repo {\n    fun save() {}\n}")
+        val session = openSession("acme/Svc.kt", "package acme\n\nfun run(r: Repo) { r.save() }")
+        val before = session.blockIds()
+        cancellingBuilds {
+            session.addToCanvas("acme.Repo", "save")
+            session.followChain("method:run", 2)
+        }
+        assertEquals(before, session.blockIds())
+        assertTrue(session.snapshot().added.isEmpty())
+        assertTrue(session.snapshot().followedCalls.isEmpty())
+        assertEquals(BlocksSession.CANCELLED_NOTICE, session.canvas.notice)
+    }
+
+    /** + calls on a Kotlin canvas needs no model right away: it builds in the background, without a modal progress. */
+    fun testPlusCallsBuildsInTheBackground() {
+        addFile("acme/Repo.kt", "package acme\n\nclass Repo {\n    fun save() {}\n}")
+        val session = openSession("acme/Svc.kt", "package acme\n\nfun run(r: Repo) { r.save() }")
+        cancellingBuilds { session.toggleCalls("method:run") } // a modal build would be cancelled here
+        assertEquals(listOf("method:run"), session.snapshot().followedCalls)
+        waitFor("the background build after + calls") { "callee:acme.Repo::save" in session.blockIds() }
+    }
+
     private fun text(): String = FileDocumentManager.getInstance().getDocument(opened!!.virtualFile)!!.text
 
     fun testAddMethodToModule() {
