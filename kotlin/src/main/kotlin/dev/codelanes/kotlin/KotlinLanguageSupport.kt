@@ -12,6 +12,7 @@ import dev.codelanes.lang.LanguageSupport
 import dev.codelanes.lang.MethodRef
 import dev.codelanes.model.BuildResult
 import org.jetbrains.kotlin.idea.KotlinFileType
+import org.jetbrains.kotlin.psi.KtFile
 
 class KotlinLanguageSupport : LanguageSupport {
     /** `.kt` files only: scripts (`.kts`) share the Kotlin file type but aren't supported. */
@@ -28,7 +29,7 @@ class KotlinLanguageSupport : LanguageSupport {
     }
 
     override fun build(file: PsiFile, revealed: Set<String>, followedCalls: Set<String>, added: Set<String>): BuildResult =
-        BuildResult.Unsupported("Not built yet")
+        (file as? KtFile)?.let { KotlinBlockBuilder.build(it, revealed, followedCalls, added) } ?: BuildResult.Unsupported("Not a Kotlin file")
 
     override fun methods(project: Project): List<MethodRef> = emptyList()
 
