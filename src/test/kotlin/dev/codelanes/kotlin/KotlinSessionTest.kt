@@ -140,6 +140,24 @@ class KotlinSessionTest : KotlinTestCase() {
         assertTrue(session.blockIds().contains("method:O.newMethod"))
     }
 
+    /** Members of an enum need a `;` after its entries: "+ method" adds one when there is none. */
+    fun testAddMethodToAnEnumWithEntries() {
+        val session = openSession("acme/E.kt", "enum class E {\n    A, B // the last\n}\n")
+        session.addMethod("class:E")
+        assertEquals("enum class E {\n    A, B; // the last\n\n    fun newMethod() {\n    }\n}\n", text())
+        assertTrue(session.blockIds().contains("method:E.newMethod"))
+        assertEquals("newMethod", session.sliceEditor("method:E.newMethod")!!.editor.selectionModel.selectedText)
+        session.addMethod("class:E")
+        assertEquals("enum class E {\n    A, B; // the last\n\n    fun newMethod() {\n    }\n\n    fun newMethod2() {\n    }\n}\n", text())
+    }
+
+    fun testAddMethodToAOneLineEnum() {
+        val session = openSession("acme/E.kt", "enum class E { A(1), B(2) { override fun toString() = \"b;\" } }\n")
+        session.addMethod("class:E")
+        assertEquals("enum class E { A(1), B(2) { override fun toString() = \"b;\" }; \n    fun newMethod() {\n    }\n}\n", text())
+        assertTrue(session.blockIds().contains("method:E.newMethod"))
+    }
+
     fun testAddMethodToInterface() {
         val session = openSession("acme/I.kt", "interface I {\n    fun a()\n}\n")
         session.addMethod("class:I")

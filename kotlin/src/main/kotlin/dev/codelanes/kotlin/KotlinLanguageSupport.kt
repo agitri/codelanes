@@ -89,7 +89,66 @@ class KotlinLanguageSupport : LanguageSupport {
         var before = at
         while (before > ownerRange.start && text[before - 1].isWhitespace()) before--
         val opensBody = onItsOwnLine && before > ownerRange.start && text[before - 1] == '{'
-        return MethodInsertion(at, (if (opensBody) "" else "\n") + method, name, blockId)
+        val insertion = MethodInsertion(at, (if (opensBody) "" else "\n") + method, name, blockId)
+        return if (owner.title.startsWith("enum class ")) closingEntries(text, ownerRange.start, brace, insertion) else insertion
+    }
+
+    /**
+     * An enum's members must follow a `;` after its entries (`enum class E { A, B }`): when the body has entries but no
+     * `;` of its own, [insertion] also puts one right after the last entry (before a comment on that line).
+     */
+    private fun closingEntries(text: CharSequence, start: Int, brace: Int, insertion: MethodInsertion): MethodInsertion {
+        var open = -1
+        scanCode(text, start, brace) { i, c, depth -> if (open < 0 && c == '{' && depth == 0) open = i }
+        if (open < 0) return insertion
+        var lastCode = -1
+        var hasSemicolon = false
+        scanCode(text, open + 1, brace) { i, c, depth ->
+            if (!c.isWhitespace()) lastCode = i
+            if (c == ';' && depth == 0) hasSemicolon = true
+        }
+        if (hasSemicolon || lastCode < 0 || lastCode + 1 > insertion.offset) return insertion
+        val after = lastCode + 1
+        val between = text.subSequence(after, insertion.offset)
+        return insertion.copy(offset = after, text = ";$between${insertion.text}", replaced = insertion.offset - after)
+    }
+
+    /**
+     * Calls [visit] for each character of code in [from, to): comments and the inside of string and character literals
+     * are skipped; depth counts the brackets opened since [from] (`{` and `(` themselves are at the outer depth).
+     */
+    private fun scanCode(text: CharSequence, from: Int, to: Int, visit: (Int, Char, Int) -> Unit) {
+        var i = from
+        var depth = 0
+        fun startsWith(s: String) = i + s.length <= to && text.subSequence(i, i + s.length).toString() == s
+        while (i < to) {
+            when {
+                startsWith("//") -> while (i < to && text[i] != '\n') i++
+                startsWith("/*") -> {
+                    val end = text.indexOf("*/", i + 2)
+                    i = if (end < 0 || end + 2 > to) to else end + 2
+                }
+                startsWith("\"\"\"") -> {
+                    val end = text.indexOf("\"\"\"", i + 3)
+                    i = if (end < 0 || end + 3 > to) to else end + 3
+                }
+                text[i] == '"' || text[i] == '\'' -> {
+                    val quote = text[i]
+                    visit(i, quote, depth)
+                    i++
+                    while (i < to && text[i] != quote) i += if (text[i] == '\\') 2 else 1
+                    if (i < to) visit(i, quote, depth)
+                    i++
+                }
+                else -> {
+                    val c = text[i]
+                    if (c == '}' || c == ')' || c == ']') depth--
+                    visit(i, c, depth)
+                    if (c == '{' || c == '(' || c == '[') depth++
+                    i++
+                }
+            }
+        }
     }
 
     private fun lineStartOf(text: CharSequence, offset: Int): Int {
