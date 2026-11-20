@@ -41,7 +41,7 @@ class KotlinLanguageSupport : LanguageSupport {
 
     override fun methods(project: Project): List<MethodRef> = KotlinMethodFinder.find(project)
 
-    override fun routes(project: Project): List<EntryPoint> = emptyList()
+    override fun routes(project: Project): List<EntryPoint> = KotlinRouteFinder.find(project)
 
     override fun findFlowTarget(project: Project, reference: String): FlowLookup? = null
 

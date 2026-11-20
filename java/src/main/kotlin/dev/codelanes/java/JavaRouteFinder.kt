@@ -9,9 +9,12 @@ import com.intellij.psi.PsiAnnotationMemberValue
 import com.intellij.psi.PsiArrayInitializerMemberValue
 import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiJavaFile
+import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiModifier
 import com.intellij.psi.PsiModifierListOwner
+import com.intellij.psi.impl.light.LightElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiSearchHelper
 import dev.codelanes.lang.EntryPoint
@@ -48,19 +51,33 @@ object JavaRouteFinder {
             val virtualFile = file.virtualFile ?: continue
             if (files.isInLibrary(virtualFile)) continue
             for (cls in file.classes) {
-                if (cls.isInterface || cls.isAnnotationType || cls.hasModifierProperty(PsiModifier.ABSTRACT)) continue // mapped on implementations
-                val prefixes = annotation(cls, REQUEST_MAPPING)?.let(::pathsOf) ?: listOf("")
-                for (method in JavaBlockBuilder.ownMethods(cls)) {
-                    val mapping = mappingOf(method) ?: continue
-                    val verbs = mapping.verbs.ifEmpty { listOf("ANY") }.joinToString("|")
-                    for (prefix in prefixes) for (path in mapping.paths) {
-                        val full = join(prefix, path)
-                        found += full to EntryPoint("$verbs $full → ${cls.name}::${method.name}", virtualFile.path, JavaBlockBuilder.methodKey(method))
-                    }
+                for ((full, labelled) in routesIn(cls)) {
+                    found += full to EntryPoint(labelled.first, virtualFile.path, JavaBlockBuilder.methodKey(labelled.second))
                 }
             }
         }
         return found.distinctBy { it.second.label }.sortedWith(compareBy({ it.first }, { it.second.label })).map { it.second }
+    }
+
+    /**
+     * The routes of one class as (full path, (label, method)); none for interfaces, annotation types and abstract
+     * classes (mapped on implementations). Also used for the light classes of Kotlin classes.
+     */
+    fun routesIn(cls: PsiClass): List<Pair<String, Pair<String, PsiMethod>>> {
+        if (cls.isInterface || cls.isAnnotationType || cls.hasModifierProperty(PsiModifier.ABSTRACT)) return emptyList()
+        val prefixes = annotation(cls, REQUEST_MAPPING)?.let(::pathsOf) ?: listOf("")
+        val routes = mutableListOf<Pair<String, Pair<String, PsiMethod>>>()
+        // Java classes: methods as written. A light class (Kotlin) is all generated; its methods are the declared ones.
+        val methods = if (cls !is LightElement) JavaBlockBuilder.ownMethods(cls) else cls.methods.filter { !it.isConstructor }
+        for (method in methods) {
+            val mapping = mappingOf(method) ?: continue
+            val verbs = mapping.verbs.ifEmpty { listOf("ANY") }.joinToString("|")
+            for (prefix in prefixes) for (path in mapping.paths) {
+                val full = join(prefix, path)
+                routes += full to ("$verbs $full → ${cls.name}::${method.name}" to method)
+            }
+        }
+        return routes
     }
 
     private fun mappingOf(method: PsiModifierListOwner): Mapping? {
