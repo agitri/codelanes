@@ -214,4 +214,28 @@ class KotlinFlowLookupTest : KotlinTestCase() {
         assertEquals("Base.save", target.methodKey)
         assertEquals("Derived.save", found("acme.Derived::save(Int)").methodKey)
     }
+
+    /** "In the open file" is decided by file, not fqn: another class of the entry's file is a METHOD block there. */
+    fun testAHopToAnotherClassOfTheEntryFileIsItsMethodBlock() {
+        addFile("acme/Two.kt", "package acme\n\nclass A { fun x() { B().y() } }\nclass B { fun y() {} }")
+        val resolved = resolve(FlowHop("acme.A::x", "acme.B::y", "calls"), entry = "acme.A::x")
+        assertEquals(listOf(ResolvedHop("method:A.x", "method:B.y", "calls", true)), resolved.hops)
+        assertTrue(resolved.added.isEmpty())
+    }
+
+    fun testAHopToATopLevelFunctionOfTheEntryFileIsItsMethodBlock() {
+        addFile("acme/Mixed.kt", "package acme\n\nclass C { fun x() { top() } }\nfun top() {}")
+        val resolved = resolve(FlowHop("acme.C::x", "acme.Mixed::top", "calls"), entry = "acme.C::x")
+        assertEquals(listOf(ResolvedHop("method:C.x", "method:top", "calls", true)), resolved.hops)
+        assertTrue(resolved.added.isEmpty())
+    }
+
+    /** A member the entry's class inherits from a class in another file is a callee of that class, not a block of the open file. */
+    fun testAnInheritedMemberFromAnotherFileIsACallee() {
+        addFile("acme/Base.kt", "package acme\n\nopen class Base { fun keep() {} }")
+        addFile("acme/Kid.kt", "package acme\n\nclass Kid : Base() { fun run() { keep() } }")
+        val resolved = resolve(FlowHop("acme.Kid::run", "acme.Kid::keep", "calls"), entry = "acme.Kid::run")
+        assertEquals(listOf(ResolvedHop("method:Kid.run", "callee:acme.Base::keep", "calls", true)), resolved.hops)
+        assertEquals(setOf("acme.Base::keep"), resolved.added)
+    }
 }

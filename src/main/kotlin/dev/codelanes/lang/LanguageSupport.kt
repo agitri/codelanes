@@ -64,6 +64,12 @@ interface LanguageSupport {
     fun blockIdOf(target: FlowTarget, openFqn: String): String? = null
 
     /**
+     * As [blockIdOf], also given [openFile], the file the canvas is opened on (null when unknown), for languages whose
+     * files hold several owners (Kotlin: classes and top-level functions side by side). Defaults to the two-argument rule.
+     */
+    fun blockIdOf(target: FlowTarget, openFqn: String, openFile: PsiFile?): String? = blockIdOf(target, openFqn)
+
+    /**
      * A [kind] block for [element], a declaration this support owns seen from another language's canvas (a Java class
      * extending a Kotlin class): id, title, range and summary in this language's terms. Null if [element] isn't one.
      */

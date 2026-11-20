@@ -103,12 +103,16 @@ class KotlinLanguageSupport : LanguageSupport {
 
     /**
      * `class:<fqn>` / `callee:<fqn>::class` for a class or constructor, `method:<key>` / `callee:<owner fqn>::<short key>`
-     * for a function. A target is in the open file when its class, its declaring owner or its file's module is [openFqn].
+     * for a function. A target is in the open file when it is declared in [openFile] (another class or a top-level
+     * function of that file included; a member inherited from another file not). Without [openFile]: when its declaring
+     * owner or its file's module is [openFqn].
      */
-    override fun blockIdOf(target: FlowTarget, openFqn: String): String? {
+    override fun blockIdOf(target: FlowTarget, openFqn: String): String? = blockIdOf(target, openFqn, null)
+
+    override fun blockIdOf(target: FlowTarget, openFqn: String, openFile: PsiFile?): String? {
         val key = target.methodKey
-        val inOpenFile = target.classFqn == openFqn || target.declaringFqn == openFqn ||
-            (target.file as? KtFile)?.let(KotlinBlockBuilder::moduleFqn) == openFqn
+        val inOpenFile = if (openFile != null) target.file.originalFile == openFile.originalFile
+        else target.declaringFqn == openFqn || (target.file as? KtFile)?.let(KotlinBlockBuilder::moduleFqn) == openFqn
         if (key == null || target.isConstructor) {
             return if (inOpenFile) "class:${target.classFqn}" else "callee:${target.classFqn}::class"
         }
