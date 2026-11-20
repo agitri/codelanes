@@ -229,6 +229,9 @@ object KotlinBlockBuilder {
         return (own + companions).filter { it.function.name != null }
     }
 
+    /** Functions declared in [cls] or its companion, in declaration order. */
+    internal fun declaredFunctions(cls: KtClassOrObject): List<KtNamedFunction> = memberFunctions(cls).map { it.function }
+
     private fun ownerOf(function: KtNamedFunction): KtClassOrObject? = function.parent?.parent as? KtClassOrObject
 
     /**
@@ -263,7 +266,7 @@ object KotlinBlockBuilder {
     private class Related(val block: Block, val linkKind: LinkKind, val type: PsiElement)
 
     /** The class a supertype entry or type reference names, or null (unresolved, type alias, type parameter). */
-    private fun resolveType(typeReference: KtTypeReference?): PsiElement? {
+    internal fun resolveType(typeReference: KtTypeReference?): PsiElement? {
         var element = typeReference?.typeElement
         while (element is KtNullableType) element = element.innerType
         val reference = (element as? KtUserType)?.referenceExpression ?: return null
@@ -277,7 +280,7 @@ object KotlinBlockBuilder {
         return type.takeIf { (it is KtClassOrObject || it is PsiClass) && it !is PsiTypeParameter }
     }
 
-    private fun fqnOf(type: PsiElement): String = when (type) {
+    internal fun fqnOf(type: PsiElement): String = when (type) {
         is KtClassOrObject -> type.fqName?.asString() ?: type.name.orEmpty()
         is PsiClass -> JavaBlockBuilder.fqn(type)
         else -> ""

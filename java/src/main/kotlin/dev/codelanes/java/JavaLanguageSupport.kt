@@ -27,6 +27,8 @@ class JavaLanguageSupport : LanguageSupport {
 
     override fun findFlowTarget(project: Project, reference: String): FlowLookup? = JavaFlowLookup.find(project, reference, this)
 
+    override val proofFamily: String get() = "jvm"
+
     override fun proves(kind: String, from: FlowTarget, to: FlowTarget): Boolean = JavaFlowLookup.proves(kind, from, to)
 
     override fun newMethodText(name: String, indent: String, inInterface: Boolean): String =

@@ -43,9 +43,11 @@ class KotlinLanguageSupport : LanguageSupport {
 
     override fun routes(project: Project): List<EntryPoint> = KotlinRouteFinder.find(project)
 
-    override fun findFlowTarget(project: Project, reference: String): FlowLookup? = null
+    override fun findFlowTarget(project: Project, reference: String): FlowLookup? = KotlinFlowLookup.find(project, reference, this)
 
-    override fun proves(kind: String, from: FlowTarget, to: FlowTarget): Boolean = false
+    override fun proves(kind: String, from: FlowTarget, to: FlowTarget): Boolean = KotlinFlowLookup.proves(kind, from, to)
+
+    override val proofFamily: String get() = "jvm"
 
     override fun newMethodText(name: String, indent: String, inInterface: Boolean): String =
         if (inInterface) "${indent}fun $name()\n" else "${indent}fun $name() {\n$indent}\n"

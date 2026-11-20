@@ -51,7 +51,8 @@ object FlowResolver {
             val from = lookUp(hop.from)
             val to = lookUp(hop.to)
             if (from == null || to == null) return@mapNotNull null
-            val proven = from.support === to.support && from.support.proves(hop.kind, from, to)
+            val proven = (from.support === to.support || (from.support.proofFamily != null && from.support.proofFamily == to.support.proofFamily)) &&
+                from.support.proves(hop.kind, from, to)
             ResolvedHop(idOf(from), idOf(to), hop.kind, proven)
         }
         return ResolvedFlow(entryFile.virtualFile, idOf(entry), null, hops.distinct(), added, unknown.distinct())

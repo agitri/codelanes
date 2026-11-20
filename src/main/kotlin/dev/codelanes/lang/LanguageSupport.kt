@@ -37,6 +37,9 @@ interface LanguageSupport {
     /** A flow reference (`Fqn::method`) → what it points at; null if it isn't written in this language's syntax. */
     fun findFlowTarget(project: Project, reference: String): FlowLookup?
 
+    /** Supports in one family resolve to the same PSI and prove each other's hops ("jvm": Java, Kotlin). */
+    val proofFamily: String? get() = null
+
     /** Whether the code proves a hop of [kind] between two targets this support found. */
     fun proves(kind: String, from: FlowTarget, to: FlowTarget): Boolean
 
