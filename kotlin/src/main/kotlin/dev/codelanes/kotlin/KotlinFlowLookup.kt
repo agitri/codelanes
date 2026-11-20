@@ -53,8 +53,9 @@ object KotlinFlowLookup {
     private fun hasKotlinFiles(project: Project) =
         !FileTypeIndex.processFiles(KotlinFileType.INSTANCE, { false }, GlobalSearchScope.projectScope(project))
 
+    /** Project code only, as the builder's own lookup: a library class never gets a block, so it isn't "Found" either. */
     private fun kotlinClass(project: Project, fqn: String): KtClassOrObject? =
-        com.intellij.psi.JavaPsiFacade.getInstance(project).findClass(fqn, GlobalSearchScope.allScope(project))?.navigationElement as? KtClassOrObject
+        com.intellij.psi.JavaPsiFacade.getInstance(project).findClass(fqn, GlobalSearchScope.projectScope(project))?.navigationElement as? KtClassOrObject
 
     /** The project's `.kt` files whose package plus name is [fqn]. */
     private fun modules(project: Project, fqn: String): List<KtFile> {
