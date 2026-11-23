@@ -3,8 +3,10 @@ package dev.codelanes.lang
 import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import dev.codelanes.model.Block
+import dev.codelanes.model.BlockKind
 import dev.codelanes.model.BuildResult
 import dev.codelanes.model.SourceRange
 
@@ -21,6 +23,14 @@ interface LanguageSupport {
 
     fun build(file: PsiFile, revealed: Set<String>, followedCalls: Set<String>, added: Set<String>): BuildResult
 
+    /**
+     * True when [build] runs analysis the platform refuses on the EDT (Kotlin K2: DefinitionsScopedSearch throws
+     * ProhibitedAnalysisException there). The session's synchronous rebuild (only where the model is read right after)
+     * then computes in a cancellable background read action while the EDT waits in a modal progress; other rebuilds
+     * run in the background.
+     */
+    val buildsInBackground: Boolean get() = false
+
     /** Every method in the project's own code, for Add method… Needs a read action and indexes. */
     fun methods(project: Project): List<MethodRef>
 
@@ -29,6 +39,9 @@ interface LanguageSupport {
 
     /** A flow reference (`Fqn::method`) → what it points at; null if it isn't written in this language's syntax. */
     fun findFlowTarget(project: Project, reference: String): FlowLookup?
+
+    /** Supports in one family resolve to the same PSI and prove each other's hops ("jvm": Java, Kotlin). */
+    val proofFamily: String? get() = null
 
     /** Whether the code proves a hop of [kind] between two targets this support found. */
     fun proves(kind: String, from: FlowTarget, to: FlowTarget): Boolean
@@ -50,6 +63,27 @@ interface LanguageSupport {
 
     /** The block id [target] gets on a canvas opened on [openFqn], or null for the default rule. */
     fun blockIdOf(target: FlowTarget, openFqn: String): String? = null
+
+    /**
+     * As [blockIdOf], also given [openFile], the file the canvas is opened on (null when unknown), for languages whose
+     * files hold several owners (Kotlin: classes and top-level functions side by side). Defaults to the two-argument rule.
+     */
+    fun blockIdOf(target: FlowTarget, openFqn: String, openFile: PsiFile?): String? = blockIdOf(target, openFqn)
+
+    /**
+     * A [kind] block for [element], a declaration this support owns seen from another language's canvas (a Java class
+     * extending a Kotlin class): id, title, range and summary in this language's terms. Null if [element] isn't one.
+     */
+    fun externalBlockFor(element: PsiElement, kind: BlockKind): Block? = null
+
+    /** The `callee:` id another language's canvas gives [element], a function or method this support owns; else null. */
+    fun calleeIdFor(element: PsiElement): String? = null
+
+    /**
+     * An added key (`acme.Repo::save`, `acme.NoteScreen::format`, `acme.Repo::class`, from Add method… or an AI flow)
+     * to the declaration this support owns, for another language's canvas to show with [externalBlockFor]; else null.
+     */
+    fun elementForKey(project: Project, key: String): PsiElement? = null
 }
 
 /**

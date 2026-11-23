@@ -2,6 +2,7 @@ package dev.codelanes.flow
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiFile
 import dev.codelanes.lang.FlowLookup
 import dev.codelanes.lang.FlowTarget
 import dev.codelanes.lang.LanguageSupports
@@ -46,23 +47,24 @@ object FlowResolver {
         }
         val openFqn = entry.declaringFqn
         val added = linkedSetOf<String>()
-        fun idOf(target: FlowTarget): String = idOf(target, openFqn, added)
+        fun idOf(target: FlowTarget): String = idOf(target, openFqn, added, entryFile)
         val hops = flow.hops.mapNotNull { hop ->
             val from = lookUp(hop.from)
             val to = lookUp(hop.to)
             if (from == null || to == null) return@mapNotNull null
-            val proven = from.support === to.support && from.support.proves(hop.kind, from, to)
+            val proven = (from.support === to.support || (from.support.proofFamily != null && from.support.proofFamily == to.support.proofFamily)) &&
+                from.support.proves(hop.kind, from, to)
             ResolvedHop(idOf(from), idOf(to), hop.kind, proven)
         }
         return ResolvedFlow(entryFile.virtualFile, idOf(entry), null, hops.distinct(), added, unknown.distinct())
     }
 
     /**
-     * The block id of [target] on the canvas of [openFqn]; a block from another file also adds its key to [added].
-     * The target's language decides first (Python ids carry the class inside the key).
+     * The block id of [target] on the canvas of [openFqn] (opened on [openFile], when known); a block from another file
+     * also adds its key to [added]. The target's language decides first (Python ids carry the class inside the key).
      */
-    internal fun idOf(target: FlowTarget, openFqn: String, added: MutableSet<String>): String {
-        target.support.blockIdOf(target, openFqn)?.let { id ->
+    internal fun idOf(target: FlowTarget, openFqn: String, added: MutableSet<String>, openFile: PsiFile? = null): String {
+        target.support.blockIdOf(target, openFqn, openFile)?.let { id ->
             if (id.startsWith("callee:")) added += id.removePrefix("callee:")
             return id
         }

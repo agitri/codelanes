@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "dev.codelanes"
-version = "0.3.0"
+version = "0.4.0"
 
 kotlin {
     jvmToolchain(21)
@@ -27,18 +27,26 @@ dependencies {
         bundledPlugin("com.intellij.java") // the tests need Java; the product loads it via the :java content module
         compatiblePlugin("com.jetbrains.php") // the tests need PHP; the product loads it via the :php content module
         compatiblePlugin("PythonCore") // the tests need Python; the product loads it via the :python content module
+        bundledPlugin("org.jetbrains.kotlin") // the tests need Kotlin; the product loads it via the :kotlin content module
         bundledPlugin("com.intellij.mcpServer") // optional at runtime, see codelanes-mcp.xml
         pluginModule(project(":php"))
         pluginModule(project(":java"))
         pluginModule(project(":python"))
+        pluginModule(project(":kotlin"))
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.Plugin.Java)
     }
     testImplementation(project(":php"))
     testImplementation(project(":java"))
     testImplementation(project(":python"))
+    testImplementation(project(":kotlin"))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.opentest4j:opentest4j:1.3.0")
+}
+
+tasks.test {
+    // Kotlin runs in K2 mode, like the IDE default.
+    systemProperty("idea.kotlin.plugin.use.k2", "true")
 }
 
 intellijPlatform {
@@ -60,11 +68,11 @@ intellijPlatform {
         token = providers.environmentVariable("PUBLISH_TOKEN")
     }
 
-    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm, IntelliJ IDEA and PyCharm versions.
-    // `-Pverify.ides=PhpStorm,IntelliJ,PyCharm` picks IDE families (default: all); CI runs one family per job.
+    // `./gradlew verifyPlugin` checks API compatibility with the supported PhpStorm, IntelliJ IDEA, PyCharm and Android Studio versions.
+    // `-Pverify.ides=PhpStorm,IntelliJ,PyCharm,AndroidStudio` picks IDE families (default: all); CI runs one family per job.
     pluginVerification {
         val families = providers.gradleProperty("verify.ides").orNull?.split(',')?.map { it.trim() }?.toSet()
-            ?: setOf("PhpStorm", "IntelliJ", "PyCharm")
+            ?: setOf("PhpStorm", "IntelliJ", "PyCharm", "AndroidStudio")
         ides {
             if ("PhpStorm" in families) {
                 create(IntelliJPlatformType.PhpStorm, "2025.2")
@@ -85,12 +93,19 @@ intellijPlatform {
                 create(IntelliJPlatformType.PyCharm, "2026.1")
                 create(IntelliJPlatformType.PyCharm, "2026.2")
             }
+            if ("AndroidStudio" in families) {
+                create(IntelliJPlatformType.AndroidStudio, "2025.2.3.9") // Otter 3 Feature Drop
+                create(IntelliJPlatformType.AndroidStudio, "2025.3.4.6") // Panda 4
+                create(IntelliJPlatformType.AndroidStudio, "2026.1.4.7") // Quail 4
+                create(IntelliJPlatformType.AndroidStudio, "2026.2.2.8") // Rabbit 2
+            }
         }
     }
 }
 
 // `./gradlew runIde` starts IntelliJ IDEA with Java and Python (its PHP plugin needs an Ultimate licence, which the
-// sandbox lacks). `./gradlew runPhpStorm` starts PhpStorm, to try the PHP side; `./gradlew runPyCharm` starts PyCharm.
+// sandbox lacks). `./gradlew runPhpStorm` starts PhpStorm, to try the PHP side; `./gradlew runPyCharm` starts PyCharm;
+// `./gradlew runAndroidStudio` starts Android Studio, to try Kotlin there.
 intellijPlatformTesting {
     runIde {
         register("runPhpStorm") {
@@ -100,6 +115,10 @@ intellijPlatformTesting {
         register("runPyCharm") {
             type = IntelliJPlatformType.PyCharm
             version = "2026.1"
+        }
+        register("runAndroidStudio") {
+            type = IntelliJPlatformType.AndroidStudio
+            version = "2026.2.2.8"
         }
     }
 }

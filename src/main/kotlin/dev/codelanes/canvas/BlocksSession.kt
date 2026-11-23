@@ -108,7 +108,11 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             }
         })
         try {
-            rebuildNow()
+            // Cancelled: open anyway, empty with a notice, and build without a modal progress.
+            if (!rebuildNow()) {
+                canvas.notice = OPEN_CANCELLED_NOTICE
+                scheduleRebuild()
+            }
         } catch (e: Throwable) {
             // Not yet registered with a parent disposable: release editors and listeners ourselves.
             Disposer.dispose(this)
@@ -154,24 +158,87 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             .submit(AppExecutorUtil.getAppExecutorService())
     }
 
-    /** Synchronous rebuild: used on open and by tests. Falls back to the background rebuild when it can't commit here. */
-    fun rebuildNow() {
-        if (disposed) return
+    /**
+     * Synchronous rebuild: used on open, by actions that read the model right after, and by tests. Falls back to the
+     * background rebuild when it can't commit here. False when the user cancelled the modal "Building blocks"
+     * progress ([LanguageSupport.buildsInBackground] on the EDT): nothing changed then.
+     */
+    fun rebuildNow(): Boolean {
+        if (disposed) return true
         val documents = PsiDocumentManager.getInstance(project)
         // Blocks can show other files (an expanded interface), so every pending edit must reach the parser.
         if (documents.hasUncommitedDocuments()) {
             // Committing is a model change; e.g. inside FileEditorProvider.createEditor it isn't allowed.
             if (!TransactionGuard.getInstance().isWritingAllowed) {
                 scheduleRebuild()
-                return
+                return true
             }
             documents.commitAllDocuments()
         }
         if (DumbService.isDumb(project)) {
             scheduleRebuild()
-            return
+            return true
         }
-        ApplicationManager.getApplication().runReadAction<CanvasUpdate?> { computeUpdate(model, revealed.toSet(), followedCalls.toSet(), added.toSet(), flow) }?.let(::applyUpdate)
+        val previous = model
+        val reveal = revealed.toSet()
+        val follow = followedCalls.toSet()
+        val extra = added.toSet()
+        val overlay = flow
+        val application = ApplicationManager.getApplication()
+        val update = if (application.isDispatchThread && buildsInBackground()) {
+            // Analysis the platform refuses on the EDT (Kotlin K2): a cancellable background read action under a modal
+            // progress, so the EDT keeps pumping events and the caller still has the model when this returns.
+            try {
+                com.intellij.openapi.progress.ProgressManager.getInstance().runProcessWithProgressSynchronously<CanvasUpdate?, RuntimeException>(
+                    {
+                        if (cancelModalBuildsForTests) com.intellij.openapi.progress.ProgressManager.getInstance().progressIndicator?.cancel()
+                        ReadAction.nonBlocking<CanvasUpdate?> { computeUpdate(previous, reveal, follow, extra, overlay) }.executeSynchronously()
+                    },
+                    "Building blocks", true, project,
+                )
+            } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+                return false
+            }
+        } else {
+            application.runReadAction<CanvasUpdate?> { computeUpdate(previous, reveal, follow, extra, overlay) }
+        }
+        update?.let(::applyUpdate)
+        return true
+    }
+
+    private fun buildsInBackground(): Boolean = LanguageSupports.forFile(file)?.buildsInBackground == true
+
+    /**
+     * Rebuilds after a change nothing reads right away: in the background where the language builds there (no modal
+     * progress popping up, e.g. on a focus change), else synchronously as before.
+     */
+    private fun rebuildSoon() {
+        if (buildsInBackground()) scheduleRebuild() else rebuildNow()
+    }
+
+    /** What an action changes before its synchronous rebuild, put back when the user cancels that build. */
+    private inner class BeforeAction {
+        private val model = this@BlocksSession.model
+        private val followed = followedCalls.toSet()
+        private val revealed = this@BlocksSession.revealed.toSet()
+        private val added = this@BlocksSession.added.toSet()
+        private val flow = this@BlocksSession.flow
+        private val flowAdded = this@BlocksSession.flowAdded.toSet()
+
+        fun putBack() {
+            followedCalls.clear()
+            followedCalls += followed
+            this@BlocksSession.revealed.clear()
+            this@BlocksSession.revealed += revealed
+            this@BlocksSession.added.clear()
+            this@BlocksSession.added += added
+            this@BlocksSession.flow = flow
+            this@BlocksSession.flowAdded.clear()
+            this@BlocksSession.flowAdded += flowAdded
+            // An earlier build of the same action may have gone through: build the old state again, without a modal.
+            if (this@BlocksSession.model !== model) scheduleRebuild()
+            canvas.notice = CANCELLED_NOTICE
+        }
     }
 
     private fun computeUpdate(previous: BlockModel?, reveal: Set<String>, follow: Set<String>, extra: Set<String>, overlay: FlowOverlay?): CanvasUpdate? {
@@ -200,7 +267,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         withModelAccess { adopt(next) }
         if (rebuildAfterRename) {
             rebuildAfterRename = false
-            rebuildNow()
+            rebuildSoon()
         }
     }
 
@@ -424,7 +491,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         canvas.focusedOffset = id?.let { slices[it] }?.editor?.caretModel?.offset
         if (heldBack) {
             heldBack = false
-            rebuildNow()
+            rebuildSoon()
         }
     }
 
@@ -547,7 +614,8 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             ?: return@withModelAccess
         WriteCommandAction.runWriteCommandAction(project, "Add Method", null, { document.replaceString(insertion.offset, insertion.offset + insertion.replaced, insertion.text) })
         focusMovedTo(null)
-        rebuildNow()
+        // Cancelled: the edit stands and the document listener builds it in the background.
+        if (!rebuildNow()) return@withModelAccess
         // The last occurrence: a body moved down ahead of the new method may mention the name.
         val nameOffset = insertion.offset + insertion.text.lastIndexOf(insertion.name)
         reveal(nameOffset)
@@ -592,6 +660,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             else document.replaceString(lines.start, lines.end, replacement)
         })
         focusMovedTo(null)
+        // Cancelled: the deletion stands and the document listener builds it in the background.
         rebuildNow()
     }
 
@@ -630,7 +699,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     fun toggleReveal(id: String) = withModelAccess {
         if (!revealed.remove(id)) revealed += id
         focusMovedTo(null)
-        rebuildNow()
+        rebuildSoon()
     }
 
     fun summaryText(id: String): String = (summaries[id]?.second as? JBLabel)?.text.orEmpty()
@@ -639,7 +708,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     fun toggleCalls(id: String) = withModelAccess {
         if (!followedCalls.remove(id)) followedCalls += id
         focusMovedTo(null)
-        rebuildNow()
+        rebuildSoon()
     }
 
     /** Sets (or with null clears) the review mark of block [id]; remembers the code it was given for. */
@@ -713,7 +782,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         collapsed += state.collapsed
         canvas.setZoom(state.zoom)
         focusMovedTo(null)
-        rebuildNow()
+        rebuildSoon()
         render()
     }
 
@@ -724,6 +793,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
      * inherited) reveals the class block (`class:<…>.OrderList`) instead.
      */
     fun followChain(from: String, depth: Int) = withModelAccess {
+        val before = BeforeAction()
         clearFlow()
         val current = model
         if (current != null && from.startsWith("method:") && current.blocks.none { it.id == from }) {
@@ -732,12 +802,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             if (cls != null) {
                 followedCalls.clear()
                 focusMovedTo(null)
-                rebuildNow()
+                if (!rebuildNow()) return@withModelAccess before.putBack()
                 tracked[cls.id]?.current()?.let { (range, _) -> reveal(range.start) }
                 return@withModelAccess
             }
         }
-        followFrom(setOf(from), depth, from, "request")
+        if (!followFrom(setOf(from), depth, from, "request")) before.putBack()
     }
 
     /**
@@ -746,12 +816,13 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
      */
     fun showFlow(resolved: dev.codelanes.flow.ResolvedFlow, title: String) = withModelAccess {
         val entryId = resolved.entryId ?: return@withModelAccess
+        val before = BeforeAction()
         clearFlow()
         flow = FlowOverlay(title, entryId, resolved.hops, resolved.unknown)
         flowAdded += resolved.added - added
         added += resolved.added
         val seeds = setOf(entryId) + resolved.hops.map { it.toId }.filter { it.startsWith("method:") || it.startsWith("callee:") }
-        followFrom(seeds, dev.codelanes.ide.FollowRequestAction.DEPTH, entryId, "flow")
+        if (!followFrom(seeds, dev.codelanes.ide.FollowRequestAction.DEPTH, entryId, "flow")) before.putBack()
     }
 
     private fun clearFlow() {
@@ -760,14 +831,15 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         flowAdded.clear()
     }
 
-    private fun followFrom(seeds: Set<String>, depth: Int, focus: String, what: String) {
+    /** False when the user cancelled one of its builds (the caller puts the canvas back). */
+    private fun followFrom(seeds: Set<String>, depth: Int, focus: String, what: String): Boolean {
         // A new request replaces the previous chain on this canvas.
         followedCalls.clear()
         followedCalls += seeds
         var frontier = seeds
         for (level in 1 until depth) {
             focusMovedTo(null)
-            rebuildNow()
+            if (!rebuildNow()) return false
             val links = model?.links.orEmpty()
             val callees = links.filter { it.kind == LinkKind.CALLS_INTO && it.from in frontier }.map { it.to }.toSet()
             val implementations = links.filter { it.kind == LinkKind.IMPLEMENTED_BY && it.from in callees }.map { it.to }
@@ -777,7 +849,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             frontier = next
         }
         focusMovedTo(null)
-        rebuildNow()
+        if (!rebuildNow()) return false
         tracked[focus]?.current()?.let { (range, _) -> reveal(range.start) }
         val reason = when {
             DumbService.isDumb(project) -> "wait until indexing has finished"
@@ -786,6 +858,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
             else -> null
         }
         if (reason != null) canvas.notice = "Couldn't follow the $what: $reason"
+        return true
     }
 
     /** Re-places the blocks, e.g. after the vertical-layout switch changed. */
@@ -794,16 +867,18 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
     /** Drops method [method] of [classFqn] (found with search) on this canvas, centred and focused. */
     fun addToCanvas(classFqn: String, method: String) = withModelAccess {
         // A method of the open class (or Python module) already has its own block: just go there.
-        val own = model?.blocks?.firstOrNull { it.id == "method:$method" }
+        // Kotlin keys carry no class prefix (`Repo::save`), its block ids do (`method:Repo.save`).
+        val own = model?.blocks?.firstOrNull { it.id == "method:$method" || it.id == "method:${classFqn.substringAfterLast('.')}.$method" }
         if (own != null && model?.blocks?.any { it.id == "class:$classFqn" || it.id == "module:$classFqn" } == true) {
             tracked[own.id]?.current()?.let { (range, _) -> reveal(range.start) }
             return@withModelAccess
         }
         val key = "$classFqn::$method"
         val id = "callee:$key"
+        val before = BeforeAction()
         added += key
         focusMovedTo(null)
-        rebuildNow()
+        if (!rebuildNow()) return@withModelAccess before.putBack()
         if (id !in views) {
             added -= key
             return@withModelAccess
@@ -819,7 +894,7 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         added -= id.removePrefix("callee:")
         followedCalls -= id
         focusMovedTo(null)
-        rebuildNow()
+        rebuildSoon()
     }
 
     /** "+ Note": a free-standing note on this canvas (shared in .codelanes/notes.json). Returns its id. */
@@ -964,5 +1039,12 @@ class BlocksSession(private val project: Project, private val file: VirtualFile)
         const val NOTE_PREFIX = "note:"
         private val NOTE_BACKGROUND = JBColor(java.awt.Color(0xFFF8E1), java.awt.Color(0x3A3628))
         const val HIGHLIGHT_DELAY_MS = 200
+        const val OPEN_CANCELLED_NOTICE = "Building blocks was cancelled — they build in the background now"
+        const val CANCELLED_NOTICE = "Cancelled — the canvas is as it was"
+
+        /** Tests: cancel the modal "Building blocks" progress as soon as it starts, as its Cancel button would. */
+        @org.jetbrains.annotations.TestOnly
+        @Volatile
+        internal var cancelModalBuildsForTests = false
     }
 }

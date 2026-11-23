@@ -8,3 +8,4 @@ build/
 playground/*
 !playground/java-spring/
 !playground/python/
+local.properties

@@ -8,6 +8,7 @@ import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiNewExpression
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.search.searches.DefinitionsScopedSearch
 import com.intellij.psi.util.MethodSignatureUtil
 import com.intellij.psi.util.PsiTreeUtil
 import dev.codelanes.lang.FlowLookup
@@ -31,6 +32,8 @@ object JavaFlowLookup {
         val name = trimmed.substringAfter("::")
         val cls = JavaPsiFacade.getInstance(project).findClass(classPart, GlobalSearchScope.allScope(project))
             ?: return if (hasJavaFiles(project)) FlowLookup.Missing("$trimmed (no such class)") else null
+        // A Kotlin class seen through its light class: Kotlin's own lookup claims it.
+        if (cls.navigationElement !is PsiClass) return null
         val nested = FlowLookup.Missing("$trimmed (nested classes aren't shown as blocks)", ownerFound = true)
         if (cls.containingClass != null) return nested
         if (name == "class" || name == "<init>" || name.substringBefore('(') == cls.name) return FlowLookup.Found(target(cls, null, support))
@@ -75,22 +78,42 @@ object JavaFlowLookup {
         val fromMethod = from.methodElement as? PsiMethod
         val toMethod = to.methodElement as? PsiMethod
         return when (kind) {
-            "calls", "dispatches", "middleware" -> fromMethod != null && callsOrCreates(fromMethod, to.classElement as PsiClass, toMethod)
-            "binds" -> fromMethod != null && toMethod != null && fromMethod != toMethod && MethodSignatureUtil.isSuperMethod(fromMethod, toMethod)
+            "calls", "dispatches", "middleware" -> fromMethod != null && callsOrCreates(fromMethod, to)
+            "binds" -> fromMethod != null && when {
+                toMethod != null -> fromMethod != toMethod && MethodSignatureUtil.isSuperMethod(fromMethod, toMethod)
+                // A Kotlin function: found through the implementations search, which sees both languages.
+                to.methodElement != null -> DefinitionsScopedSearch.search(fromMethod, GlobalSearchScope.projectScope(fromMethod.project)).findAll()
+                    .any { it.navigationElement == to.methodElement?.navigationElement }
+                else -> false
+            }
             "listens" -> {
-                val event = (toMethod?.parameterList?.parameters?.firstOrNull()?.type as? PsiClassType)?.resolve()
-                event != null && JavaBlockBuilder.fqn(event) == JavaBlockBuilder.fqn(from.classElement as PsiClass)
+                val listener = toMethod ?: lightMethodOf(to)
+                val event = (listener?.parameterList?.parameters?.firstOrNull()?.type as? PsiClassType)?.resolve()
+                event != null && JavaBlockBuilder.fqn(event) == from.classFqn
             }
             else -> false // "routes": nothing in a method proves a route
         }
     }
 
-    /** [from] calls [toMethod], or (for a class target) creates an instance of [toClass] (`publishEvent(new OrderPlaced(o))`). */
-    private fun callsOrCreates(from: PsiMethod, toClass: PsiClass, toMethod: PsiMethod?): Boolean {
-        if (toMethod != null) return JavaBlockBuilder.calledMethods(from).any { it == toMethod }
-        val target = JavaBlockBuilder.fqn(toClass)
+    /** The Java view of a Kotlin member function: the light method of its class whose navigation element is that function. */
+    private fun lightMethodOf(to: FlowTarget): PsiMethod? {
+        val source = to.methodElement?.navigationElement ?: return null
+        val cls = JavaPsiFacade.getInstance(to.file.project).findClass(to.declaringFqn, GlobalSearchScope.allScope(to.file.project)) ?: return null
+        return cls.methods.firstOrNull { it.navigationElement == source }
+    }
+
+    /**
+     * [from] calls the method of [to] (Java, or Kotlin seen through its light method: compared by navigation element),
+     * or, for a class target, creates an instance of it (`publishEvent(new OrderPlaced(o))`).
+     */
+    private fun callsOrCreates(from: PsiMethod, to: FlowTarget): Boolean {
+        val toElement = to.methodElement
+        if (toElement != null) {
+            val source = toElement.navigationElement
+            return JavaBlockBuilder.calledMethods(from).any { it == toElement || it.navigationElement == source }
+        }
         return PsiTreeUtil.findChildrenOfType(from, PsiNewExpression::class.java).any { created ->
-            created.classReference?.resolve()?.let { it is PsiClass && JavaBlockBuilder.fqn(it) == target } == true
+            created.classReference?.resolve()?.let { it is PsiClass && JavaBlockBuilder.fqn(it) == to.classFqn } == true
         }
     }
 }

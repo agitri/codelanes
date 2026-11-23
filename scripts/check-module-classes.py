@@ -175,12 +175,15 @@ def main():
         with zipfile.ZipFile(plugin_zip) as z:
             z.extractall(work)
         own = set()
+        own_modules = set()  # the plugin's own content modules (one jar each): a module may depend on another of them
         paths = []
         for root, _, files in os.walk(work):
             for f in sorted(files):
                 if f.endswith(".jar"):
                     path = os.path.join(root, f)
                     paths.append(path)
+                    if os.path.basename(os.path.dirname(path)) == "modules":
+                        own_modules.add(f[:-4])
                     with zipfile.ZipFile(path) as z:
                         own.update(n[:-6] for n in z.namelist() if n.endswith(".class"))
         for path in sorted(paths):
@@ -210,7 +213,7 @@ def main():
                 print(f"  {label}: skipped ({', '.join(absent)} not in this IDE)")
                 continue
             problems, missing = check(refs, own, required | optional, modules, ide)
-            absent_modules = sorted(m for m in modules if m not in ide.module_names)
+            absent_modules = sorted(m for m in modules if m not in ide.module_names and m not in own_modules)
             if absent_modules:
                 # The IDE won't load this content module at all: no crash, but the language silently goes missing.
                 problems["module dependencies not in this IDE (the module won't load): " + ", ".join(absent_modules)] = []

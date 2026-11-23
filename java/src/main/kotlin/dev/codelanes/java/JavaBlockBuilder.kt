@@ -24,6 +24,8 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.DefinitionsScopedSearch
 import com.intellij.psi.util.MethodSignatureUtil
 import com.intellij.psi.util.PsiTreeUtil
+import dev.codelanes.lang.LanguageSupport
+import dev.codelanes.lang.LanguageSupports
 import dev.codelanes.model.Block
 import dev.codelanes.model.BlockKind
 import dev.codelanes.model.BlockModel
@@ -91,9 +93,13 @@ object JavaBlockBuilder {
         "javax.annotation.Resource", "jakarta.annotation.Resource",
     )
 
-    internal fun externalBlock(kind: BlockKind, target: PsiClass): Block {
-        val sourceless = isSourceless(target)
-        val source = if (sourceless) target else (target.navigationElement as? PsiClass ?: target)
+    fun externalBlock(kind: BlockKind, target: PsiClass): Block {
+        // One navigationElement lookup, as isSourceless + the source lookup did before (a library class's attached source).
+        val navigation = target.navigationElement
+        val sourceless = navigation is PsiCompiledElement || navigation.containingFile?.virtualFile == null
+        // Not Java source (a Kotlin light class): the language that owns it draws the block.
+        if (!sourceless && navigation !is PsiClass) foreign { it.externalBlockFor(navigation, kind) }?.let { return it }
+        val source = if (sourceless) target else (navigation as? PsiClass ?: target)
         return Block(
             id = "${kind.name.lowercase()}:${fqn(target)}",
             kind = kind,
@@ -108,7 +114,8 @@ object JavaBlockBuilder {
 
     private fun isAbstract(method: PsiMethod) = method.hasModifierProperty(PsiModifier.ABSTRACT)
 
-    private fun calleeBlock(id: String, method: PsiMethod): Block {
+    fun calleeBlock(id: String, method: PsiMethod): Block {
+        foreignSource(method)?.let { source -> foreign { it.externalBlockFor(source, BlockKind.CALLEE) }?.let { return it.copy(id = id) } }
         val owner = method.containingClass!!
         if (isSourceless(owner)) {
             return Block(id, BlockKind.CALLEE, "${owner.name}::${methodTitle(method)}", owner.containingFile?.virtualFile?.path.orEmpty(),
@@ -117,6 +124,28 @@ object JavaBlockBuilder {
         val source = method.navigationElement as? PsiMethod ?: method
         return Block(id, BlockKind.CALLEE, "${owner.name}::${methodTitle(source)}", source.containingFile.virtualFile.path, rangeOf(source))
     }
+
+    /** Supports other than Java's, asked in order; the first non-null answer wins. */
+    private fun <T> foreign(ask: (LanguageSupport) -> T?): T? =
+        LanguageSupports.all().asSequence().filter { it !is JavaLanguageSupport }.firstNotNullOfOrNull(ask)
+
+    /**
+     * The source of a method declared in another language (a Kotlin function behind its light method), or null.
+     * Only light/generated methods are looked at, so Java source and compiled library methods never pay for a
+     * navigationElement (source mirror) lookup and pure-Java canvases never consult other supports.
+     */
+    private fun foreignSource(method: PsiMethod): PsiElement? =
+        if (isGenerated(method)) method.navigationElement.takeIf { it !is PsiMethod } else null
+
+    /** The id another language gives [method] (`callee:acme.NoteScreen::format` for `NoteScreenKt.format()`), or null. */
+    private fun foreignCalleeId(method: PsiMethod): String? = foreignSource(method)?.let { source -> foreign { it.calleeIdFor(source) } }
+
+    /** `callee:<owner fqn>::<method key>`, or the owning language's id for a method declared in another language. */
+    fun calleeId(method: PsiMethod): String = foreignCalleeId(method) ?: "callee:${fqn(method.containingClass!!)}::${methodKey(method)}"
+
+    /** Project code a callee may come from: Java methods as written, or functions of another language in the project. */
+    private fun isCallable(method: PsiMethod): Boolean =
+        if (isGenerated(method)) foreignCalleeId(method) != null && inProject(method.navigationElement) else inProject(method)
 
     /** "Fqn::key" → that method of that class, or null if either no longer exists. */
     private fun methodByKey(context: PsiElement, key: String): PsiMethod? {
@@ -134,8 +163,8 @@ object JavaBlockBuilder {
     private fun implementationsOf(method: PsiMethod): List<Pair<String, PsiMethod>> =
         DefinitionsScopedSearch.search(method, GlobalSearchScope.projectScope(method.project)).findAll().asSequence()
             .filterIsInstance<PsiMethod>()
-            .filter { it != method && !isAbstract(it) && !isGenerated(it) && inProject(it) && it.containingClass !is PsiAnonymousClass }
-            .mapNotNull { impl -> impl.containingClass?.let { "callee:${fqn(it)}::${methodKey(impl)}" to impl } }
+            .filter { it != method && !isAbstract(it) && isCallable(it) && it.containingClass !is PsiAnonymousClass }
+            .mapNotNull { impl -> impl.containingClass?.let { calleeId(impl) to impl } }
             .sortedBy { it.first }
             .distinctBy { it.first }
             .take(MAX_IMPLEMENTATIONS)
@@ -156,8 +185,15 @@ object JavaBlockBuilder {
                 blocks.getOrPut(id) { externalBlock(BlockKind.CALLEE, target).let { if (it.sourceless) it.copy(id = id) else it.copy(id = id, collapsed = false) } }
                 continue
             }
-            val method = methodByKey(cls, key) ?: continue
-            val id = "callee:${fqn(method.containingClass!!)}::${methodKey(method)}"
+            val method = methodByKey(cls, key)
+            if (method == null) {
+                // A key of another language's function (Add method…, an AI flow hop into Kotlin): its own block.
+                val id = "callee:$key"
+                val element = foreign { it.elementForKey(cls.project, key) } ?: continue
+                foreign { it.externalBlockFor(element, BlockKind.CALLEE) }?.let { block -> blocks.getOrPut(id) { block.copy(id = id) } }
+                continue
+            }
+            val id = calleeId(method)
             blocks.getOrPut(id) { calleeBlock(id, method) }
             if (id in followed) queue += id to method
         }
@@ -170,7 +206,7 @@ object JavaBlockBuilder {
                 break
             }
             val allCallees = calledMethods(caller)
-                .filter { !isGenerated(it) && it.containingClass.let { c -> c != null && fqn(c) != fqn(cls) } && inProject(it) }
+                .filter { it.containingClass.let { c -> c != null && fqn(c) != fqn(cls) } && isCallable(it) }
                 .distinct()
             val callees = allCallees.take(MAX_CALLEES)
             if (allCallees.size > MAX_CALLEES) {
@@ -184,7 +220,7 @@ object JavaBlockBuilder {
                     break
                 }
                 val owner = callee.containingClass!!
-                val calleeId = "callee:${fqn(owner)}::${methodKey(callee)}"
+                val calleeId = calleeId(callee)
                 blocks.getOrPut(calleeId) { calleeBlock(calleeId, callee) }
                 links += Link(LinkKind.CALLS_INTO, id, calleeId)
                 if (calleeId in followed) queue += calleeId to callee
@@ -265,7 +301,10 @@ object JavaBlockBuilder {
             related.mapNotNull { r ->
                 r.type.methods.firstOrNull { it in supers }?.let { overridden ->
                     val landing = (overridden.navigationElement as? PsiMethod)?.takeUnless { r.block.sourceless }
-                    Link(LinkKind.OVERRIDES, methodId(method), r.block.id, landing?.let(::rangeOf))
+                    val foreignLanding = if (landing == null && !r.block.sourceless) {
+                        foreignSource(overridden)?.let { source -> foreign { it.externalBlockFor(source, BlockKind.CALLEE) } }?.range
+                    } else null
+                    Link(LinkKind.OVERRIDES, methodId(method), r.block.id, landing?.let(::rangeOf) ?: foreignLanding)
                 }
             }
         }
@@ -424,7 +463,7 @@ object JavaBlockBuilder {
     fun rangeOf(element: PsiElement): SourceRange = SourceRange(element.textRange.startOffset, element.textRange.endOffset)
 
     /** Methods [element] calls or refers to (`this::toDto`), constructors excluded. */
-    internal fun calledMethods(element: PsiElement): List<PsiMethod> =
+    fun calledMethods(element: PsiElement): List<PsiMethod> =
         (PsiTreeUtil.findChildrenOfType(element, PsiMethodCallExpression::class.java).mapNotNull { it.resolveMethod() } +
             PsiTreeUtil.findChildrenOfType(element, PsiMethodReferenceExpression::class.java).mapNotNull { it.resolve() as? PsiMethod })
             .filter { !it.isConstructor }
@@ -447,7 +486,7 @@ object JavaBlockBuilder {
     }
 
     /** True when [cls] only exists as compiled code, so there is nothing to show but its name and members. */
-    internal fun isSourceless(cls: PsiClass): Boolean {
+    fun isSourceless(cls: PsiClass): Boolean {
         val source = cls.navigationElement
         return source is PsiCompiledElement || source.containingFile?.virtualFile == null
     }

@@ -47,8 +47,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # One IDE family per job (four or five IDE versions each): all thirteen don't fit on one runner's disk.
-        ides: [PhpStorm, IntelliJ, PyCharm]
+        # One IDE family per job (four or five IDE versions each): all seventeen don't fit on one runner's disk.
+        ides: [PhpStorm, IntelliJ, PyCharm, AndroidStudio]
     steps:
       # The runner's preinstalled SDKs leave too little disk for the IDE downloads.
       - name: Free disk space
